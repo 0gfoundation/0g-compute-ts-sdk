@@ -72,6 +72,6 @@ export const wagmiConfig = getDefaultConfig({
     appName: '0G Compute Network',
     projectId:
         process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id',
-    chains: [zgMainnet, zgTestnet, localMockChain],
+    chains: [zgMainnet, zgTestnet],
     ssr: true,
 })
