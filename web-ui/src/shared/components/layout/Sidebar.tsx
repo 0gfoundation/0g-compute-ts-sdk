@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import { useChainId } from "wagmi";
 import { OptimizedLink, useNavigation } from "../navigation/OptimizedNavigation";
 
 interface SidebarItem {
@@ -14,9 +15,10 @@ interface SidebarItem {
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const chainId = useChainId();
   const { setIsNavigating, setTargetRoute, setTargetPageType } = useNavigation();
 
-  const sidebarItems: SidebarItem[] = [
+  const allSidebarItems: SidebarItem[] = [
     {
       href: "/inference",
       label: "Inference",
@@ -49,9 +51,17 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
+  // Filter out fine-tuning when on mainnet (chain ID 16661)
+  const sidebarItems = allSidebarItems.filter(item => 
+    item.href !== "/fine-tuning" || chainId !== 16661
+  );
+
   const isActive = (href: string) => {
     if (href === "/inference") {
       return pathname === "/inference" || pathname.startsWith("/inference");
+    }
+    if (href === "/fine-tuning") {
+      return pathname === "/fine-tuning" || pathname.startsWith("/fine-tuning");
     }
     if (href === "/wallet") {
       return pathname === "/wallet" || pathname.startsWith("/wallet");
