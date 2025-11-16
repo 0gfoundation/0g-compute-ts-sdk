@@ -324,6 +324,72 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         }
     )
 
+    app.post(
+        '/v1/images/generations',
+        async (req: any, res: any): Promise<void> => {
+            const body = req.body
+            logger.debug(`Received images/generations request: ${JSON.stringify(body)}`)
+            
+            if (!body.prompt) {
+                res.status(400).json({
+                    error: 'Missing prompt in request body',
+                })
+                return
+            }
+
+            try {
+                const headers = await broker.inference.getRequestHeaders(
+                    providerAddress,
+                    JSON.stringify(body.prompt)
+                )
+                
+                // Add model to the request body if not present
+                const requestBody = {
+                    model: model,
+                    prompt: body.prompt,
+                    size: body.size || "512x512",
+                    n: body.n || 1,
+                    ...body
+                }
+                
+                logger.debug(
+                    `Proxying to ${endpoint}/images/generations with body: ${JSON.stringify(requestBody)} and headers: ${JSON.stringify(headers)}`
+                )
+
+                const result = await fetch(`${endpoint}/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...headers,
+                    },
+                    body: JSON.stringify(requestBody),
+                })
+
+                const data = await result.json()
+
+                // Process the response for fee calculation
+                // For text-to-image, we need to pass the original request as content for input fee calculation
+                try {
+                    // Calculate fees using the original request body for input calculation
+                    await broker.inference.processResponse(
+                        providerAddress,
+                        undefined, // chatID is undefined for non-verifiable responses
+                        JSON.stringify(requestBody) // Pass request body for input fee calculation
+                    )
+                } catch (processErr: any) {
+                    logger.warn(
+                        'Failed to process image generation response for fee calculation:',
+                        processErr.message
+                    )
+                }
+
+                res.json(data)
+            } catch (err: any) {
+                res.status(500).json({ error: err.message })
+            }
+        }
+    )
+
     app.post('/v1/verify', async (req: any, res: any): Promise<void> => {
         const { id } = req.body
         if (!id) {
