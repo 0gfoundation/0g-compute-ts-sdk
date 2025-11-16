@@ -74,14 +74,21 @@ function inference(program) {
                     chalk_1.default.blue(service.provider),
                 ]);
                 table.push(['Model', service.model || 'N/A']);
+                // Only show input price for non text-to-image services
+                if (service.serviceType !== 'text-to-image') {
+                    table.push([
+                        'Input Price Per Byte (0G)',
+                        service.inputPrice
+                            ? (0, util_1.neuronToA0gi)(BigInt(service.inputPrice)).toFixed(18)
+                            : 'N/A',
+                    ]);
+                }
+                // Change output price label for text-to-image services
+                const outputPriceLabel = service.serviceType === 'text-to-image'
+                    ? 'Price Per Image (OG)'
+                    : 'Output Price Per Byte (0G)';
                 table.push([
-                    'Input Price Per Byte (0G)',
-                    service.inputPrice
-                        ? (0, util_1.neuronToA0gi)(BigInt(service.inputPrice)).toFixed(18)
-                        : 'N/A',
-                ]);
-                table.push([
-                    'Output Price Per Byte (0G)',
+                    outputPriceLabel,
                     service.outputPrice
                         ? (0, util_1.neuronToA0gi)(BigInt(service.outputPrice)).toFixed(18)
                         : 'N/A',
