@@ -466,8 +466,10 @@ print(completion.choices[0].message)`,
                                                     provider.outputPrice !==
                                                         undefined) && (
                                                     <div className="flex items-center space-x-2 text-xs h-full">
+                                                        {/* Only show input price for non text-to-image services */}
                                                         {provider.inputPrice !==
-                                                            undefined && (
+                                                            undefined && 
+                                                            provider.serviceType !== 'text-to-image' && (
                                                             <div className="flex items-center space-x-1">
                                                                 <span className="text-gray-600">
                                                                     In:
@@ -483,7 +485,9 @@ print(completion.choices[0].message)`,
                                                             undefined && (
                                                             <div className="flex items-center space-x-1">
                                                                 <span className="text-gray-600">
-                                                                    Out:
+                                                                    {provider.serviceType === 'text-to-image' 
+                                                                        ? 'Price/Image:' 
+                                                                        : 'Out:'}
                                                                 </span>
                                                                 <span className="font-semibold text-gray-900">
                                                                     {provider.outputPrice.toFixed(
