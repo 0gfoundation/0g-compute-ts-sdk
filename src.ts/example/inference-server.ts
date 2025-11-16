@@ -184,6 +184,146 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         }
     )
 
+    app.post(
+        '/v1/audio/transcriptions',
+        async (req: any, res: any): Promise<void> => {
+            logger.debug(`Received audio/transcriptions request`)
+            
+            try {
+                // Get headers for authentication
+                const headers = await broker.inference.getRequestHeaders(
+                    providerAddress,
+                    'audio transcription request'
+                )
+                
+                // Parse the multipart boundary from content-type
+                const contentType = req.headers['content-type']
+                const boundary = contentType?.split('boundary=')[1]
+                
+                // Collect the raw body from the request
+                const chunks: any[] = []
+                for await (const chunk of req) {
+                    chunks.push(chunk)
+                }
+                let rawBody = Buffer.concat(chunks)
+                
+                // Check if model is in the request body (handle both binary and text parts)
+                const bodyStr = rawBody.toString('latin1')  // Use latin1 to preserve binary data
+                if (!bodyStr.includes('name="model"')) {
+                    // Add model field before the final boundary
+                    const modelField = Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`, 'utf-8')
+                    const finalBoundary = Buffer.from(`\r\n--${boundary}--`, 'utf-8')
+                    
+                    // Find the position of final boundary
+                    const finalBoundaryIndex = rawBody.indexOf(finalBoundary)
+                    if (finalBoundaryIndex !== -1) {
+                        // Insert model field before final boundary
+                        const beforeFinal = rawBody.slice(0, finalBoundaryIndex)
+                        const newBody = Buffer.concat([beforeFinal, modelField, finalBoundary])
+                        rawBody = newBody
+                    }
+                }
+                
+                // Forward the entire request to the provider
+                const response = await fetch(`${endpoint}/audio/transcriptions`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        // Forward content-type from original request
+                        'content-type': contentType,
+                        'content-length': String(rawBody.length),
+                    },
+                    body: rawBody,
+                })
+                
+                // Check if it's a streaming response
+                const isStreaming = response.headers.get('content-type')?.includes('text/event-stream')
+                
+                if (isStreaming) {
+                    res.setHeader('Content-Type', 'text/event-stream')
+                    res.setHeader('Cache-Control', 'no-cache')
+                    res.setHeader('Connection', 'keep-alive')
+                    
+                    if (response.body) {
+                        let rawBody = ''
+                        const decoder = new TextDecoder()
+                        const reader = response.body.getReader()
+                        while (true) {
+                            const { done, value } = await reader.read()
+                            if (done) break
+                            res.write(value)
+                            rawBody += decoder.decode(value, {
+                                stream: true,
+                            })
+                        }
+                        res.end()
+                        
+                        // Parse rawBody to extract usage information for fee calculation
+                        let usage: any = null
+                        for (const line of rawBody.split('\n')) {
+                            const trimmed = line.trim()
+                            if (!trimmed) continue
+                            const jsonStr = trimmed.startsWith('data:')
+                                ? trimmed.slice(5).trim()
+                                : trimmed
+                            if (jsonStr === '[DONE]') continue
+                            try {
+                                const message = JSON.parse(jsonStr)
+                                if (message.usage) {
+                                    usage = message.usage
+                                }
+                            } catch {}
+                        }
+                        
+                        // Process the usage information for fee calculation
+                        if (usage) {
+                            try {
+                                logger.debug('Processing audio streaming response usage for fee calculation:', usage)
+                                await broker.inference.processResponse(
+                                    providerAddress,
+                                    undefined, // chatID is undefined for non-verifiable responses
+                                    JSON.stringify(usage) // Pass usage as JSON string
+                                )
+                            } catch (processErr: any) {
+                                logger.warn('Failed to process audio streaming response for fee calculation:', processErr.message)
+                            }
+                        }
+                    } else {
+                        res.status(500).json({
+                            error: 'No stream body from remote server',
+                        })
+                    }
+                } else {
+                    const data = await response.json()
+
+                    // Process the response for fee calculation
+                    try {
+                        if (data.usage) {
+                            logger.debug(
+                                'Processing audio response usage for fee calculation:',
+                                data.usage
+                            )
+                            await broker.inference.processResponse(
+                                providerAddress,
+                                undefined, // chatID is undefined for non-verifiable responses
+                                JSON.stringify(data.usage) // Pass usage as JSON string
+                            )
+                        }
+                    } catch (processErr: any) {
+                        logger.warn(
+                            'Failed to process audio response for fee calculation:',
+                            processErr.message
+                        )
+                    }
+
+                    res.json(data)
+                }
+            } catch (err: any) {
+                res.status(500).json({ error: err.message })
+            }
+        }
+    )
+
     app.post('/v1/verify', async (req: any, res: any): Promise<void> => {
         const { id } = req.body
         if (!id) {
