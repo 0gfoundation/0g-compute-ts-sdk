@@ -155,7 +155,7 @@ export class Verifier extends ZGServingUserBrokerBase {
                     '   Please follow the official documentation to verify the downloaded attestation report.'
                 )
                 console.log(
-                    '   Official documentation: https://github.com/0gfoundation/0g-tapp-verifier/blob/main/audit/AUDIT_GUIDE.md'
+                    '   Official documentation: https://github.com/0gfoundation/0g-tapp-verifier/blob/main/README.md'
                 )
             } else {
                 console.log(`   Verification Method: Unknown (${teeVerifier})`)

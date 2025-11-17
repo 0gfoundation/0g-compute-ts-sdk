@@ -270,7 +270,7 @@ async function runInferenceServer(options) {
             return;
         }
         try {
-            const headers = await broker.inference.getRequestHeaders(providerAddress, JSON.stringify(body.prompt));
+            const headers = await broker.inference.getRequestHeaders(providerAddress, JSON.stringify(body));
             // Add model to the request body if not present
             const requestBody = {
                 model: model,
