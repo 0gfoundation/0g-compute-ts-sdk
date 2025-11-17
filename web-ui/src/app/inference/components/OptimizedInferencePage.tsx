@@ -54,21 +54,26 @@ export function OptimizedInferencePage() {
         chainId, // Pass chainId for chain-aware caching
     })
 
-    const handleChatWithProvider = useCallback((provider: Provider) => {
-        // Prefetch the chat page for faster navigation
-        const chatUrl = `/inference/chat?provider=${encodeURIComponent(provider.address)}`
-        router.prefetch(chatUrl)
-        
-        // Set navigation state
-        setIsNavigating(true)
-        setTargetRoute('Chat')
-        setTargetPageType('chat')
+    const handleChatWithProvider = useCallback(
+        (provider: Provider) => {
+            // Prefetch the chat page for faster navigation
+            const chatUrl = `/inference/chat?provider=${encodeURIComponent(
+                provider.address
+            )}`
+            router.prefetch(chatUrl)
 
-        // Small delay to allow prefetch to start
-        setTimeout(() => {
-            router.push(chatUrl)
-        }, 50)
-    }, [router, setIsNavigating, setTargetRoute, setTargetPageType])
+            // Set navigation state
+            setIsNavigating(true)
+            setTargetRoute('Chat')
+            setTargetPageType('chat')
+
+            // Small delay to allow prefetch to start
+            setTimeout(() => {
+                router.push(chatUrl)
+            }, 50)
+        },
+        [router, setIsNavigating, setTargetRoute, setTargetPageType]
+    )
 
     const handleBuildWithProvider = useCallback((provider: Provider) => {
         setSelectedProviderForBuild(provider)
@@ -476,25 +481,27 @@ print(completion.choices[0].message)`,
                                                     <div className="flex items-center space-x-2 text-xs h-full">
                                                         {/* Only show input price for non text-to-image services */}
                                                         {provider.inputPrice !==
-                                                            undefined && 
-                                                            provider.serviceType !== 'text-to-image' && (
-                                                            <div className="flex items-center space-x-1">
-                                                                <span className="text-gray-600">
-                                                                    In:
-                                                                </span>
-                                                                <span className="font-semibold text-gray-900">
-                                                                    {provider.inputPrice.toFixed(
-                                                                        4
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                            undefined &&
+                                                            provider.serviceType !==
+                                                                'text-to-image' && (
+                                                                <div className="flex items-center space-x-1">
+                                                                    <span className="text-gray-600">
+                                                                        In:
+                                                                    </span>
+                                                                    <span className="font-semibold text-gray-900">
+                                                                        {provider.inputPrice.toFixed(
+                                                                            4
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         {provider.outputPrice !==
                                                             undefined && (
                                                             <div className="flex items-center space-x-1">
                                                                 <span className="text-gray-600">
-                                                                    {provider.serviceType === 'text-to-image' 
-                                                                        ? 'Price/Image:' 
+                                                                    {provider.serviceType ===
+                                                                    'text-to-image'
+                                                                        ? 'Price/Image:'
                                                                         : 'Out:'}
                                                                 </span>
                                                                 <span className="font-semibold text-gray-900">
@@ -1401,7 +1408,7 @@ print(completion.choices[0].message)`,
                                                         applications.
                                                     </p>
                                                     <a
-                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/sdk"
+                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors cursor-pointer"

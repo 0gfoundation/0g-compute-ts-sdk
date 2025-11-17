@@ -94,7 +94,7 @@ async function serveStaticExport(
         next()
     })
 
-    // Handle SPA routing first - serve appropriate HTML for each route
+    // Handle Next.js static export routing with optimal file serving
     app.use((req: any, res: any, next: any) => {
         // Skip if it's a static asset request (JS, CSS, images, etc.)
         if (req.path.startsWith('/_next/') || 
@@ -103,34 +103,41 @@ async function serveStaticExport(
             return
         }
 
-        let routePath = req.path
-        // Normalize route path
-        if (routePath.endsWith('/')) {
-            routePath = routePath.slice(0, -1)
-        }
-        if (routePath === '') {
-            routePath = '/index'
-        }
-
-        // Try to serve specific route HTML file (Next.js static export)
-        const routeHtmlPath = path.join(staticPath, routePath + '.html')
-        if (existsSync(routeHtmlPath)) {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-            res.setHeader('Pragma', 'no-cache')
-            res.setHeader('Expires', '0')
-            res.sendFile(routeHtmlPath)
-            return
-        }
-
-        // Fallback to index.html for unknown routes
-        const indexPath = path.join(staticPath, 'index.html')
-        if (existsSync(indexPath)) {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-            res.setHeader('Pragma', 'no-cache')
-            res.setHeader('Expires', '0')
-            res.sendFile(indexPath)
+        // Normalize the path and look for corresponding HTML file
+        let htmlPath = req.path
+        
+        // Handle root path
+        if (htmlPath === '/') {
+            htmlPath = 'index.html'
         } else {
-            res.status(404).send('Static export not found')
+            // Remove trailing slash if present
+            htmlPath = htmlPath.replace(/\/$/, '')
+            
+            // Check if direct HTML file exists (e.g., /inference -> inference.html)
+            const directFile = path.join(staticPath, htmlPath.substring(1) + '.html')
+            if (existsSync(directFile)) {
+                htmlPath = htmlPath.substring(1) + '.html'
+            } else {
+                // Check if nested HTML file exists (e.g., /inference/chat -> inference/chat.html)
+                const nestedFile = path.join(staticPath, htmlPath.substring(1) + '.html')
+                if (existsSync(nestedFile)) {
+                    htmlPath = htmlPath.substring(1) + '.html'
+                } else {
+                    // Fallback to index.html for client-side routing
+                    htmlPath = 'index.html'
+                }
+            }
+        }
+
+        const fullPath = path.join(staticPath, htmlPath)
+        if (existsSync(fullPath)) {
+            // Set no-cache headers for HTML files to prevent stale content
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            res.setHeader('Pragma', 'no-cache')
+            res.setHeader('Expires', '0')
+            res.sendFile(fullPath)
+        } else {
+            res.status(404).send('Page not found')
         }
     })
 
