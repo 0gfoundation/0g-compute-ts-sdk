@@ -772,6 +772,18 @@ export default function inference(program: Command) {
                     const secret = Buffer.from(rawData, 'utf8').toString('base64')
                     const bearerToken = `app-sk-${secret}`
                     
+                    // Get service metadata to determine service type
+                    const services = await broker.inference.listService()
+                    const service = services.find(s => s.provider.toLowerCase() === options.provider.toLowerCase())
+                    
+                    if (!service) {
+                        throw new Error(`Service not found for provider: ${options.provider}`)
+                    }
+                    
+                    const serviceType = service.serviceType
+                    const serviceUrl = service.url
+                    const serviceModel = service.model || 'default-model'
+                    
                     // Verify the base64 can be decoded back correctly
                     try {
                         const decoded = Buffer.from(secret, 'base64').toString('utf8')
@@ -780,6 +792,7 @@ export default function inference(program: Command) {
                         console.log()
                         console.log(chalk.green('✓ Secret generated successfully!'))
                         console.log(chalk.gray(`Provider: ${options.provider}`))
+                        console.log(chalk.gray(`Service Type: ${serviceType}`))
                         console.log(chalk.gray(`Duration: ${duration}ms (${Math.round(duration / 1000 / 60 / 60 * 100) / 100} hours)`))
                         console.log(chalk.gray(`Secret length: ${secret.length} characters`))
                         console.log(chalk.gray(`Base64 verification: ${isValid ? 'PASS' : 'FAIL'}`))
@@ -787,6 +800,49 @@ export default function inference(program: Command) {
                         console.log(chalk.blue('Use this Authorization header:'))
                         console.log()
                         console.log(chalk.white('Authorization: Bearer ' + bearerToken))
+                        console.log()
+                        
+                        // Show curl examples based on service type
+                        console.log(chalk.blue('Example curl command:'))
+                        console.log()
+                        
+                        if (serviceType === 'speech-to-text') {
+                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/audio/transcriptions \\
+  -H "Authorization: Bearer ${bearerToken}" \\
+  -H "Content-Type: multipart/form-data" \\
+  -F "file=@audio.ogg" \\
+  -F "model=${serviceModel}" \\
+  -F "response_format=json"`))
+                        } else if (serviceType === 'text-to-image') {
+                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/images/generations \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${bearerToken}" \\
+  -d '{
+    "model": "${serviceModel}",
+    "prompt": "A cute baby sea otter",
+    "n": 1,
+    "size": "1024x1024"
+  }'`))
+                        } else {
+                            // Default to chatbot/text type
+                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${bearerToken}" \\
+  -d '{
+    "model": "${serviceModel}",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Hello!"
+      }
+    ]
+  }'`))
+                        }
+                        
                         console.log()
                         console.log(chalk.yellow('⚠️  IMPORTANT SECURITY NOTES:'))
                         console.log(chalk.yellow('   • This secret cannot be revoked once generated (temporarily)'))

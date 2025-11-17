@@ -340,7 +340,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
             try {
                 const headers = await broker.inference.getRequestHeaders(
                     providerAddress,
-                    JSON.stringify(body.prompt)
+                    JSON.stringify(body)
                 )
                 
                 // Add model to the request body if not present
