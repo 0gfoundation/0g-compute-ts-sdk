@@ -68,34 +68,65 @@ async function serveStaticExport(staticPath, port) {
         res.setHeader('X-XSS-Protection', '1; mode=block');
         next();
     });
-    // Serve static files
+    // Handle Next.js static export routing with optimal file serving
+    app.use((req, res, next) => {
+        // Skip if it's a static asset request (JS, CSS, images, etc.)
+        if (req.path.startsWith('/_next/') ||
+            req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|txt)$/)) {
+            next();
+            return;
+        }
+        // Normalize the path and look for corresponding HTML file
+        let htmlPath = req.path;
+        // Handle root path
+        if (htmlPath === '/') {
+            htmlPath = 'index.html';
+        }
+        else {
+            // Remove trailing slash if present
+            htmlPath = htmlPath.replace(/\/$/, '');
+            // Check if direct HTML file exists (e.g., /inference -> inference.html)
+            const directFile = path_1.default.join(staticPath, htmlPath.substring(1) + '.html');
+            if ((0, fs_1.existsSync)(directFile)) {
+                htmlPath = htmlPath.substring(1) + '.html';
+            }
+            else {
+                // Check if nested HTML file exists (e.g., /inference/chat -> inference/chat.html)
+                const nestedFile = path_1.default.join(staticPath, htmlPath.substring(1) + '.html');
+                if ((0, fs_1.existsSync)(nestedFile)) {
+                    htmlPath = htmlPath.substring(1) + '.html';
+                }
+                else {
+                    // Fallback to index.html for client-side routing
+                    htmlPath = 'index.html';
+                }
+            }
+        }
+        const fullPath = path_1.default.join(staticPath, htmlPath);
+        if ((0, fs_1.existsSync)(fullPath)) {
+            // Set no-cache headers for HTML files to prevent stale content
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.sendFile(fullPath);
+        }
+        else {
+            res.status(404).send('Page not found');
+        }
+    });
+    // Serve static assets only (after SPA routing to prevent directory redirects)
     app.use(express_1.default.static(staticPath, {
         maxAge: '1y', // Cache static assets for 1 year
         etag: true,
         lastModified: true,
+        index: false, // Disable index.html serving to prevent conflicts
         setHeaders: (res, filePath) => {
-            // Set proper MIME types
-            if (filePath.endsWith('.html')) {
-                res.setHeader('Cache-Control', 'no-cache');
+            // Set proper cache headers for static assets
+            if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+                res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
             }
         },
     }));
-    // Handle SPA routing - all non-static requests go to index.html
-    app.use((req, res, next) => {
-        // Skip if it's a static file request
-        if (req.path.includes('.')) {
-            next();
-            return;
-        }
-        // Serve index.html for SPA routes
-        const indexPath = path_1.default.join(staticPath, 'index.html');
-        if ((0, fs_1.existsSync)(indexPath)) {
-            res.sendFile(indexPath);
-        }
-        else {
-            res.status(404).send('Static export not found');
-        }
-    });
     const server = app.listen(port, () => {
         console.log(`🚀 Static web UI server running on http://localhost:${port}`);
         console.log(`📊 Serving from: ${staticPath}`);

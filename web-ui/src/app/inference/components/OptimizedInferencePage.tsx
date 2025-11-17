@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useState, useCallback } from 'react'
+import { useAccount, useChainId } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { use0GBroker } from '../../../shared/hooks/use0GBroker'
 import { useOptimizedDataFetching } from '../../../shared/hooks/useOptimizedDataFetching'
@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown'
 
 export function OptimizedInferencePage() {
     const { isConnected } = useAccount()
+    const chainId = useChainId()
     const { broker, isInitializing } = use0GBroker()
     const router = useRouter()
     const { setIsNavigating, setTargetRoute, setTargetPageType } =
@@ -28,7 +29,7 @@ export function OptimizedInferencePage() {
 
     type TabType = 'curl' | 'javascript' | 'python'
 
-    // Optimized providers data fetching
+    // Optimized providers data fetching with chain awareness
     const {
         data: providers,
         loading: providersLoading,
@@ -50,31 +51,43 @@ export function OptimizedInferencePage() {
         cacheTTL: 2 * 60 * 1000, // 2 minutes cache
         dependencies: [broker],
         skip: !broker,
+        chainId, // Pass chainId for chain-aware caching
     })
 
-    const handleChatWithProvider = (provider: Provider) => {
-        setIsNavigating(true)
-        setTargetRoute('Chat')
-        setTargetPageType('chat')
+    const handleChatWithProvider = useCallback(
+        (provider: Provider) => {
+            // Prefetch the chat page for faster navigation
+            const chatUrl = `/inference/chat?provider=${encodeURIComponent(
+                provider.address
+            )}`
+            router.prefetch(chatUrl)
 
-        router.push(
-            `/inference/chat?provider=${encodeURIComponent(provider.address)}`
-        )
-    }
+            // Set navigation state
+            setIsNavigating(true)
+            setTargetRoute('Chat')
+            setTargetPageType('chat')
 
-    const handleBuildWithProvider = (provider: Provider) => {
+            // Small delay to allow prefetch to start
+            setTimeout(() => {
+                router.push(chatUrl)
+            }, 50)
+        },
+        [router, setIsNavigating, setTargetRoute, setTargetPageType]
+    )
+
+    const handleBuildWithProvider = useCallback((provider: Provider) => {
         setSelectedProviderForBuild(provider)
         setIsDrawerVisible(true)
-        setTimeout(() => setIsDrawerOpen(true), 10)
-    }
+        requestAnimationFrame(() => setIsDrawerOpen(true))
+    }, [])
 
-    const handleCloseDrawer = () => {
+    const handleCloseDrawer = useCallback(() => {
         setIsDrawerOpen(false)
         setTimeout(() => {
             setIsDrawerVisible(false)
             setSelectedProviderForBuild(null)
         }, 300)
-    }
+    }, [])
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text)
@@ -468,25 +481,27 @@ print(completion.choices[0].message)`,
                                                     <div className="flex items-center space-x-2 text-xs h-full">
                                                         {/* Only show input price for non text-to-image services */}
                                                         {provider.inputPrice !==
-                                                            undefined && 
-                                                            provider.serviceType !== 'text-to-image' && (
-                                                            <div className="flex items-center space-x-1">
-                                                                <span className="text-gray-600">
-                                                                    In:
-                                                                </span>
-                                                                <span className="font-semibold text-gray-900">
-                                                                    {provider.inputPrice.toFixed(
-                                                                        4
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                            undefined &&
+                                                            provider.serviceType !==
+                                                                'text-to-image' && (
+                                                                <div className="flex items-center space-x-1">
+                                                                    <span className="text-gray-600">
+                                                                        In:
+                                                                    </span>
+                                                                    <span className="font-semibold text-gray-900">
+                                                                        {provider.inputPrice.toFixed(
+                                                                            4
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         {provider.outputPrice !==
                                                             undefined && (
                                                             <div className="flex items-center space-x-1">
                                                                 <span className="text-gray-600">
-                                                                    {provider.serviceType === 'text-to-image' 
-                                                                        ? 'Price/Image:' 
+                                                                    {provider.serviceType ===
+                                                                    'text-to-image'
+                                                                        ? 'Price/Image:'
                                                                         : 'Out:'}
                                                                 </span>
                                                                 <span className="font-semibold text-gray-900">
@@ -1393,7 +1408,7 @@ print(completion.choices[0].message)`,
                                                         applications.
                                                     </p>
                                                     <a
-                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/sdk"
+                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors cursor-pointer"

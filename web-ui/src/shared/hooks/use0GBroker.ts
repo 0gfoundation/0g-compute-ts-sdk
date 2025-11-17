@@ -7,7 +7,7 @@ import { BrowserProvider } from 'ethers'
 import { APP_CONSTANTS } from '../constants/app'
 import { errorHandler } from '../utils/errorHandling'
 import { neuronToA0gi } from '../utils/currency'
-import { clearDataCache } from './useOptimizedDataFetching'
+import { clearChainCache, setCurrentChainInCache } from './useOptimizedDataFetching'
 
 const formatBalance = (value: number): string => {
     if (value === 0) return '0'
@@ -43,6 +43,7 @@ interface LedgerInfo {
 interface Use0GBrokerReturn {
     broker: ZGComputeNetworkBroker | null
     isInitializing: boolean
+    isChainSwitching: boolean
     error: string | null
     ledgerInfo: LedgerInfo | null
     initializeBroker: () => Promise<void>
@@ -60,6 +61,7 @@ export function use0GBroker(): Use0GBrokerReturn {
     const [isInitializing, setIsInitializing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [ledgerInfo, setLedgerInfo] = useState<LedgerInfo | null>(null)
+    const [isChainSwitching, setIsChainSwitching] = useState(false)
 
     const initializeBroker = useCallback(async () => {
         if (!walletClient || !isConnected) {
@@ -265,19 +267,29 @@ export function use0GBroker(): Use0GBrokerReturn {
     // Track current chainId to detect changes
     const [currentChainId, setCurrentChainId] = useState<number | undefined>(chainId)
     
+    // Update cache with current chain
+    useEffect(() => {
+        setCurrentChainInCache(chainId)
+    }, [chainId])
+    
     // Reset broker and reinitialize when chain changes
     useEffect(() => {
         // Only react to actual chain changes, not initial load
         if (currentChainId !== undefined && chainId !== currentChainId && isConnected && walletClient) {
             console.log('Chain switched from', currentChainId, 'to', chainId)
             
+            // Mark as chain switching to distinguish from normal initialization
+            setIsChainSwitching(true)
+            
             // Clear current data immediately to show loading state
             setLedgerInfo(null)
             setBroker(null)
             setError(null)
             
-            // Clear all cached data to prevent stale data from previous network
-            clearDataCache() // Clear all cache
+            // Clear only the previous chain's cache, not all cache
+            if (currentChainId !== undefined) {
+                clearChainCache(currentChainId)
+            }
             
             // Update tracked chain ID
             setCurrentChainId(chainId)
@@ -288,6 +300,8 @@ export function use0GBroker(): Use0GBrokerReturn {
                     await initializeBroker()
                 } catch (err) {
                     console.error('Failed to reinitialize broker after chain switch:', err)
+                } finally {
+                    setIsChainSwitching(false)
                 }
             }
             
@@ -309,6 +323,7 @@ export function use0GBroker(): Use0GBrokerReturn {
     return {
         broker,
         isInitializing,
+        isChainSwitching,
         error,
         ledgerInfo,
         initializeBroker,
