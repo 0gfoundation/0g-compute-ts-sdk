@@ -7,34 +7,50 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
 import { wagmiConfig } from '../config/wagmi';
 
-const queryClient = new QueryClient();
+// Create instances outside component to prevent recreation on every render
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+// Memoize theme configuration
+const RAINBOW_THEME = lightTheme({
+  accentColor: '#9333ea',
+  accentColorForeground: 'white',
+  borderRadius: 'medium',
+  fontStack: 'system',
+  overlayBlur: 'small',
+});
+
+// Memoize app info
+const APP_INFO = {
+  appName: '0G Compute Network',
+  learnMoreUrl: 'https://0g.ai',
+} as const;
 
 interface RainbowProviderProps {
   children: React.ReactNode;
 }
 
-export function RainbowProvider({ children }: RainbowProviderProps) {
+export const RainbowProvider = React.memo<RainbowProviderProps>(({ children }) => {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
-          theme={lightTheme({
-            accentColor: '#9333ea',
-            accentColorForeground: 'white',
-            borderRadius: 'medium',
-            fontStack: 'system',
-            overlayBlur: 'small',
-          })}
+          theme={RAINBOW_THEME}
           locale="en-US"
           showRecentTransactions={true}
-          appInfo={{
-            appName: '0G Compute Network',
-            learnMoreUrl: 'https://0g.ai',
-          }}
+          appInfo={APP_INFO}
         >
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
-}
+});
+
+RainbowProvider.displayName = 'RainbowProvider';

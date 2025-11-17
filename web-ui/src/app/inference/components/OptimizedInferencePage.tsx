@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useState, useCallback } from 'react'
+import { useAccount, useChainId } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { use0GBroker } from '../../../shared/hooks/use0GBroker'
 import { useOptimizedDataFetching } from '../../../shared/hooks/useOptimizedDataFetching'
@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown'
 
 export function OptimizedInferencePage() {
     const { isConnected } = useAccount()
+    const chainId = useChainId()
     const { broker, isInitializing } = use0GBroker()
     const router = useRouter()
     const { setIsNavigating, setTargetRoute, setTargetPageType } =
@@ -28,7 +29,7 @@ export function OptimizedInferencePage() {
 
     type TabType = 'curl' | 'javascript' | 'python'
 
-    // Optimized providers data fetching
+    // Optimized providers data fetching with chain awareness
     const {
         data: providers,
         loading: providersLoading,
@@ -50,31 +51,38 @@ export function OptimizedInferencePage() {
         cacheTTL: 2 * 60 * 1000, // 2 minutes cache
         dependencies: [broker],
         skip: !broker,
+        chainId, // Pass chainId for chain-aware caching
     })
 
-    const handleChatWithProvider = (provider: Provider) => {
+    const handleChatWithProvider = useCallback((provider: Provider) => {
+        // Prefetch the chat page for faster navigation
+        const chatUrl = `/inference/chat?provider=${encodeURIComponent(provider.address)}`
+        router.prefetch(chatUrl)
+        
+        // Set navigation state
         setIsNavigating(true)
         setTargetRoute('Chat')
         setTargetPageType('chat')
 
-        router.push(
-            `/inference/chat?provider=${encodeURIComponent(provider.address)}`
-        )
-    }
+        // Small delay to allow prefetch to start
+        setTimeout(() => {
+            router.push(chatUrl)
+        }, 50)
+    }, [router, setIsNavigating, setTargetRoute, setTargetPageType])
 
-    const handleBuildWithProvider = (provider: Provider) => {
+    const handleBuildWithProvider = useCallback((provider: Provider) => {
         setSelectedProviderForBuild(provider)
         setIsDrawerVisible(true)
-        setTimeout(() => setIsDrawerOpen(true), 10)
-    }
+        requestAnimationFrame(() => setIsDrawerOpen(true))
+    }, [])
 
-    const handleCloseDrawer = () => {
+    const handleCloseDrawer = useCallback(() => {
         setIsDrawerOpen(false)
         setTimeout(() => {
             setIsDrawerVisible(false)
             setSelectedProviderForBuild(null)
         }, 300)
-    }
+    }, [])
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text)

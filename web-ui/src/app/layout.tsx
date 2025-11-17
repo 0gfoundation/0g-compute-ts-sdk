@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "../../Providers";
 import { LayoutContent } from "../shared/components/layout/LayoutContent";
@@ -15,6 +16,16 @@ export const metadata: Metadata = {
   },
 };
 
+// Simple loading component for Suspense fallback
+const LayoutLoader = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,7 +36,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           <Navbar />
-          <LayoutContent>{children}</LayoutContent>
+          <Suspense fallback={<LayoutLoader />}>
+            <LayoutContent>{children}</LayoutContent>
+          </Suspense>
         </Providers>
       </body>
     </html>

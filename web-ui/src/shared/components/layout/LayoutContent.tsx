@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAccount, useDisconnect, useChainId } from "wagmi";
 import { Sidebar } from "./Sidebar";
@@ -12,7 +12,7 @@ interface LayoutContentProps {
   children: React.ReactNode;
 }
 
-const MainContentArea: React.FC<{ children: React.ReactNode; isHomePage: boolean }> = ({ 
+const MainContentArea: React.FC<{ children: React.ReactNode; isHomePage: boolean }> = React.memo(({ 
   children, 
   isHomePage 
 }) => {
@@ -35,7 +35,9 @@ const MainContentArea: React.FC<{ children: React.ReactNode; isHomePage: boolean
       )}
     </main>
   );
-};
+});
+
+MainContentArea.displayName = 'MainContentArea';
 
 export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const pathname = usePathname();
@@ -43,16 +45,74 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const { broker, isInitializing, error: brokerError } = use0GBroker();
+  const { broker, isInitializing, isChainSwitching, error: brokerError } = use0GBroker();
   
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track last checked state to avoid redundant checks (using ref to avoid triggering re-renders)
+  const lastCheckedStateRef = useRef<{
+    pathname: string;
+    chainId: number;
+    checkedAt: number;
+  } | null>(null);
+  
+  // Track previous chainId to detect chain switching locally
+  const previousChainIdRef = useRef<number | undefined>(undefined); // Start as undefined
+  const [isLocalChainSwitching, setIsLocalChainSwitching] = useState(false);
+  
+  // Initialize previous chainId ref on mount
+  useEffect(() => {
+    if (previousChainIdRef.current === undefined) {
+      previousChainIdRef.current = chainId;
+    }
+  }, [chainId]);
+
+  // Detect chain switching immediately when chainId changes
+  useEffect(() => {
+    if (previousChainIdRef.current !== undefined && previousChainIdRef.current !== chainId) {
+      // Chain is switching - immediately hide modals and set switching state
+      setIsLocalChainSwitching(true);
+      setShowDepositModal(false);
+      setShowTopUpModal(false);
+      
+      // Clear last checked state
+      lastCheckedStateRef.current = null;
+      
+      // Reset switching state after broker has time to initialize
+      const resetTimer = setTimeout(() => {
+        setIsLocalChainSwitching(false);
+      }, 2000); // Give broker time to initialize
+      
+      return () => clearTimeout(resetTimer);
+    }
+    
+    // Update previous chainId
+    previousChainIdRef.current = chainId;
+  }, [chainId]);
 
   useEffect(() => {
     const checkLedger = async () => {
-      if (broker && isConnected && !isHomePage) {
+      // Wait until broker is fully ready (not initializing and not chain switching)
+      // Also add a small delay to ensure broker has synced with the new network
+      if (broker && isConnected && !isHomePage && !isInitializing && !isChainSwitching && !isLocalChainSwitching) {
+        // Additional check: ensure we're not too close to the last chain change
+        const now = Date.now();
+        const lastChecked = lastCheckedStateRef.current;
+        if (lastChecked && lastChecked.chainId !== chainId && (now - lastChecked.checkedAt) < 3000) {
+          return;
+        }
+        
+        // Skip check if we recently checked the same state
+        if (lastChecked && 
+            lastChecked.pathname === pathname && 
+            lastChecked.chainId === chainId &&
+            (now - lastChecked.checkedAt) < 5000) { // 5 second cooldown for same state
+          return;
+        }
+        
         try {
           const ledger = await broker.ledger.getLedger();
           // If we get here, it means ledger exists and has data
@@ -63,15 +123,35 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
             // Ledger exists and has balance, hide modal
             setShowDepositModal(false);
           }
+          
+          // Update last checked state
+          lastCheckedStateRef.current = {
+            pathname,
+            chainId,
+            checkedAt: now,
+          };
         } catch (error) {
-          // If error occurs (e.g., ledger does not exist), prompt for deposit
+          // Check if error is due to network change (chain switching)
+          if (error instanceof Error && error.message.includes('network changed')) {
+            // Don't show modal for network change errors, just wait
+            return;
+          }
+          
+          // For other errors (e.g., ledger does not exist), prompt for deposit
           setShowDepositModal(true);
+          
+          // Update last checked state even on error
+          lastCheckedStateRef.current = {
+            pathname,
+            chainId,
+            checkedAt: now,
+          };
         }
       }
     };
     
     checkLedger();
-  }, [broker, isConnected, isHomePage, chainId]); // Added chainId to dependencies
+  }, [broker, isConnected, isHomePage, chainId, pathname, isInitializing, isChainSwitching, isLocalChainSwitching]);
 
   // Clear modals and errors when wallet is disconnected
   useEffect(() => {
@@ -87,10 +167,18 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     if (isConnected) {
       setError(null);
       setIsLoading(false);
-      // Note: Don't close modals here immediately as checkLedger effect will handle it
-      // This just ensures we have clean error/loading state for the new network
+      // Clear last checked state when chain changes to force a new check
+      lastCheckedStateRef.current = null;
     }
   }, [chainId, isConnected]);
+
+  // Hide modal during initialization and chain switching to prevent flickering
+  useEffect(() => {
+    if (isInitializing || isChainSwitching || isLocalChainSwitching) {
+      setShowDepositModal(false);
+      setShowTopUpModal(false);
+    }
+  }, [isInitializing, isChainSwitching, isLocalChainSwitching]);
 
   const handleCreateAccount = async () => {
     if (!broker) return;
@@ -166,8 +254,8 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
         </MainContentArea>
       </div>
 
-      {/* Global Account Creation Modal */}
-      {showDepositModal && (
+      {/* Global Account Creation Modal - only show when broker is fully ready */}
+      {showDepositModal && !isInitializing && !isChainSwitching && !isLocalChainSwitching && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80">
             <div className="text-center mb-4">
@@ -234,8 +322,8 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Top-up Modal - Step 2 */}
-      {showTopUpModal && (
+      {/* Top-up Modal - Step 2 - only show when broker is fully ready */}
+      {showTopUpModal && !isInitializing && !isChainSwitching && !isLocalChainSwitching && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80">
             <div className="text-center mb-6">
