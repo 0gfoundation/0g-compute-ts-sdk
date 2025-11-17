@@ -94,37 +94,61 @@ async function serveStaticExport(
         next()
     })
 
-    // Serve static files
-    app.use(
-        express.static(staticPath, {
-            maxAge: '1y', // Cache static assets for 1 year
-            etag: true,
-            lastModified: true,
-            setHeaders: (res: any, filePath: string) => {
-                // Set proper MIME types
-                if (filePath.endsWith('.html')) {
-                    res.setHeader('Cache-Control', 'no-cache')
-                }
-            },
-        })
-    )
-
-    // Handle SPA routing - all non-static requests go to index.html
+    // Handle SPA routing first - serve appropriate HTML for each route
     app.use((req: any, res: any, next: any) => {
-        // Skip if it's a static file request
-        if (req.path.includes('.')) {
+        // Skip if it's a static asset request (JS, CSS, images, etc.)
+        if (req.path.startsWith('/_next/') || 
+            req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|txt)$/)) {
             next()
             return
         }
 
-        // Serve index.html for SPA routes
+        let routePath = req.path
+        // Normalize route path
+        if (routePath.endsWith('/')) {
+            routePath = routePath.slice(0, -1)
+        }
+        if (routePath === '') {
+            routePath = '/index'
+        }
+
+        // Try to serve specific route HTML file (Next.js static export)
+        const routeHtmlPath = path.join(staticPath, routePath + '.html')
+        if (existsSync(routeHtmlPath)) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            res.setHeader('Pragma', 'no-cache')
+            res.setHeader('Expires', '0')
+            res.sendFile(routeHtmlPath)
+            return
+        }
+
+        // Fallback to index.html for unknown routes
         const indexPath = path.join(staticPath, 'index.html')
         if (existsSync(indexPath)) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            res.setHeader('Pragma', 'no-cache')
+            res.setHeader('Expires', '0')
             res.sendFile(indexPath)
         } else {
             res.status(404).send('Static export not found')
         }
     })
+
+    // Serve static assets only (after SPA routing to prevent directory redirects)
+    app.use(
+        express.static(staticPath, {
+            maxAge: '1y', // Cache static assets for 1 year
+            etag: true,
+            lastModified: true,
+            index: false, // Disable index.html serving to prevent conflicts
+            setHeaders: (res: any, filePath: string) => {
+                // Set proper cache headers for static assets
+                if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+                    res.setHeader('Cache-Control', 'public, max-age=31536000') // 1 year
+                }
+            },
+        })
+    )
 
     const server = app.listen(port, () => {
         console.log(
