@@ -93,7 +93,7 @@ export default function FineTuningPage() {
                   Fine-tuning is currently supported through the 0G CLI tools. You can start fine-tuning models today using the command-line interface.
                 </p>
                 <a 
-                  href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/cli" 
+                  href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/fine-tuning" 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
