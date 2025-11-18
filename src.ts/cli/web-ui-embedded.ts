@@ -7,6 +7,7 @@ import {
     mkdirSync,
     readdirSync,
     statSync,
+    createReadStream,
 } from 'fs'
 import express from 'express'
 import type { Command } from 'commander'
@@ -129,13 +130,31 @@ async function serveStaticExport(
             }
         }
 
-        const fullPath = path.join(staticPath, htmlPath)
+        const fullPath = path.resolve(staticPath, htmlPath)
         if (existsSync(fullPath)) {
-            // Set no-cache headers for HTML files to prevent stale content
+            // Get file stats for better caching
+            const stat = statSync(fullPath)
+            
+            // Set proper headers
+            res.setHeader('Content-Type', 'text/html; charset=utf-8')
+            res.setHeader('Content-Length', stat.size.toString())
+            
+            // For HTML files, prevent caching to ensure fresh content
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
             res.setHeader('Pragma', 'no-cache')
             res.setHeader('Expires', '0')
-            res.sendFile(fullPath)
+            
+            // Use stream for better memory efficiency
+            const stream = createReadStream(fullPath)
+            
+            stream.on('error', (err) => {
+                console.error(`Error reading file: ${err}`)
+                if (!res.headersSent) {
+                    res.status(500).send('Internal server error')
+                }
+            })
+            
+            stream.pipe(res)
         } else {
             res.status(404).send('Page not found')
         }

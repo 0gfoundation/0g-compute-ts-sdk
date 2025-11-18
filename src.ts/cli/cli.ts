@@ -13,7 +13,7 @@ export const program = new Command()
 program
     .name('0g-compute-cli')
     .description('CLI for interacting with ZG Compute Network')
-    .version('1.0.0-beta.5')
+    .version('1.0.0-beta.6')
 
 ledger(program)
 
