@@ -154,7 +154,7 @@
         )
 
         console.log(
-            ' Inference sub-accounts (Dynamically Created per Used Provider)'
+            ' Inference sub-accounts'
         )
         infers.forEach((infer: any) => {
             console.log(`   Provider Address: ${infer[0]}`)
@@ -166,7 +166,7 @@
 
         if (fines && fines.length > 0) {
             console.log(
-                ' Fine-tuning sub-accounts (Dynamically Created per Used Provider)'
+                ' Fine-tuning sub-accounts'
             )
             fines.forEach((fine: any) => {
                 console.log(`   Provider Address: ${fine[0]}`)

@@ -36,6 +36,7 @@ class LedgerProcessor {
             const ledgerInfo = [
                 ledger.totalBalance,
                 ledger.totalBalance - ledger.availableBalance,
+                ledger.availableBalance,
             ];
             // Get providers using the new getLedgerProviders method with service names
             const userAddress = this.ledgerContract.getUserAddress();
