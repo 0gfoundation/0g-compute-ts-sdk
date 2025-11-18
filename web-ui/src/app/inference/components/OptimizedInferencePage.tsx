@@ -1408,7 +1408,7 @@ print(completion.choices[0].message)`,
                                                         applications.
                                                     </p>
                                                     <a
-                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference"
+                                                        href="https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference#sdk"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors cursor-pointer"

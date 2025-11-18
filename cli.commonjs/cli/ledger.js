@@ -6,8 +6,45 @@ exports.default = ledger;
 const tslib_1 = require("tslib");
 const util_1 = require("./util");
 const cli_table3_1 = tslib_1.__importDefault(require("cli-table3"));
+const sdk_1 = require("../sdk");
 const chalk_1 = tslib_1.__importDefault(require("chalk"));
 const utils_1 = require("../sdk/common/utils");
+const interactive_selection_1 = require("./interactive-selection");
+const network_setup_1 = require("./network-setup");
+const ethers_1 = require("ethers");
+async function selectServiceType(options) {
+    // If service is already provided and valid, return it
+    if (options.service === 'inference' || options.service === 'fine-tuning') {
+        return options.service;
+    }
+    // Check network type to determine available services
+    const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
+    const provider = new ethers_1.ethers.JsonRpcProvider(rpcEndpoint);
+    const network = await provider.getNetwork();
+    const networkType = (0, sdk_1.getNetworkType)(network.chainId);
+    // On mainnet, only inference is available
+    if (networkType === 'mainnet') {
+        console.log(chalk_1.default.gray('ℹ️  On mainnet, only inference service is available.'));
+        return 'inference';
+    }
+    // On other networks, show selector
+    const serviceType = await (0, interactive_selection_1.interactiveSelect)({
+        message: 'Select service type:',
+        options: [
+            {
+                title: 'Inference',
+                value: 'inference',
+                description: 'For model inference services',
+            },
+            {
+                title: 'Fine-tuning',
+                value: 'fine-tuning',
+                description: 'For model fine-tuning services',
+            },
+        ],
+    });
+    return serviceType;
+}
 function ledger(program) {
     program
         .command('get-account')
@@ -89,16 +126,12 @@ function ledger(program) {
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .requiredOption('--service <type>', 'Service type: inference or fine-tuning')
+        .option('--service <type>', 'Service type: inference or fine-tuning')
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price calculation')
         .action(async (options) => {
-        const serviceType = options.service;
-        if (serviceType !== 'inference' && serviceType !== 'fine-tuning') {
-            console.error('Invalid service type. Must be "inference" or "fine-tuning"');
-            process.exit(1);
-        }
+        const serviceType = await selectServiceType(options);
         if (serviceType === 'fine-tuning') {
             const isAvailable = await (0, util_1.checkFineTuningAvailability)(options);
             if (!isAvailable) {
@@ -119,7 +152,7 @@ function ledger(program) {
         .description('Transfer funds to a provider for a specific service provider')
         .requiredOption('--provider <address>', 'Provider address to transfer funds to')
         .requiredOption('--amount <0G>', 'Amount to transfer in 0G')
-        .requiredOption('--service <type>', 'Service type: inference or fine-tuning', 'inference')
+        .option('--service <type>', 'Service type: inference or fine-tuning')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -128,11 +161,7 @@ function ledger(program) {
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price calculation')
         .action(async (options) => {
-        const serviceType = options.service;
-        if (serviceType !== 'inference' && serviceType !== 'fine-tuning') {
-            console.error('Invalid service type. Must be "inference" or "fine-tuning"');
-            process.exit(1);
-        }
+        const serviceType = await selectServiceType(options);
         if (serviceType === 'fine-tuning') {
             const isAvailable = await (0, util_1.checkFineTuningAvailability)(options);
             if (!isAvailable) {
@@ -150,25 +179,21 @@ function ledger(program) {
         .command('get-sub-account')
         .description('Retrieve detailed sub account information for a specific provider and service')
         .requiredOption('--provider <address>', 'Provider address')
-        .requiredOption('--service <type>', 'Service type: inference or fine-tuning')
+        .option('--service <type>', 'Service type: inference or fine-tuning')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .action(async (options) => {
-        if (options.service !== 'inference' &&
-            options.service !== 'fine-tuning') {
-            console.error(chalk_1.default.red('Error: --service must be either "inference" or "fine-tuning"'));
-            process.exit(1);
-        }
-        if (options.service === 'fine-tuning') {
+        const serviceType = await selectServiceType(options);
+        if (serviceType === 'fine-tuning') {
             const isAvailable = await (0, util_1.checkFineTuningAvailability)(options);
             if (!isAvailable) {
                 return;
             }
         }
         (0, util_1.withBroker)(options, async (broker) => {
-            if (options.service === 'inference') {
+            if (serviceType === 'inference') {
                 const [account, refunds] = await broker.inference.getAccountWithDetail(options.provider);
                 renderSubAccountOverview({
                     provider: account.provider,
@@ -178,7 +203,7 @@ function ledger(program) {
                 });
                 renderSubAccountRefunds(refunds);
             }
-            else if (options.service === 'fine-tuning') {
+            else if (serviceType === 'fine-tuning') {
                 if (!broker.fineTuning) {
                     console.log(chalk_1.default.red('Fine tuning broker is not available.'));
                     return;
@@ -196,11 +221,11 @@ function ledger(program) {
             // Add helpful information about fund operations
             console.log(chalk_1.default.yellow('\n💡 Fund Management Tips:'));
             console.log(chalk_1.default.gray('• To retrieve all funds from sub-accounts to main account:'));
-            console.log(chalk_1.default.cyan(`  0g-compute-cli retrieve-fund --service ${options.service}`));
+            console.log(chalk_1.default.cyan(`  0g-compute-cli retrieve-fund --service ${serviceType}`));
             console.log(chalk_1.default.gray('  Note: Retrieved funds need to be locked for a period. After the lock period expires,'));
             console.log(chalk_1.default.gray('  use retrieve-fund again to transfer all unlocked amounts to the main account.'));
             console.log(chalk_1.default.gray('\n• To transfer funds from main account to this provider:'));
-            console.log(chalk_1.default.cyan(`  0g-compute-cli transfer-fund --provider ${options.provider} --amount <amount> --service ${options.service}`));
+            console.log(chalk_1.default.cyan(`  0g-compute-cli transfer-fund --provider ${options.provider} --amount <amount> --service ${serviceType}`));
         });
     });
 }
@@ -215,6 +240,10 @@ const getLedgerTable = async (broker) => {
     table.push([
         'Locked (transferred to sub-accounts)',
         (0, util_1.neuronToA0gi)(ledgerInfo[1]).toFixed(18),
+    ]);
+    table.push([
+        'Available for transfer to sub-accounts',
+        (0, util_1.neuronToA0gi)(ledgerInfo[2]).toFixed(18),
     ]);
     (0, util_1.printTableWithTitle)('Overview', table);
     // Inference information
@@ -234,7 +263,7 @@ const getLedgerTable = async (broker) => {
                 (0, util_1.neuronToA0gi)(infer[2]).toFixed(18),
             ]);
         }
-        (0, util_1.printTableWithTitle)('Inference sub-accounts (Dynamically Created per Used Provider)', table);
+        (0, util_1.printTableWithTitle)('Inference sub-accounts', table);
     }
     // Fine tuning information
     if (fines && fines.length !== 0) {
@@ -253,7 +282,7 @@ const getLedgerTable = async (broker) => {
                 (0, util_1.neuronToA0gi)(fine[2]).toFixed(18),
             ]);
         }
-        (0, util_1.printTableWithTitle)('Fine-tuning sub-accounts (Dynamically Created per Used Provider)', table);
+        (0, util_1.printTableWithTitle)('Fine-tuning sub-accounts', table);
     }
 };
 exports.getLedgerTable = getLedgerTable;
