@@ -87,7 +87,6 @@ class InferenceServingContract {
     async listService(offset = 0, limit = 50) {
         try {
             const result = await this.serving.getAllServices(offset, limit);
-            console.log('Listed services:', result);
             return result.services;
         }
         catch (error) {
