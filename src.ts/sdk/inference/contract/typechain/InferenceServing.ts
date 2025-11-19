@@ -170,6 +170,8 @@ export type TEESettlementDataStructOutput = [
 export interface InferenceServingInterface extends Interface {
     getFunction(
         nameOrSignature:
+            | 'MAX_LOCKTIME'
+            | 'MIN_LOCKTIME'
             | 'accountExists'
             | 'acknowledgeTEESigner'
             | 'acknowledgeTEESignerByOwner'
@@ -214,6 +216,14 @@ export interface InferenceServingInterface extends Interface {
             | 'TEESettlementResult'
     ): EventFragment
 
+    encodeFunctionData(
+        functionFragment: 'MAX_LOCKTIME',
+        values?: undefined
+    ): string
+    encodeFunctionData(
+        functionFragment: 'MIN_LOCKTIME',
+        values?: undefined
+    ): string
     encodeFunctionData(
         functionFragment: 'accountExists',
         values: [AddressLike, AddressLike]
@@ -260,7 +270,7 @@ export interface InferenceServingInterface extends Interface {
     ): string
     encodeFunctionData(
         functionFragment: 'getAllServices',
-        values?: undefined
+        values: [BigNumberish, BigNumberish]
     ): string
     encodeFunctionData(
         functionFragment: 'getBatchAccountsByUsers',
@@ -329,6 +339,14 @@ export interface InferenceServingInterface extends Interface {
         values: [BigNumberish]
     ): string
 
+    decodeFunctionResult(
+        functionFragment: 'MAX_LOCKTIME',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'MIN_LOCKTIME',
+        data: BytesLike
+    ): Result
     decodeFunctionResult(
         functionFragment: 'accountExists',
         data: BytesLike
@@ -698,6 +716,10 @@ export interface InferenceServing extends BaseContract {
         event?: TCEvent
     ): Promise<this>
 
+    MAX_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>
+
+    MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>
+
     accountExists: TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
         [boolean],
@@ -783,7 +805,16 @@ export interface InferenceServing extends BaseContract {
         'view'
     >
 
-    getAllServices: TypedContractMethod<[], [ServiceStructOutput[]], 'view'>
+    getAllServices: TypedContractMethod<
+        [offset: BigNumberish, limit: BigNumberish],
+        [
+            [ServiceStructOutput[], bigint] & {
+                services: ServiceStructOutput[]
+                total: bigint
+            }
+        ],
+        'view'
+    >
 
     getBatchAccountsByUsers: TypedContractMethod<
         [users: AddressLike[]],
@@ -898,6 +929,12 @@ export interface InferenceServing extends BaseContract {
     ): T
 
     getFunction(
+        nameOrSignature: 'MAX_LOCKTIME'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'MIN_LOCKTIME'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
         nameOrSignature: 'accountExists'
     ): TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
@@ -979,9 +1016,16 @@ export interface InferenceServing extends BaseContract {
         ],
         'view'
     >
-    getFunction(
-        nameOrSignature: 'getAllServices'
-    ): TypedContractMethod<[], [ServiceStructOutput[]], 'view'>
+    getFunction(nameOrSignature: 'getAllServices'): TypedContractMethod<
+        [offset: BigNumberish, limit: BigNumberish],
+        [
+            [ServiceStructOutput[], bigint] & {
+                services: ServiceStructOutput[]
+                total: bigint
+            }
+        ],
+        'view'
+    >
     getFunction(
         nameOrSignature: 'getBatchAccountsByUsers'
     ): TypedContractMethod<

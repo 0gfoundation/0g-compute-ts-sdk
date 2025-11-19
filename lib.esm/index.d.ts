@@ -120,8 +120,10 @@ type TEESettlementDataStruct = {
     signature: BytesLike;
 };
 interface InferenceServingInterface extends Interface {
-    getFunction(nameOrSignature: 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult'): EventFragment;
+    encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'accountExists', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESigner', values: [AddressLike, boolean]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESignerByOwner', values: [AddressLike]): string;
@@ -133,7 +135,7 @@ interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'getAccountsByProvider', values: [AddressLike, BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getAccountsByUser', values: [AddressLike, BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getAllAccounts', values: [BigNumberish, BigNumberish]): string;
-    encodeFunctionData(functionFragment: 'getAllServices', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'getAllServices', values: [BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getBatchAccountsByUsers', values: [AddressLike[]]): string;
     encodeFunctionData(functionFragment: 'getPendingRefund', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'getService', values: [AddressLike]): string;
@@ -152,6 +154,8 @@ interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'updateLockTime', values: [BigNumberish]): string;
+    decodeFunctionResult(functionFragment: 'MAX_LOCKTIME', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_LOCKTIME', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'accountExists', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESigner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESignerByOwner', data: BytesLike): Result;
@@ -366,6 +370,8 @@ interface InferenceServing extends BaseContract {
     listeners<TCEvent extends TypedContractEvent$2>(event: TCEvent): Promise<Array<TypedListener$2<TCEvent>>>;
     listeners(eventName?: string): Promise<Array<Listener>>;
     removeAllListeners<TCEvent extends TypedContractEvent$2>(event?: TCEvent): Promise<this>;
+    MAX_LOCKTIME: TypedContractMethod$2<[], [bigint], 'view'>;
+    MIN_LOCKTIME: TypedContractMethod$2<[], [bigint], 'view'>;
     accountExists: TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -452,7 +458,18 @@ interface InferenceServing extends BaseContract {
             total: bigint;
         }
     ], 'view'>;
-    getAllServices: TypedContractMethod$2<[], [ServiceStructOutput$1[]], 'view'>;
+    getAllServices: TypedContractMethod$2<[
+        offset: BigNumberish,
+        limit: BigNumberish
+    ], [
+        [
+            ServiceStructOutput$1[],
+            bigint
+        ] & {
+            services: ServiceStructOutput$1[];
+            total: bigint;
+        }
+    ], 'view'>;
     getBatchAccountsByUsers: TypedContractMethod$2<[
         users: AddressLike[]
     ], [
@@ -553,6 +570,8 @@ interface InferenceServing extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME'): TypedContractMethod$2<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_LOCKTIME'): TypedContractMethod$2<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'accountExists'): TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -631,7 +650,18 @@ interface InferenceServing extends BaseContract {
             total: bigint;
         }
     ], 'view'>;
-    getFunction(nameOrSignature: 'getAllServices'): TypedContractMethod$2<[], [ServiceStructOutput$1[]], 'view'>;
+    getFunction(nameOrSignature: 'getAllServices'): TypedContractMethod$2<[
+        offset: BigNumberish,
+        limit: BigNumberish
+    ], [
+        [
+            ServiceStructOutput$1[],
+            bigint
+        ] & {
+            services: ServiceStructOutput$1[];
+            total: bigint;
+        }
+    ], 'view'>;
     getFunction(nameOrSignature: 'getBatchAccountsByUsers'): TypedContractMethod$2<[
         users: AddressLike[]
     ], [
@@ -753,7 +783,7 @@ declare class InferenceServingContract {
     constructor(signer: JsonRpcSigner | Wallet, contractAddress: string, userAddress: string, gasPrice?: number, maxGasPrice?: number, step?: number);
     sendTx(name: string, txArgs: ContractMethodArgs$3<any[]>, txOptions: any): Promise<void>;
     lockTime(): Promise<bigint>;
-    listService(): Promise<ServiceStructOutput$1[]>;
+    listService(offset?: number, limit?: number): Promise<ServiceStructOutput$1[]>;
     listAccount(offset?: number, limit?: number): Promise<AccountStructOutput[]>;
     getAccount(provider: AddressLike): Promise<AccountStructOutput>;
     /**
@@ -913,9 +943,11 @@ type LedgerStructOutput = [
     additionalInfo: string;
 };
 interface LedgerManagerInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_BATCH' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
+    encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MAX_SERVICES', values?: undefined): string;
     encodeFunctionData(functionFragment: 'addLedger', values: [string]): string;
     encodeFunctionData(functionFragment: 'deleteLedger', values?: undefined): string;
     encodeFunctionData(functionFragment: 'depositFund', values?: undefined): string;
@@ -940,7 +972,9 @@ interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'spendFund', values: [AddressLike, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'transferFund', values: [AddressLike, string, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
+    decodeFunctionResult(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_PROVIDERS_PER_BATCH', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MAX_SERVICES', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'deleteLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'depositFund', data: BytesLike): Result;
@@ -1024,7 +1058,9 @@ interface LedgerManager extends BaseContract {
     listeners<TCEvent extends TypedContractEvent$1>(event: TCEvent): Promise<Array<TypedListener$1<TCEvent>>>;
     listeners(eventName?: string): Promise<Array<Listener>>;
     removeAllListeners<TCEvent extends TypedContractEvent$1>(event?: TCEvent): Promise<this>;
+    MAX_ADDITIONAL_INFO_LENGTH: TypedContractMethod$1<[], [bigint], 'view'>;
     MAX_PROVIDERS_PER_BATCH: TypedContractMethod$1<[], [bigint], 'view'>;
+    MAX_SERVICES: TypedContractMethod$1<[], [bigint], 'view'>;
     addLedger: TypedContractMethod$1<[
         additionalInfo: string
     ], [
@@ -1116,7 +1152,7 @@ interface LedgerManager extends BaseContract {
     renounceOwnership: TypedContractMethod$1<[], [void], 'nonpayable'>;
     retrieveFund: TypedContractMethod$1<[
         providers: AddressLike[],
-        serviceType: string
+        serviceName: string
     ], [
         void
     ], 'nonpayable'>;
@@ -1145,7 +1181,9 @@ interface LedgerManager extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH'): TypedContractMethod$1<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_BATCH'): TypedContractMethod$1<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MAX_SERVICES'): TypedContractMethod$1<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'addLedger'): TypedContractMethod$1<[
         additionalInfo: string
     ], [
@@ -1222,7 +1260,7 @@ interface LedgerManager extends BaseContract {
     getFunction(nameOrSignature: 'renounceOwnership'): TypedContractMethod$1<[], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'retrieveFund'): TypedContractMethod$1<[
         providers: AddressLike[],
-        serviceType: string
+        serviceName: string
     ], [
         void
     ], 'nonpayable'>;
@@ -1446,8 +1484,10 @@ type VerifierInputStruct = {
     user: AddressLike;
 };
 interface FineTuningServingInterface extends Interface {
-    getFunction(nameOrSignature: 'accountExists' | 'acknowledgeDeliverable' | 'acknowledgeProviderSigner' | 'addAccount' | 'addDeliverable' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getDeliverable' | 'getDeliverables' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'penaltyPercentage' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'settleFees' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime' | 'updatePenaltyPercentage'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'accountExists' | 'acknowledgeDeliverable' | 'acknowledgeProviderSigner' | 'addAccount' | 'addDeliverable' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getDeliverable' | 'getDeliverables' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'penaltyPercentage' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'settleFees' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime' | 'updatePenaltyPercentage'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'OwnershipTransferred' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated'): EventFragment;
+    encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'accountExists', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'acknowledgeDeliverable', values: [AddressLike, string]): string;
     encodeFunctionData(functionFragment: 'acknowledgeProviderSigner', values: [AddressLike, AddressLike]): string;
@@ -1488,6 +1528,8 @@ interface FineTuningServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'updateLockTime', values: [BigNumberish]): string;
     encodeFunctionData(functionFragment: 'updatePenaltyPercentage', values: [BigNumberish]): string;
+    decodeFunctionResult(functionFragment: 'MAX_LOCKTIME', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_LOCKTIME', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'accountExists', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeDeliverable', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeProviderSigner', data: BytesLike): Result;
@@ -1636,6 +1678,8 @@ interface FineTuningServing extends BaseContract {
     listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
     listeners(eventName?: string): Promise<Array<Listener>>;
     removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    MAX_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
+    MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
     accountExists: TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -1826,6 +1870,8 @@ interface FineTuningServing extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'accountExists'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -2721,13 +2767,13 @@ declare const MAINNET_CHAIN_ID = 16661n;
 declare const HARDHAT_CHAIN_ID = 31337n;
 declare const CONTRACT_ADDRESSES: {
     readonly testnet: {
-        readonly ledger: "0x327025B6435424735a3d97c4b1671FeFF0E8879B";
-        readonly inference: "0xa58e5220A5cF61768c7A5dBFC34a2377829240be";
-        readonly fineTuning: "0x434cAbDedef8eBB760e7e583E419BFD5537A8B8a";
+        readonly ledger: "0xE70830508dAc0A97e6c087c75f402f9Be669E406";
+        readonly inference: "0xa79F4c8311FF93C06b8CfB403690cc987c93F91E";
+        readonly fineTuning: "0xaC66eBd174435c04F1449BBa08157a707B6fa7b1";
     };
     readonly mainnet: {
-        readonly ledger: "0x1C4450Dc74504e585571B4aF70451C0737F10b71";
-        readonly inference: "0x0754221A9f2C11D820F827170249c3cc5cC3DC74";
+        readonly ledger: "0x2dE54c845Cd948B72D2e32e39586fe89607074E3";
+        readonly inference: "0x47340d900bdFec2BD393c626E12ea0656F938d84";
         readonly fineTuning: "0x0000000000000000000000000000000000000000";
     };
     readonly hardhat: {

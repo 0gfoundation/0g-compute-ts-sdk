@@ -25,12 +25,15 @@ export class SpeechToText extends Extractor {
         if (!content) {
             return 0
         }
-        
+
         try {
             const usage = JSON.parse(content)
             // We only care about output_tokens from the usage object
             if (usage && usage.output_tokens !== undefined) {
-                const tokens = typeof usage.output_tokens === 'string' ? parseInt(usage.output_tokens, 10) : usage.output_tokens
+                const tokens =
+                    typeof usage.output_tokens === 'string'
+                        ? parseInt(usage.output_tokens, 10)
+                        : usage.output_tokens
                 return typeof tokens === 'number' && !isNaN(tokens) ? tokens : 0
             }
             return 0

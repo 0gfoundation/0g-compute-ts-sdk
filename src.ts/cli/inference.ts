@@ -82,24 +82,25 @@ export default function inference(program: Command) {
                         chalk.blue(service.provider),
                     ])
                     table.push(['Model', service.model || 'N/A'])
-                    
+
                     // Only show input price for non text-to-image services
                     if (service.serviceType !== 'text-to-image') {
                         table.push([
                             'Input Price Per Byte (0G)',
                             service.inputPrice
-                                ? neuronToA0gi(BigInt(service.inputPrice)).toFixed(
-                                      18
-                                  )
+                                ? neuronToA0gi(
+                                      BigInt(service.inputPrice)
+                                  ).toFixed(18)
                                 : 'N/A',
                         ])
                     }
-                    
+
                     // Change output price label for text-to-image services
-                    const outputPriceLabel = service.serviceType === 'text-to-image' 
-                        ? 'Price Per Image (OG)' 
-                        : 'Output Price Per Byte (0G)'
-                    
+                    const outputPriceLabel =
+                        service.serviceType === 'text-to-image'
+                            ? 'Price Per Image (OG)'
+                            : 'Output Price Per Byte (0G)'
+
                     table.push([
                         outputPriceLabel,
                         service.outputPrice
@@ -761,60 +762,98 @@ export default function inference(program: Command) {
         .action(async (options) => {
             try {
                 const duration = await promptDurationSelection()
-                
+
                 withBroker(options, async (broker) => {
-                    const session = await broker.inference.requestProcessor.generateSessionToken(
-                        options.provider,
-                        duration
-                    )
-                    
+                    const session =
+                        await broker.inference.requestProcessor.generateSessionToken(
+                            options.provider,
+                            duration
+                        )
+
                     const rawData = session.rawMessage + '|' + session.signature
-                    const secret = Buffer.from(rawData, 'utf8').toString('base64')
+                    const secret = Buffer.from(rawData, 'utf8').toString(
+                        'base64'
+                    )
                     const bearerToken = `app-sk-${secret}`
-                    
+
                     // Get service metadata to determine service type
                     const services = await broker.inference.listService()
-                    const service = services.find(s => s.provider.toLowerCase() === options.provider.toLowerCase())
-                    
+                    const service = services.find(
+                        (s) =>
+                            s.provider.toLowerCase() ===
+                            options.provider.toLowerCase()
+                    )
+
                     if (!service) {
-                        throw new Error(`Service not found for provider: ${options.provider}`)
+                        throw new Error(
+                            `Service not found for provider: ${options.provider}`
+                        )
                     }
-                    
+
                     const serviceType = service.serviceType
                     const serviceUrl = service.url
                     const serviceModel = service.model || 'default-model'
-                    
+
                     // Verify the base64 can be decoded back correctly
                     try {
-                        const decoded = Buffer.from(secret, 'base64').toString('utf8')
+                        const decoded = Buffer.from(secret, 'base64').toString(
+                            'utf8'
+                        )
                         const isValid = decoded === rawData
-                        
+
                         console.log()
-                        console.log(chalk.green('✓ Secret generated successfully!'))
+                        console.log(
+                            chalk.green('✓ Secret generated successfully!')
+                        )
                         console.log(chalk.gray(`Provider: ${options.provider}`))
                         console.log(chalk.gray(`Service Type: ${serviceType}`))
-                        console.log(chalk.gray(`Duration: ${duration}ms (${Math.round(duration / 1000 / 60 / 60 * 100) / 100} hours)`))
-                        console.log(chalk.gray(`Secret length: ${secret.length} characters`))
-                        console.log(chalk.gray(`Base64 verification: ${isValid ? 'PASS' : 'FAIL'}`))
+                        console.log(
+                            chalk.gray(
+                                `Duration: ${duration}ms (${
+                                    Math.round(
+                                        (duration / 1000 / 60 / 60) * 100
+                                    ) / 100
+                                } hours)`
+                            )
+                        )
+                        console.log(
+                            chalk.gray(
+                                `Secret length: ${secret.length} characters`
+                            )
+                        )
+                        console.log(
+                            chalk.gray(
+                                `Base64 verification: ${
+                                    isValid ? 'PASS' : 'FAIL'
+                                }`
+                            )
+                        )
                         console.log()
-                        console.log(chalk.blue('Use this Authorization header:'))
+                        console.log(
+                            chalk.blue('Use this Authorization header:')
+                        )
                         console.log()
-                        console.log(chalk.white('Authorization: Bearer ' + bearerToken))
+                        console.log(
+                            chalk.white('Authorization: Bearer ' + bearerToken)
+                        )
                         console.log()
-                        
+
                         // Show curl examples based on service type
                         console.log(chalk.blue('Example curl command:'))
                         console.log()
-                        
+
                         if (serviceType === 'speech-to-text') {
-                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/audio/transcriptions \\
+                            console.log(
+                                chalk.white(`curl ${serviceUrl}/v1/proxy/audio/transcriptions \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -H "Content-Type: multipart/form-data" \\
   -F "file=@audio.ogg" \\
   -F "model=${serviceModel}" \\
-  -F "response_format=json"`))
+  -F "response_format=json"`)
+                            )
                         } else if (serviceType === 'text-to-image') {
-                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/images/generations \\
+                            console.log(
+                                chalk.white(`curl ${serviceUrl}/v1/proxy/images/generations \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -d '{
@@ -822,10 +861,12 @@ export default function inference(program: Command) {
     "prompt": "A cute baby sea otter",
     "n": 1,
     "size": "1024x1024"
-  }'`))
+  }'`)
+                            )
                         } else {
                             // Default to chatbot/text type
-                            console.log(chalk.white(`curl ${serviceUrl}/v1/proxy/chat/completions \\
+                            console.log(
+                                chalk.white(`curl ${serviceUrl}/v1/proxy/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -d '{
@@ -840,22 +881,46 @@ export default function inference(program: Command) {
         "content": "Hello!"
       }
     ]
-  }'`))
+  }'`)
+                            )
                         }
-                        
+
                         console.log()
-                        console.log(chalk.yellow('⚠️  IMPORTANT SECURITY NOTES:'))
-                        console.log(chalk.yellow('   • This secret cannot be revoked once generated (temporarily)'))
-                        console.log(chalk.yellow('   • Keep it secure and do not share it'))
-                        console.log(chalk.yellow('   • It will expire automatically after the specified duration'))
-                        
+                        console.log(
+                            chalk.yellow('⚠️  IMPORTANT SECURITY NOTES:')
+                        )
+                        console.log(
+                            chalk.yellow(
+                                '   • This secret cannot be revoked once generated (temporarily)'
+                            )
+                        )
+                        console.log(
+                            chalk.yellow(
+                                '   • Keep it secure and do not share it'
+                            )
+                        )
+                        console.log(
+                            chalk.yellow(
+                                '   • It will expire automatically after the specified duration'
+                            )
+                        )
+
                         if (!isValid) {
                             console.log()
-                            console.log(chalk.red('⚠️  Warning: Base64 encoding verification failed!'))
+                            console.log(
+                                chalk.red(
+                                    '⚠️  Warning: Base64 encoding verification failed!'
+                                )
+                            )
                         }
                     } catch (error) {
                         console.log()
-                        console.log(chalk.red('⚠️  Error verifying base64 encoding:', error))
+                        console.log(
+                            chalk.red(
+                                '⚠️  Error verifying base64 encoding:',
+                                error
+                            )
+                        )
                     }
                 })
             } catch (error: unknown) {

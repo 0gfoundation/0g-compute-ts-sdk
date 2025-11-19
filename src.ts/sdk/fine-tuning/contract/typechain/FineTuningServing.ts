@@ -220,6 +220,8 @@ export type VerifierInputStructOutput = [
 export interface FineTuningServingInterface extends Interface {
     getFunction(
         nameOrSignature:
+            | 'MAX_LOCKTIME'
+            | 'MIN_LOCKTIME'
             | 'accountExists'
             | 'acknowledgeDeliverable'
             | 'acknowledgeProviderSigner'
@@ -264,6 +266,14 @@ export interface FineTuningServingInterface extends Interface {
             | 'ServiceUpdated'
     ): EventFragment
 
+    encodeFunctionData(
+        functionFragment: 'MAX_LOCKTIME',
+        values?: undefined
+    ): string
+    encodeFunctionData(
+        functionFragment: 'MIN_LOCKTIME',
+        values?: undefined
+    ): string
     encodeFunctionData(
         functionFragment: 'accountExists',
         values: [AddressLike, AddressLike]
@@ -398,6 +408,14 @@ export interface FineTuningServingInterface extends Interface {
         values: [BigNumberish]
     ): string
 
+    decodeFunctionResult(
+        functionFragment: 'MAX_LOCKTIME',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'MIN_LOCKTIME',
+        data: BytesLike
+    ): Result
     decodeFunctionResult(
         functionFragment: 'accountExists',
         data: BytesLike
@@ -695,6 +713,10 @@ export interface FineTuningServing extends BaseContract {
         event?: TCEvent
     ): Promise<this>
 
+    MAX_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>
+
+    MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>
+
     accountExists: TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
         [boolean],
@@ -902,6 +924,12 @@ export interface FineTuningServing extends BaseContract {
         key: string | FunctionFragment
     ): T
 
+    getFunction(
+        nameOrSignature: 'MAX_LOCKTIME'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'MIN_LOCKTIME'
+    ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
         nameOrSignature: 'accountExists'
     ): TypedContractMethod<

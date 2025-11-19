@@ -84,10 +84,10 @@ class InferenceServingContract {
     lockTime() {
         return this.serving.lockTime();
     }
-    async listService() {
+    async listService(offset = 0, limit = 50) {
         try {
-            const services = await this.serving.getAllServices();
-            return services;
+            const result = await this.serving.getAllServices(offset, limit);
+            return result.services;
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

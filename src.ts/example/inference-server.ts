@@ -60,7 +60,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                 ? body.messages.map((m: any) => m.content).join('\n')
                 : ''
         )
-        
+
         body.model = model
         if (stream) {
             body.stream = true
@@ -70,7 +70,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                 body
             )} and headers: ${JSON.stringify(headers)}`
         )
-        
+
         // Use fetch to get raw response for transparent proxying
         const response = await fetch(`${endpoint}/chat/completions`, {
             method: 'POST',
@@ -88,9 +88,11 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         async (req: any, res: any): Promise<void> => {
             const body = req.body
             const stream = body.stream === true || body.stream === 'true'
-            logger.debug(`Received chat/completions request: ${JSON.stringify(
-                body
-            )}, stream: ${stream}`)
+            logger.debug(
+                `Received chat/completions request: ${JSON.stringify(
+                    body
+                )}, stream: ${stream}`
+            )
             if (!Array.isArray(body.messages) || body.messages.length === 0) {
                 res.status(400).json({
                     error: 'Missing or invalid messages in request body',
@@ -103,7 +105,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                     res.setHeader('Content-Type', 'text/event-stream')
                     res.setHeader('Cache-Control', 'no-cache')
                     res.setHeader('Connection', 'keep-alive')
-                    
+
                     if (result.body) {
                         let rawBody = ''
                         const decoder = new TextDecoder()
@@ -117,7 +119,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                             })
                         }
                         res.end()
-                        
+
                         // Parse rawBody to extract usage information for fee calculation
                         let usage: any = null
                         for (const line of rawBody.split('\n')) {
@@ -134,18 +136,24 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                                 }
                             } catch {}
                         }
-                        
+
                         // Process the usage information for fee calculation
                         if (usage) {
                             try {
-                                logger.debug('Processing streaming response usage for fee calculation:', usage)
+                                logger.debug(
+                                    'Processing streaming response usage for fee calculation:',
+                                    usage
+                                )
                                 await broker.inference.processResponse(
                                     providerAddress,
                                     undefined, // chatID is undefined for non-verifiable responses
                                     JSON.stringify(usage) // Pass usage as JSON string
                                 )
                             } catch (processErr: any) {
-                                logger.warn('Failed to process streaming response for fee calculation:', processErr.message)
+                                logger.warn(
+                                    'Failed to process streaming response for fee calculation:',
+                                    processErr.message
+                                )
                             }
                         }
                     } else {
@@ -188,62 +196,77 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         '/v1/audio/transcriptions',
         async (req: any, res: any): Promise<void> => {
             logger.debug(`Received audio/transcriptions request`)
-            
+
             try {
                 // Get headers for authentication
                 const headers = await broker.inference.getRequestHeaders(
                     providerAddress,
                     'audio transcription request'
                 )
-                
+
                 // Parse the multipart boundary from content-type
                 const contentType = req.headers['content-type']
                 const boundary = contentType?.split('boundary=')[1]
-                
+
                 // Collect the raw body from the request
                 const chunks: any[] = []
                 for await (const chunk of req) {
                     chunks.push(chunk)
                 }
                 let rawBody = Buffer.concat(chunks)
-                
+
                 // Check if model is in the request body (handle both binary and text parts)
-                const bodyStr = rawBody.toString('latin1')  // Use latin1 to preserve binary data
+                const bodyStr = rawBody.toString('latin1') // Use latin1 to preserve binary data
                 if (!bodyStr.includes('name="model"')) {
                     // Add model field before the final boundary
-                    const modelField = Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`, 'utf-8')
-                    const finalBoundary = Buffer.from(`\r\n--${boundary}--`, 'utf-8')
-                    
+                    const modelField = Buffer.from(
+                        `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`,
+                        'utf-8'
+                    )
+                    const finalBoundary = Buffer.from(
+                        `\r\n--${boundary}--`,
+                        'utf-8'
+                    )
+
                     // Find the position of final boundary
                     const finalBoundaryIndex = rawBody.indexOf(finalBoundary)
                     if (finalBoundaryIndex !== -1) {
                         // Insert model field before final boundary
                         const beforeFinal = rawBody.slice(0, finalBoundaryIndex)
-                        const newBody = Buffer.concat([beforeFinal, modelField, finalBoundary])
+                        const newBody = Buffer.concat([
+                            beforeFinal,
+                            modelField,
+                            finalBoundary,
+                        ])
                         rawBody = newBody
                     }
                 }
-                
+
                 // Forward the entire request to the provider
-                const response = await fetch(`${endpoint}/audio/transcriptions`, {
-                    method: 'POST',
-                    headers: {
-                        ...headers,
-                        // Forward content-type from original request
-                        'content-type': contentType,
-                        'content-length': String(rawBody.length),
-                    },
-                    body: rawBody,
-                })
-                
+                const response = await fetch(
+                    `${endpoint}/audio/transcriptions`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            // Forward content-type from original request
+                            'content-type': contentType,
+                            'content-length': String(rawBody.length),
+                        },
+                        body: rawBody,
+                    }
+                )
+
                 // Check if it's a streaming response
-                const isStreaming = response.headers.get('content-type')?.includes('text/event-stream')
-                
+                const isStreaming = response.headers
+                    .get('content-type')
+                    ?.includes('text/event-stream')
+
                 if (isStreaming) {
                     res.setHeader('Content-Type', 'text/event-stream')
                     res.setHeader('Cache-Control', 'no-cache')
                     res.setHeader('Connection', 'keep-alive')
-                    
+
                     if (response.body) {
                         let rawBody = ''
                         const decoder = new TextDecoder()
@@ -257,7 +280,7 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                             })
                         }
                         res.end()
-                        
+
                         // Parse rawBody to extract usage information for fee calculation
                         let usage: any = null
                         for (const line of rawBody.split('\n')) {
@@ -274,18 +297,24 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                                 }
                             } catch {}
                         }
-                        
+
                         // Process the usage information for fee calculation
                         if (usage) {
                             try {
-                                logger.debug('Processing audio streaming response usage for fee calculation:', usage)
+                                logger.debug(
+                                    'Processing audio streaming response usage for fee calculation:',
+                                    usage
+                                )
                                 await broker.inference.processResponse(
                                     providerAddress,
                                     undefined, // chatID is undefined for non-verifiable responses
                                     JSON.stringify(usage) // Pass usage as JSON string
                                 )
                             } catch (processErr: any) {
-                                logger.warn('Failed to process audio streaming response for fee calculation:', processErr.message)
+                                logger.warn(
+                                    'Failed to process audio streaming response for fee calculation:',
+                                    processErr.message
+                                )
                             }
                         }
                     } else {
@@ -328,8 +357,10 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         '/v1/images/generations',
         async (req: any, res: any): Promise<void> => {
             const body = req.body
-            logger.debug(`Received images/generations request: ${JSON.stringify(body)}`)
-            
+            logger.debug(
+                `Received images/generations request: ${JSON.stringify(body)}`
+            )
+
             if (!body.prompt) {
                 res.status(400).json({
                     error: 'Missing prompt in request body',
@@ -342,18 +373,20 @@ export async function runInferenceServer(options: InferenceServerOptions) {
                     providerAddress,
                     JSON.stringify(body)
                 )
-                
+
                 // Add model to the request body if not present
                 const requestBody = {
                     model: model,
                     prompt: body.prompt,
-                    size: body.size || "512x512",
+                    size: body.size || '512x512',
                     n: body.n || 1,
-                    ...body
+                    ...body,
                 }
-                
+
                 logger.debug(
-                    `Proxying to ${endpoint}/images/generations with body: ${JSON.stringify(requestBody)} and headers: ${JSON.stringify(headers)}`
+                    `Proxying to ${endpoint}/images/generations with body: ${JSON.stringify(
+                        requestBody
+                    )} and headers: ${JSON.stringify(headers)}`
                 )
 
                 const result = await fetch(`${endpoint}/images/generations`, {

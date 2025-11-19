@@ -98,29 +98,39 @@ async function serveStaticExport(
     // Handle Next.js static export routing with optimal file serving
     app.use((req: any, res: any, next: any) => {
         // Skip if it's a static asset request (JS, CSS, images, etc.)
-        if (req.path.startsWith('/_next/') || 
-            req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|txt)$/)) {
+        if (
+            req.path.startsWith('/_next/') ||
+            req.path.match(
+                /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|txt)$/
+            )
+        ) {
             next()
             return
         }
 
         // Normalize the path and look for corresponding HTML file
         let htmlPath = req.path
-        
+
         // Handle root path
         if (htmlPath === '/') {
             htmlPath = 'index.html'
         } else {
             // Remove trailing slash if present
             htmlPath = htmlPath.replace(/\/$/, '')
-            
+
             // Check if direct HTML file exists (e.g., /inference -> inference.html)
-            const directFile = path.join(staticPath, htmlPath.substring(1) + '.html')
+            const directFile = path.join(
+                staticPath,
+                htmlPath.substring(1) + '.html'
+            )
             if (existsSync(directFile)) {
                 htmlPath = htmlPath.substring(1) + '.html'
             } else {
                 // Check if nested HTML file exists (e.g., /inference/chat -> inference/chat.html)
-                const nestedFile = path.join(staticPath, htmlPath.substring(1) + '.html')
+                const nestedFile = path.join(
+                    staticPath,
+                    htmlPath.substring(1) + '.html'
+                )
                 if (existsSync(nestedFile)) {
                     htmlPath = htmlPath.substring(1) + '.html'
                 } else {
@@ -134,26 +144,29 @@ async function serveStaticExport(
         if (existsSync(fullPath)) {
             // Get file stats for better caching
             const stat = statSync(fullPath)
-            
+
             // Set proper headers
             res.setHeader('Content-Type', 'text/html; charset=utf-8')
             res.setHeader('Content-Length', stat.size.toString())
-            
+
             // For HTML files, prevent caching to ensure fresh content
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            res.setHeader(
+                'Cache-Control',
+                'no-cache, no-store, must-revalidate'
+            )
             res.setHeader('Pragma', 'no-cache')
             res.setHeader('Expires', '0')
-            
+
             // Use stream for better memory efficiency
             const stream = createReadStream(fullPath)
-            
+
             stream.on('error', (err) => {
                 console.error(`Error reading file: ${err}`)
                 if (!res.headersSent) {
                     res.status(500).send('Internal server error')
                 }
             })
-            
+
             stream.pipe(res)
         } else {
             res.status(404).send('Page not found')
@@ -169,7 +182,11 @@ async function serveStaticExport(
             index: false, // Disable index.html serving to prevent conflicts
             setHeaders: (res: any, filePath: string) => {
                 // Set proper cache headers for static assets
-                if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+                if (
+                    filePath.match(
+                        /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/
+                    )
+                ) {
                     res.setHeader('Cache-Control', 'public, max-age=31536000') // 1 year
                 }
             },

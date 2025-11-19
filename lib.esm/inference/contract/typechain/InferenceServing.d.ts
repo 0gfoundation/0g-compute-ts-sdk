@@ -140,8 +140,10 @@ export type TEESettlementDataStructOutput = [
     signature: string;
 };
 export interface InferenceServingInterface extends Interface {
-    getFunction(nameOrSignature: 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult'): EventFragment;
+    encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'accountExists', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESigner', values: [AddressLike, boolean]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESignerByOwner', values: [AddressLike]): string;
@@ -153,7 +155,7 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'getAccountsByProvider', values: [AddressLike, BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getAccountsByUser', values: [AddressLike, BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getAllAccounts', values: [BigNumberish, BigNumberish]): string;
-    encodeFunctionData(functionFragment: 'getAllServices', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'getAllServices', values: [BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getBatchAccountsByUsers', values: [AddressLike[]]): string;
     encodeFunctionData(functionFragment: 'getPendingRefund', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'getService', values: [AddressLike]): string;
@@ -172,6 +174,8 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'updateLockTime', values: [BigNumberish]): string;
+    decodeFunctionResult(functionFragment: 'MAX_LOCKTIME', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_LOCKTIME', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'accountExists', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESigner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESignerByOwner', data: BytesLike): Result;
@@ -386,6 +390,8 @@ export interface InferenceServing extends BaseContract {
     listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
     listeners(eventName?: string): Promise<Array<Listener>>;
     removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    MAX_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
+    MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
     accountExists: TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -472,7 +478,18 @@ export interface InferenceServing extends BaseContract {
             total: bigint;
         }
     ], 'view'>;
-    getAllServices: TypedContractMethod<[], [ServiceStructOutput[]], 'view'>;
+    getAllServices: TypedContractMethod<[
+        offset: BigNumberish,
+        limit: BigNumberish
+    ], [
+        [
+            ServiceStructOutput[],
+            bigint
+        ] & {
+            services: ServiceStructOutput[];
+            total: bigint;
+        }
+    ], 'view'>;
     getBatchAccountsByUsers: TypedContractMethod<[
         users: AddressLike[]
     ], [
@@ -573,6 +590,8 @@ export interface InferenceServing extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'accountExists'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -651,7 +670,18 @@ export interface InferenceServing extends BaseContract {
             total: bigint;
         }
     ], 'view'>;
-    getFunction(nameOrSignature: 'getAllServices'): TypedContractMethod<[], [ServiceStructOutput[]], 'view'>;
+    getFunction(nameOrSignature: 'getAllServices'): TypedContractMethod<[
+        offset: BigNumberish,
+        limit: BigNumberish
+    ], [
+        [
+            ServiceStructOutput[],
+            bigint
+        ] & {
+            services: ServiceStructOutput[];
+            total: bigint;
+        }
+    ], 'view'>;
     getFunction(nameOrSignature: 'getBatchAccountsByUsers'): TypedContractMethod<[
         users: AddressLike[]
     ], [

@@ -30,10 +30,7 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
         try {
             const extractor = await this.getExtractor(providerAddress)
             if (content) {
-                const fee = await this.calculateFee(
-                    extractor,
-                    content
-                )
+                const fee = await this.calculateFee(extractor, content)
                 logger.debug(`Calculated fee: ${fee.toString()}`)
                 await this.updateCachedFee(providerAddress, fee)
             }
@@ -100,6 +97,4 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
             throwFormattedError(error)
         }
     }
-
- 
 }

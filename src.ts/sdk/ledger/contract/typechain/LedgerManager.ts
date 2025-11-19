@@ -76,7 +76,9 @@ export type LedgerStructOutput = [
 export interface LedgerManagerInterface extends Interface {
     getFunction(
         nameOrSignature:
+            | 'MAX_ADDITIONAL_INFO_LENGTH'
             | 'MAX_PROVIDERS_PER_BATCH'
+            | 'MAX_SERVICES'
             | 'addLedger'
             | 'deleteLedger'
             | 'depositFund'
@@ -111,7 +113,15 @@ export interface LedgerManagerInterface extends Interface {
     ): EventFragment
 
     encodeFunctionData(
+        functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH',
+        values?: undefined
+    ): string
+    encodeFunctionData(
         functionFragment: 'MAX_PROVIDERS_PER_BATCH',
+        values?: undefined
+    ): string
+    encodeFunctionData(
+        functionFragment: 'MAX_SERVICES',
         values?: undefined
     ): string
     encodeFunctionData(functionFragment: 'addLedger', values: [string]): string
@@ -206,7 +216,15 @@ export interface LedgerManagerInterface extends Interface {
     ): string
 
     decodeFunctionResult(
+        functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
         functionFragment: 'MAX_PROVIDERS_PER_BATCH',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'MAX_SERVICES',
         data: BytesLike
     ): Result
     decodeFunctionResult(functionFragment: 'addLedger', data: BytesLike): Result
@@ -395,7 +413,11 @@ export interface LedgerManager extends BaseContract {
         event?: TCEvent
     ): Promise<this>
 
+    MAX_ADDITIONAL_INFO_LENGTH: TypedContractMethod<[], [bigint], 'view'>
+
     MAX_PROVIDERS_PER_BATCH: TypedContractMethod<[], [bigint], 'view'>
+
+    MAX_SERVICES: TypedContractMethod<[], [bigint], 'view'>
 
     addLedger: TypedContractMethod<
         [additionalInfo: string],
@@ -500,7 +522,7 @@ export interface LedgerManager extends BaseContract {
     renounceOwnership: TypedContractMethod<[], [void], 'nonpayable'>
 
     retrieveFund: TypedContractMethod<
-        [providers: AddressLike[], serviceType: string],
+        [providers: AddressLike[], serviceName: string],
         [void],
         'nonpayable'
     >
@@ -534,7 +556,13 @@ export interface LedgerManager extends BaseContract {
     ): T
 
     getFunction(
+        nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
         nameOrSignature: 'MAX_PROVIDERS_PER_BATCH'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'MAX_SERVICES'
     ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
         nameOrSignature: 'addLedger'
@@ -640,7 +668,7 @@ export interface LedgerManager extends BaseContract {
     getFunction(
         nameOrSignature: 'retrieveFund'
     ): TypedContractMethod<
-        [providers: AddressLike[], serviceType: string],
+        [providers: AddressLike[], serviceName: string],
         [void],
         'nonpayable'
     >

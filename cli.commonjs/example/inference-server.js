@@ -166,7 +166,11 @@ async function runInferenceServer(options) {
                 if (finalBoundaryIndex !== -1) {
                     // Insert model field before final boundary
                     const beforeFinal = rawBody.slice(0, finalBoundaryIndex);
-                    const newBody = Buffer.concat([beforeFinal, modelField, finalBoundary]);
+                    const newBody = Buffer.concat([
+                        beforeFinal,
+                        modelField,
+                        finalBoundary,
+                    ]);
                     rawBody = newBody;
                 }
             }
@@ -182,7 +186,9 @@ async function runInferenceServer(options) {
                 body: rawBody,
             });
             // Check if it's a streaming response
-            const isStreaming = response.headers.get('content-type')?.includes('text/event-stream');
+            const isStreaming = response.headers
+                .get('content-type')
+                ?.includes('text/event-stream');
             if (isStreaming) {
                 res.setHeader('Content-Type', 'text/event-stream');
                 res.setHeader('Cache-Control', 'no-cache');
@@ -275,9 +281,9 @@ async function runInferenceServer(options) {
             const requestBody = {
                 model: model,
                 prompt: body.prompt,
-                size: body.size || "512x512",
+                size: body.size || '512x512',
                 n: body.n || 1,
-                ...body
+                ...body,
             };
             logger_1.logger.debug(`Proxying to ${endpoint}/images/generations with body: ${JSON.stringify(requestBody)} and headers: ${JSON.stringify(headers)}`);
             const result = await fetch(`${endpoint}/images/generations`, {
