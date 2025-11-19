@@ -7,7 +7,7 @@ export declare enum VerifiabilityEnum {
 }
 export type Verifiability = VerifiabilityEnum.OpML | VerifiabilityEnum.TeeML | VerifiabilityEnum.ZKML;
 export declare class ModelProcessor extends ZGServingUserBrokerBase {
-    listService(): Promise<ServiceStructOutput[]>;
+    listService(offset?: number, limit?: number): Promise<ServiceStructOutput[]>;
 }
 export declare function isVerifiability(value: string): value is Verifiability;
 //# sourceMappingURL=model.d.ts.map
