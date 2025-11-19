@@ -76,12 +76,14 @@ export class InferenceBroker {
     /**
      * Retrieves a list of services from the contract.
      *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    public listService = async () => {
+    public listService = async (offset: number = 0, limit: number = 50) => {
         try {
-            return await this.modelProcessor.listService()
+            return await this.modelProcessor.listService(offset, limit)
         } catch (error) {
             throwFormattedError(error)
         }

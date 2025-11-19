@@ -21,10 +21,12 @@ export declare class InferenceBroker {
     /**
      * Retrieves a list of services from the contract.
      *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    listService: () => Promise<import("../contract").ServiceStructOutput[]>;
+    listService: (offset?: number, limit?: number) => Promise<import("../contract").ServiceStructOutput[]>;
     /**
      * Retrieves the account information for a given provider address.
      *

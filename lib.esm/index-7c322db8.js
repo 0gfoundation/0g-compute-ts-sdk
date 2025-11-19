@@ -13496,6 +13496,7 @@ class InferenceServingContract {
     async listService(offset = 0, limit = 50) {
         try {
             const result = await this.serving.getAllServices(offset, limit);
+            console.log('Listed services:', result);
             return result.services;
         }
         catch (error) {
@@ -13872,9 +13873,9 @@ var VerifiabilityEnum;
     VerifiabilityEnum["ZKML"] = "ZKML";
 })(VerifiabilityEnum || (VerifiabilityEnum = {}));
 let ModelProcessor$1 = class ModelProcessor extends ZGServingUserBrokerBase {
-    async listService() {
+    async listService(offset = 0, limit = 50) {
         try {
-            const services = await this.contract.listService();
+            const services = await this.contract.listService(offset, limit);
             return services;
         }
         catch (error) {
@@ -14545,12 +14546,14 @@ class InferenceBroker {
     /**
      * Retrieves a list of services from the contract.
      *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    listService = async () => {
+    listService = async (offset = 0, limit = 50) => {
         try {
-            return await this.modelProcessor.listService();
+            return await this.modelProcessor.listService(offset, limit);
         }
         catch (error) {
             throwFormattedError(error);
@@ -15176,7 +15179,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-411c9e7e.js');
+    const { download } = await import('./index-de371211.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -20537,4 +20540,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-e8ddb769.js.map
+//# sourceMappingURL=index-7c322db8.js.map

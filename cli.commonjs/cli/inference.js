@@ -64,6 +64,7 @@ function inference(program) {
             colWidths: [50, 50],
         });
         (0, util_1.withBroker)(options, async (broker) => {
+            // TODO: Support pagination for listing services
             let services = await broker.inference.listService();
             if (!options.includeInvalid) {
                 services = services.filter((service) => service.teeSignerAcknowledged);
@@ -559,6 +560,7 @@ function inference(program) {
                 const secret = Buffer.from(rawData, 'utf8').toString('base64');
                 const bearerToken = `app-sk-${secret}`;
                 // Get service metadata to determine service type
+                // TODO: Support pagination for listing services
                 const services = await broker.inference.listService();
                 const service = services.find((s) => s.provider.toLowerCase() ===
                     options.provider.toLowerCase());

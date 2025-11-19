@@ -70,6 +70,7 @@ export default function inference(program: Command) {
                 colWidths: [50, 50],
             })
             withBroker(options, async (broker) => {
+                // TODO: Support pagination for listing services
                 let services = await broker.inference.listService()
                 if (!options.includeInvalid) {
                     services = services.filter(
@@ -777,6 +778,7 @@ export default function inference(program: Command) {
                     const bearerToken = `app-sk-${secret}`
 
                     // Get service metadata to determine service type
+                    // TODO: Support pagination for listing services
                     const services = await broker.inference.listService()
                     const service = services.find(
                         (s) =>
