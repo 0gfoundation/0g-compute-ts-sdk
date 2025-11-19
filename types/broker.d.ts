@@ -8,13 +8,13 @@ export declare const MAINNET_CHAIN_ID = 16661n;
 export declare const HARDHAT_CHAIN_ID = 31337n;
 export declare const CONTRACT_ADDRESSES: {
     readonly testnet: {
-        readonly ledger: "0x327025B6435424735a3d97c4b1671FeFF0E8879B";
-        readonly inference: "0xa58e5220A5cF61768c7A5dBFC34a2377829240be";
-        readonly fineTuning: "0x434cAbDedef8eBB760e7e583E419BFD5537A8B8a";
+        readonly ledger: "0xE70830508dAc0A97e6c087c75f402f9Be669E406";
+        readonly inference: "0xa79F4c8311FF93C06b8CfB403690cc987c93F91E";
+        readonly fineTuning: "0xaC66eBd174435c04F1449BBa08157a707B6fa7b1";
     };
     readonly mainnet: {
-        readonly ledger: "0x1C4450Dc74504e585571B4aF70451C0737F10b71";
-        readonly inference: "0x0754221A9f2C11D820F827170249c3cc5cC3DC74";
+        readonly ledger: "0x2dE54c845Cd948B72D2e32e39586fe89607074E3";
+        readonly inference: "0x47340d900bdFec2BD393c626E12ea0656F938d84";
         readonly fineTuning: "0x0000000000000000000000000000000000000000";
     };
     readonly hardhat: {

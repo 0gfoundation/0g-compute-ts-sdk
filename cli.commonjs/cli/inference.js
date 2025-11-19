@@ -560,7 +560,8 @@ function inference(program) {
                 const bearerToken = `app-sk-${secret}`;
                 // Get service metadata to determine service type
                 const services = await broker.inference.listService();
-                const service = services.find(s => s.provider.toLowerCase() === options.provider.toLowerCase());
+                const service = services.find((s) => s.provider.toLowerCase() ===
+                    options.provider.toLowerCase());
                 if (!service) {
                     throw new Error(`Service not found for provider: ${options.provider}`);
                 }
@@ -575,7 +576,7 @@ function inference(program) {
                     console.log(chalk_1.default.green('✓ Secret generated successfully!'));
                     console.log(chalk_1.default.gray(`Provider: ${options.provider}`));
                     console.log(chalk_1.default.gray(`Service Type: ${serviceType}`));
-                    console.log(chalk_1.default.gray(`Duration: ${duration}ms (${Math.round(duration / 1000 / 60 / 60 * 100) / 100} hours)`));
+                    console.log(chalk_1.default.gray(`Duration: ${duration}ms (${Math.round((duration / 1000 / 60 / 60) * 100) / 100} hours)`));
                     console.log(chalk_1.default.gray(`Secret length: ${secret.length} characters`));
                     console.log(chalk_1.default.gray(`Base64 verification: ${isValid ? 'PASS' : 'FAIL'}`));
                     console.log();

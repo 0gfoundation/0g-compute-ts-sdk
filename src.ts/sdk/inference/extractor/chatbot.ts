@@ -19,12 +19,15 @@ export class ChatBot extends Extractor {
         if (!content) {
             return 0
         }
-        
+
         try {
             const usage = JSON.parse(content)
             // We only care about prompt_tokens from the usage object
             if (usage && usage.prompt_tokens !== undefined) {
-                const tokens = typeof usage.prompt_tokens === 'string' ? parseInt(usage.prompt_tokens, 10) : usage.prompt_tokens
+                const tokens =
+                    typeof usage.prompt_tokens === 'string'
+                        ? parseInt(usage.prompt_tokens, 10)
+                        : usage.prompt_tokens
                 return typeof tokens === 'number' && !isNaN(tokens) ? tokens : 0
             }
             return 0
@@ -40,12 +43,15 @@ export class ChatBot extends Extractor {
         if (!content) {
             return 0
         }
-        
+
         try {
             const usage = JSON.parse(content)
             // We only care about completion_tokens from the usage object
             if (usage && usage.completion_tokens !== undefined) {
-                const tokens = typeof usage.completion_tokens === 'string' ? parseInt(usage.completion_tokens, 10) : usage.completion_tokens
+                const tokens =
+                    typeof usage.completion_tokens === 'string'
+                        ? parseInt(usage.completion_tokens, 10)
+                        : usage.completion_tokens
                 return typeof tokens === 'number' && !isNaN(tokens) ? tokens : 0
             }
             return 0

@@ -20,7 +20,9 @@ class TextToImage extends extractor_1.Extractor {
             const payload = JSON.parse(content);
             // Extract 'n' (number of images) from the payload
             if (payload && payload.n !== undefined) {
-                const n = typeof payload.n === 'string' ? parseInt(payload.n, 10) : payload.n;
+                const n = typeof payload.n === 'string'
+                    ? parseInt(payload.n, 10)
+                    : payload.n;
                 return typeof n === 'number' && !isNaN(n) ? n : 1;
             }
             return 1; // Default to 1 if 'n' is not specified

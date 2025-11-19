@@ -55,7 +55,6 @@ export const CacheKeyHelpers = {
         return `${provider}${CACHE_KEY_PREFIXES.CACHED_FEE}`
     },
 
-
     getCheckBalanceKey(provider: string): string {
         return `${provider}${CACHE_KEY_PREFIXES.CHECK_BALANCE}`
     },
