@@ -190,6 +190,18 @@ class LedgerManagerContract {
             (0, utils_1.throwFormattedError)(error);
         }
     }
+    async depositFundFor(recipient, amount, gasPrice) {
+        try {
+            const txOptions = { value: amount };
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('depositFundFor', [recipient], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
     getUserAddress() {
         return this._userAddress;
     }

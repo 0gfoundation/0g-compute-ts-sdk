@@ -30,6 +30,17 @@ export declare class LedgerProcessor {
     deleteLedger(gasPrice?: number): Promise<void>;
     depositFund(balance: number, gasPrice?: number): Promise<void>;
     refund(balance: number, gasPrice?: number): Promise<void>;
+    /**
+     * Deposits a specified amount of funds into Ledger for a specific recipient address.
+     *
+     * @param {AddressLike} recipient - The address to deposit funds for.
+     * @param {number} balance - The amount of funds to be deposited. Units are in 0G.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @throws  An error if the deposit fails.
+     */
+    depositFundFor(recipient: AddressLike, balance: number, gasPrice?: number): Promise<void>;
     transferFund(to: AddressLike, serviceTypeStr: 'inference' | 'fine-tuning', balance: bigint, gasPrice?: number): Promise<void>;
     retrieveFund(serviceTypeStr: 'inference' | 'fine-tuning', gasPrice?: number): Promise<void>;
     protected a0giToNeuron(value: number): bigint;

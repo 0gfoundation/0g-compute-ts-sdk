@@ -146,6 +146,24 @@ class LedgerBroker {
         }
     };
     /**
+     * Deposits a specified amount of funds into Ledger for a specific recipient address.
+     *
+     * @param {AddressLike} recipient - The address to deposit funds for.
+     * @param {number} amount - The amount of funds to be deposited. Units are in 0G.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @throws  An error if the deposit fails.
+     */
+    depositFundFor = async (recipient, amount, gasPrice) => {
+        try {
+            return await this.ledger.depositFundFor(recipient, amount, gasPrice);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
+    /**
      * Transfers a specified amount of funds to a provider for a given service type.
      *
      * @param provider - The address of the provider to whom the funds are being transferred.

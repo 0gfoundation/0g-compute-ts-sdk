@@ -19,6 +19,7 @@ export declare class LedgerManagerContract {
     transferFund(provider: AddressLike, serviceName: string, amount: BigNumberish, gasPrice?: number): Promise<void>;
     retrieveFund(providers: AddressLike[], serviceName: string, gasPrice?: number): Promise<void>;
     deleteLedger(gasPrice?: number): Promise<void>;
+    depositFundFor(recipient: AddressLike, amount: string, gasPrice?: number): Promise<void>;
     getUserAddress(): string;
     checkReceipt(receipt: ContractTransactionReceipt | null): void;
 }

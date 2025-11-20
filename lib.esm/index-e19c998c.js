@@ -15178,7 +15178,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-30ff5bfd.js');
+    const { download } = await import('./index-b987cf3e.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -19942,6 +19942,25 @@ class LedgerProcessor {
             throwFormattedError(error);
         }
     }
+    /**
+     * Deposits a specified amount of funds into Ledger for a specific recipient address.
+     *
+     * @param {AddressLike} recipient - The address to deposit funds for.
+     * @param {number} balance - The amount of funds to be deposited. Units are in 0G.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @throws  An error if the deposit fails.
+     */
+    async depositFundFor(recipient, balance, gasPrice) {
+        try {
+            const amount = this.a0giToNeuron(balance).toString();
+            await this.ledgerContract.depositFundFor(recipient, amount, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
     async transferFund(to, serviceTypeStr, balance, gasPrice) {
         try {
             const amount = balance.toString();
@@ -20201,6 +20220,18 @@ class LedgerManagerContract {
             throwFormattedError(error);
         }
     }
+    async depositFundFor(recipient, amount, gasPrice) {
+        try {
+            const txOptions = { value: amount };
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('depositFundFor', [recipient], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
     getUserAddress() {
         return this._userAddress;
     }
@@ -20345,6 +20376,24 @@ class LedgerBroker {
     refund = async (amount, gasPrice) => {
         try {
             return await this.ledger.refund(amount, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Deposits a specified amount of funds into Ledger for a specific recipient address.
+     *
+     * @param {AddressLike} recipient - The address to deposit funds for.
+     * @param {number} amount - The amount of funds to be deposited. Units are in 0G.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @throws  An error if the deposit fails.
+     */
+    depositFundFor = async (recipient, amount, gasPrice) => {
+        try {
+            return await this.ledger.depositFundFor(recipient, amount, gasPrice);
         }
         catch (error) {
             throwFormattedError(error);
@@ -20539,4 +20588,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-947b62b2.js.map
+//# sourceMappingURL=index-e19c998c.js.map
