@@ -266,6 +266,22 @@ export class LedgerManagerContract {
         }
     }
 
+    async depositFundFor(
+        recipient: AddressLike,
+        amount: string,
+        gasPrice?: number
+    ) {
+        try {
+            const txOptions: any = { value: amount }
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+            await this.sendTx('depositFundFor', [recipient], txOptions)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
     getUserAddress(): string {
         return this._userAddress
     }

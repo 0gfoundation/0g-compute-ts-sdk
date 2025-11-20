@@ -165,6 +165,25 @@ export class LedgerProcessor {
         }
     }
 
+    /**
+     * Deposits a specified amount of funds into Ledger for a specific recipient address.
+     *
+     * @param {AddressLike} recipient - The address to deposit funds for.
+     * @param {number} balance - The amount of funds to be deposited. Units are in 0G.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @throws  An error if the deposit fails.
+     */
+    async depositFundFor(recipient: AddressLike, balance: number, gasPrice?: number) {
+        try {
+            const amount = this.a0giToNeuron(balance).toString()
+            await this.ledgerContract.depositFundFor(recipient, amount, gasPrice)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
     async transferFund(
         to: AddressLike,
         serviceTypeStr: 'inference' | 'fine-tuning',
