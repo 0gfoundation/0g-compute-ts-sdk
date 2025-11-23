@@ -121,25 +121,6 @@ export function OptimizedChatPage() {
     messagesEndRef,
   });
 
-  // Handle provider change - clear current session to start fresh
-  const previousProviderRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (selectedProvider?.address && 
-        previousProviderRef.current !== undefined && 
-        previousProviderRef.current !== selectedProvider.address) {
-      // Only clear when we actually switch providers, not on initial load
-      setMessages([
-        {
-          role: "system",
-          content: "You are a helpful assistant that provides accurate information.",
-          timestamp: Date.now(),
-        },
-      ]);
-    }
-    previousProviderRef.current = selectedProvider?.address;
-  }, [selectedProvider?.address]);
-
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
