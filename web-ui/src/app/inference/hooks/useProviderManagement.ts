@@ -98,30 +98,35 @@ export function useProviderManagement(
                     const transformedProviders =
                         transformBrokerServicesToProviders(services)
 
-                    setProviders(transformedProviders)
+                    // Filter to only show chatbot providers (chat page only supports chatbot type)
+                    const chatbotProviders = transformedProviders.filter(
+                        (p) => p.serviceType === 'chatbot'
+                    )
+
+                    setProviders(chatbotProviders)
 
                     // Check for provider parameter from URL
                     const providerParam = searchParams.get('provider')
 
                     if (providerParam && !selectedProvider) {
-                        // Try to find the provider by address
-                        const targetProvider = transformedProviders.find(
+                        // Try to find the provider by address (only from chatbot providers)
+                        const targetProvider = chatbotProviders.find(
                             (p) =>
                                 p.address.toLowerCase() ===
                                 providerParam.toLowerCase()
                         )
                         if (targetProvider) {
                             setSelectedProvider(targetProvider)
-                        } else if (transformedProviders.length > 0) {
-                            // Fallback to first provider if specified provider not found
-                            setSelectedProvider(transformedProviders[0])
+                        } else if (chatbotProviders.length > 0) {
+                            // Fallback to first chatbot provider if specified provider not found
+                            setSelectedProvider(chatbotProviders[0])
                         }
                     } else if (
                         !selectedProvider &&
-                        transformedProviders.length > 0
+                        chatbotProviders.length > 0
                     ) {
-                        // Set the first provider as selected if none is selected
-                        setSelectedProvider(transformedProviders[0])
+                        // Set the first chatbot provider as selected if none is selected
+                        setSelectedProvider(chatbotProviders[0])
                     }
                 } catch (err: unknown) {
                     console.log('Failed to fetch providers from broker:', err)
