@@ -1,0 +1,18 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/inference",
+      "destination": "/inference.html"
+    },
+    {
+      "source": "/wallet",
+      "destination": "/wallet.html"
+    },
+    {
+      "source": "/fine-tuning",
+      "destination": "/fine-tuning.html"
+    }
+  ]
+}
