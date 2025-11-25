@@ -443,6 +443,23 @@ export class InferenceBroker {
             throwFormattedError(error)
         }
     }
+
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     * Only the provider who registered the service can remove it.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    public removeService = async (gasPrice?: number): Promise<void> => {
+        try {
+            return await this.modelProcessor.removeService(gasPrice)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
 }
 
 /**

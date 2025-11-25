@@ -13881,6 +13881,26 @@ let ModelProcessor$1 = class ModelProcessor extends ZGServingUserBrokerBase {
             throwFormattedError(error);
         }
     }
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    async removeService(gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice) {
+                txOptions.gasPrice = gasPrice;
+            }
+            await this.contract.sendTx('removeService', [], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
 };
 function isVerifiability(value) {
     return Object.values(VerifiabilityEnum).includes(value);
@@ -14842,6 +14862,23 @@ class InferenceBroker {
             throwFormattedError(error);
         }
     };
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     * Only the provider who registered the service can remove it.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    removeService = async (gasPrice) => {
+        try {
+            return await this.modelProcessor.removeService(gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
 }
 /**
  * createInferenceBroker is used to initialize ZGServingUserBroker
@@ -15178,7 +15215,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-b987cf3e.js');
+    const { download } = await import('./index-fc52a12b.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -20588,4 +20625,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-e19c998c.js.map
+//# sourceMappingURL=index-700b4572.js.map

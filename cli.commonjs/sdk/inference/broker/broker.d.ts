@@ -222,6 +222,16 @@ export declare class InferenceBroker {
      * @returns Download link.
      */
     getChatSignatureDownloadLink: (providerAddress: string, chatID: string) => Promise<string>;
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     * Only the provider who registered the service can remove it.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    removeService: (gasPrice?: number) => Promise<void>;
 }
 /**
  * createInferenceBroker is used to initialize ZGServingUserBroker

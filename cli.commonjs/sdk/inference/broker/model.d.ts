@@ -8,6 +8,15 @@ export declare enum VerifiabilityEnum {
 export type Verifiability = VerifiabilityEnum.OpML | VerifiabilityEnum.TeeML | VerifiabilityEnum.ZKML;
 export declare class ModelProcessor extends ZGServingUserBrokerBase {
     listService(offset?: number, limit?: number): Promise<ServiceStructOutput[]>;
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    removeService(gasPrice?: number): Promise<void>;
 }
 export declare function isVerifiability(value: string): value is Verifiability;
 //# sourceMappingURL=model.d.ts.map
