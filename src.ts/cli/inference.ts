@@ -138,6 +138,20 @@ export default function inference(program: Command) {
         })
 
     program
+        .command('remove-service')
+        .description('[For provider] Remove your service from the contract')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+            withBroker(options, async (broker) => {
+                await broker.inference.removeService(options.gasPrice)
+                console.log('Service removed successfully!')
+            })
+        })
+
+    program
         .command('serve')
         .description('Start local inference service')
         .requiredOption('--provider <address>', 'Provider address')
