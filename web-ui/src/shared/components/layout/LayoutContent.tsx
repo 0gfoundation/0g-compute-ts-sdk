@@ -48,9 +48,9 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const { broker, isInitializing, isChainSwitching, error: brokerError } = use0GBroker();
   
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialDeposit, setInitialDeposit] = useState<string>("3");
   
   // Track last checked state to avoid redundant checks (using ref to avoid triggering re-renders)
   const lastCheckedStateRef = useRef<{
@@ -76,7 +76,6 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
       // Chain is switching - immediately hide modals and set switching state
       setIsLocalChainSwitching(true);
       setShowDepositModal(false);
-      setShowTopUpModal(false);
       
       // Clear last checked state
       lastCheckedStateRef.current = null;
@@ -157,7 +156,6 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   useEffect(() => {
     if (!isConnected) {
       setShowDepositModal(false);
-      setShowTopUpModal(false);
       setError(null);
     }
   }, [isConnected]);
@@ -176,19 +174,25 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   useEffect(() => {
     if (isInitializing || isChainSwitching || isLocalChainSwitching) {
       setShowDepositModal(false);
-      setShowTopUpModal(false);
     }
   }, [isInitializing, isChainSwitching, isLocalChainSwitching]);
 
   const handleCreateAccount = async () => {
     if (!broker) return;
-    
+
+    const depositAmount = parseFloat(initialDeposit);
+    if (isNaN(depositAmount) || depositAmount < 3) {
+      setError('Minimum deposit is 3 0G');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      await broker.ledger.addLedger(0);
+      await broker.ledger.addLedger(depositAmount);
       setShowDepositModal(false);
-      setShowTopUpModal(true);
+      // Reset initial deposit for next time
+      setInitialDeposit("3");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create account. Please try again.';
       setError(errorMessage);
@@ -197,31 +201,10 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     }
   };
 
-  const handleDeposit = async (amount: number) => {
-    if (!broker) return;
-    
-    setIsLoading(true);
-    setError(null);
-    try {
-      await broker.ledger.depositFund(amount);
-      setShowTopUpModal(false);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to deposit funds. Please try again.';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSkipDeposit = () => {
-    setShowTopUpModal(false);
-  };
-
   const handleDisconnectWallet = () => {
     disconnect();
     setError(null);
     setShowDepositModal(false);
-    setShowTopUpModal(false);
   };
 
   const handleCopyAddress = async () => {
@@ -287,6 +270,33 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
               </div>
             )}
 
+            {/* Initial Deposit Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Initial Deposit
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="3"
+                  step="0.1"
+                  value={initialDeposit}
+                  onChange={(e) => {
+                    setInitialDeposit(e.target.value);
+                    setError(null);
+                  }}
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="Enter amount (min 3)"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+                  0G
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Minimum deposit: 3 0G
+              </p>
+            </div>
+
             {/* Error Display */}
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -304,7 +314,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
             <button
               onClick={handleCreateAccount}
-              disabled={isLoading}
+              disabled={isLoading || parseFloat(initialDeposit) < 3 || isNaN(parseFloat(initialDeposit))}
               className="w-full px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
               {isLoading ? (
@@ -315,89 +325,13 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
               ) : error ? (
                 "Retry Creating Account"
               ) : (
-                "Create My Account"
+                `Create Account with ${initialDeposit} 0G`
               )}
             </button>
           </div>
         </div>
       )}
 
-      {/* Top-up Modal - Step 2 - only show when broker is fully ready */}
-      {showTopUpModal && !isInitializing && !isChainSwitching && !isLocalChainSwitching && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-80">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Account Created Successfully!
-              </h3>
-              <p className="text-gray-600 text-sm">
-                Would you like to add some funds to your account now?
-              </p>
-            </div>
-
-            {/* Error Display for Top-up */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start">
-                  <svg className="w-5 h-5 text-red-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <h4 className="text-sm font-medium text-red-800 mb-1">Deposit Failed</h4>
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleDeposit(0.1)}
-                  disabled={isLoading}
-                  className="px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoading ? "Adding..." : "0.1 0G"}
-                </button>
-                <button
-                  onClick={() => handleDeposit(1)}
-                  disabled={isLoading}
-                  className="px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoading ? "Adding..." : "1 0G"}
-                </button>
-                <button
-                  onClick={() => handleDeposit(5)}
-                  disabled={isLoading}
-                  className="px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoading ? "Adding..." : "5 0G"}
-                </button>
-                <button
-                  onClick={() => handleDeposit(10)}
-                  disabled={isLoading}
-                  className="px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isLoading ? "Adding..." : "10 0G"}
-                </button>
-              </div>
-              
-              <button
-                onClick={handleSkipDeposit}
-                disabled={isLoading}
-                className="w-full px-4 py-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Skip for Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </NavigationProvider>
   );
 };

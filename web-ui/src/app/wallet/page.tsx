@@ -3,11 +3,12 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useAccount } from 'wagmi';
 import { use0GBroker } from '../../shared/hooks/use0GBroker';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 function LedgerContent() {
   const { isConnected } = useAccount();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const {
     broker,
     isInitializing,
@@ -29,6 +30,7 @@ function LedgerContent() {
   const [showSuccessAlert, setShowSuccessAlert] = useState<{message: string, show: boolean}>({message: '', show: false});
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Handle tab parameter from URL
   useEffect(() => {
@@ -730,117 +732,180 @@ function LedgerContent() {
             )}
 
             {/* Withdraw Modal */}
-            {showWithdrawModal && (
-              <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Withdraw Funds</h2>
-                    <button
-                      onClick={() => {
-                        setShowWithdrawModal(false);
-                        setWithdrawAmount("");
-                        setError(null);
-                      }}
-                      className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+            {showWithdrawModal && (() => {
+              const availableAmount = parseFloat(displayLedgerInfo.availableBalance);
+              const totalAmount = parseFloat(displayLedgerInfo.totalBalance);
+              const lockedAmount = parseFloat(displayLedgerInfo.locked);
+              // Must keep at least 3 0G in total balance, so max withdrawable is limited by both available and total-3
+              const maxWithdrawable = Math.max(0, Math.min(availableAmount, totalAmount - 3));
+              const canDeleteAccount = lockedAmount === 0;
 
-                  <div className="mb-6">
-                    <div className="mb-4">
-                      <label htmlFor="withdraw-amount" className="block text-sm font-medium text-gray-700 mb-2">
-                        Amount to Withdraw
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          id="withdraw-amount"
-                          value={withdrawAmount}
-                          onChange={(e) => setWithdrawAmount(e.target.value)}
-                          placeholder="0.0"
-                          step="0.01"
-                          min="0"
-                          max={displayLedgerInfo.availableBalance}
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-sm">0G</span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Available: {formatNumber(displayLedgerInfo.availableBalance)} 0G
-                      </p>
-                    </div>
-
-                    {error && (
-                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-600">{error}</p>
-                      </div>
-                    )}
-
-                    <div className="flex gap-3">
+              return (
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-semibold text-gray-900">Withdraw Funds</h2>
                       <button
                         onClick={() => {
                           setShowWithdrawModal(false);
                           setWithdrawAmount("");
                           setError(null);
                         }}
-                        className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors cursor-pointer"
+                        className="text-gray-400 hover:text-gray-600 cursor-pointer"
                       >
-                        Cancel
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                       </button>
+                    </div>
+
+                    <div className="mb-6">
+                      <div className="mb-4">
+                        <label htmlFor="withdraw-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Withdraw
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            id="withdraw-amount"
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            placeholder="0.0"
+                            step="0.01"
+                            min="0"
+                            max={maxWithdrawable}
+                            className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500 text-sm">0G</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Available: {formatNumber(displayLedgerInfo.availableBalance)} 0G | Max withdrawable: {formatNumber(maxWithdrawable.toString())} 0G
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          Total balance must remain at least 3 0G
+                        </p>
+                      </div>
+
+                      {error && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-600">{error}</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setShowWithdrawModal(false);
+                            setWithdrawAmount("");
+                            setError(null);
+                          }}
+                          className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!withdrawAmount || !broker) return;
+
+                            const amount = parseFloat(withdrawAmount);
+
+                            if (amount <= 0) {
+                              setError("Amount must be greater than 0");
+                              return;
+                            }
+
+                            if (amount > maxWithdrawable) {
+                              setError("Total balance must remain at least 3 0G");
+                              return;
+                            }
+
+                            setIsAdding(true);
+                            setError(null);
+
+                            try {
+                              if (typeof broker.ledger.refund === 'function') {
+                                await broker.ledger.refund(amount);
+                                setShowWithdrawModal(false);
+                                setWithdrawAmount("");
+                                await refreshLedgerInfo();
+                              } else {
+                                setError('Withdraw functionality is not available yet.');
+                              }
+                            } catch (err: unknown) {
+                              const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw';
+                              setError(errorMessage);
+                            } finally {
+                              setIsAdding(false);
+                            }
+                          }}
+                          disabled={!withdrawAmount || isAdding || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > maxWithdrawable}
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center cursor-pointer"
+                        >
+                          {isAdding && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                          )}
+                          {isAdding ? "Withdrawing..." : "Withdraw"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Delete Account Section */}
+                    <div className="border-t border-gray-200 pt-6">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Delete Account</h3>
+                        <p className="text-xs text-gray-600 mb-3">
+                          Withdraw all funds and close your account. Your account will be automatically deleted when balance reaches zero.
+                        </p>
+                        {!canDeleteAccount && (
+                          <div className="flex items-start p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+                            <svg className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="text-xs text-amber-700">
+                              You have {formatNumber(displayLedgerInfo.locked)} 0G in provider sub-accounts. Please retrieve all funds from providers before deleting your account.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                       <button
                         onClick={async () => {
-                          if (!withdrawAmount || !broker) return;
-                          
-                          const amount = parseFloat(withdrawAmount);
-                          const availableAmount = parseFloat(displayLedgerInfo.availableBalance);
-                          
-                          if (amount <= 0) {
-                            setError("Amount must be greater than 0");
+                          if (!broker || !canDeleteAccount || availableAmount <= 0) return;
+
+                          if (!confirm('Are you sure you want to withdraw all funds and delete your account? This action cannot be undone.')) {
                             return;
                           }
-                          
-                          if (amount > availableAmount) {
-                            setError("Amount cannot exceed available balance");
-                            return;
-                          }
-                          
-                          setIsAdding(true);
+
+                          setIsDeleting(true);
                           setError(null);
-                          
+
                           try {
-                            if (typeof broker.ledger.refund === 'function') {
-                              await broker.ledger.refund(amount);
-                              setShowWithdrawModal(false);
-                              setWithdrawAmount("");
-                              await refreshLedgerInfo();
-                            } else {
-                              setError('Withdraw functionality is not available yet.');
-                            }
+                            // Refund all available balance - account will be auto-deleted when balance reaches 0
+                            await broker.ledger.refund(availableAmount);
+                            setShowWithdrawModal(false);
+                            alert('All funds have been withdrawn and your account has been deleted.');
+                            router.push('/');
                           } catch (err: unknown) {
-                            const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw';
+                            const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw all funds';
                             setError(errorMessage);
-                                          } finally {
-                            setIsAdding(false);
+                          } finally {
+                            setIsDeleting(false);
                           }
                         }}
-                        disabled={!withdrawAmount || isAdding || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > parseFloat(displayLedgerInfo.availableBalance)}
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center cursor-pointer"
+                        disabled={!canDeleteAccount || isDeleting || availableAmount <= 0}
+                        className="w-full px-4 py-3 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer flex items-center justify-center"
                       >
-                        {isAdding && (
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        {isDeleting && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent mr-2"></div>
                         )}
-                        {isAdding ? "Withdrawing..." : "Withdraw"}
+                        {isDeleting ? "Withdrawing All..." : "Withdraw All & Delete Account"}
                       </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
       </div>
     </div>
   );
