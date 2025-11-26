@@ -14,7 +14,7 @@ exports.program = new commander_1.Command();
 exports.program
     .name('0g-compute-cli')
     .description('CLI for interacting with ZG Compute Network')
-    .version('1.0.0-beta.8');
+    .version('0.6.0');
 (0, ledger_1.default)(exports.program);
 // Create subcommands for each service
 const fineTuningCmd = exports.program

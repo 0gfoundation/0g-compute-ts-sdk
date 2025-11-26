@@ -206,7 +206,11 @@ export class LedgerBroker {
      *
      * @throws  An error if the deposit fails.
      */
-    public depositFundFor = async (recipient: AddressLike, amount: number, gasPrice?: number) => {
+    public depositFundFor = async (
+        recipient: AddressLike,
+        amount: number,
+        gasPrice?: number
+    ) => {
         try {
             return await this.ledger.depositFundFor(recipient, amount, gasPrice)
         } catch (error) {
