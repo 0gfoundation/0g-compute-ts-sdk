@@ -14,8 +14,6 @@ interface ProviderManagementState {
     providers: Provider[]
     selectedProvider: Provider | null
     serviceMetadata: ServiceMetadata | null
-    providerAcknowledged: boolean | null
-    isVerifyingProvider: boolean
     providerBalance: number | null
     providerBalanceNeuron: bigint | null
     providerPendingRefund: number | null
@@ -24,18 +22,11 @@ interface ProviderManagementState {
 
 interface ProviderManagementActions {
     setSelectedProvider: (provider: Provider | null) => void
-    verifyProvider: () => Promise<void>
     refreshProviderBalance: () => Promise<void>
 }
 
 export function useProviderManagement(
-    broker: any, // TODO: Replace with proper broker type when available
-    refreshLedgerInfo: () => Promise<void>,
-    showTutorial: boolean,
-    tutorialStep: 'verify' | 'top-up' | null,
-    setShowTutorial: (show: boolean) => void,
-    setTutorialStep: (step: 'verify' | 'top-up' | null) => void,
-    setErrorWithTimeout: (error: string | null) => void
+    broker: any // TODO: Replace with proper broker type when available
 ): ProviderManagementState & ProviderManagementActions {
     const searchParams = useSearchParams()
     const chainId = useChainId()
@@ -47,10 +38,6 @@ export function useProviderManagement(
     )
     const [serviceMetadata, setServiceMetadata] =
         useState<ServiceMetadata | null>(null)
-    const [providerAcknowledged, setProviderAcknowledged] = useState<
-        boolean | null
-    >(null)
-    const [isVerifyingProvider, setIsVerifyingProvider] = useState(false)
     const [providerBalance, setProviderBalance] = useState<number | null>(null)
     const [providerBalanceNeuron, setProviderBalanceNeuron] = useState<
         bigint | null
@@ -67,17 +54,16 @@ export function useProviderManagement(
     useEffect(() => {
         if (currentChainId !== undefined && chainId !== currentChainId) {
             console.log('Provider management: Chain switched from', currentChainId, 'to', chainId)
-            
+
             // Clear all provider-related data
             setProviders([])
             setSelectedProvider(null)
             setServiceMetadata(null)
-            setProviderAcknowledged(null)
             setProviderBalance(null)
             setProviderBalanceNeuron(null)
             setProviderPendingRefund(null)
             setIsInitializing(true)
-            
+
             // Update tracked chain ID
             setCurrentChainId(chainId)
         } else if (currentChainId === undefined) {
@@ -158,7 +144,7 @@ export function useProviderManagement(
                     } else {
                         setServiceMetadata(null)
                     }
-                } catch (err: unknown) {
+                } catch {
                     setServiceMetadata(null)
                 }
             }
@@ -166,34 +152,6 @@ export function useProviderManagement(
 
         fetchServiceMetadata()
     }, [broker, selectedProvider])
-
-    // Fetch provider acknowledgment status when provider is selected
-    useEffect(() => {
-        const fetchProviderAcknowledgment = async () => {
-            if (broker && selectedProvider) {
-                try {
-                    const acknowledged = await broker.inference.acknowledged(
-                        selectedProvider.address
-                    )
-
-                    setProviderAcknowledged(acknowledged)
-
-                    // Check if we should show tutorial
-                    const tutorialKey = `tutorial_seen_${selectedProvider.address}`
-                    if (!localStorage.getItem(tutorialKey) && showTutorial) {
-                        // If provider is already acknowledged, skip to top-up step
-                        if (acknowledged) {
-                            setTutorialStep('top-up')
-                        }
-                    }
-                } catch (err: unknown) {
-                    setProviderAcknowledged(false)
-                }
-            }
-        }
-
-        fetchProviderAcknowledgment()
-    }, [broker, selectedProvider, showTutorial, setTutorialStep])
 
     // Fetch provider balance
     const refreshProviderBalance = async () => {
@@ -217,10 +175,11 @@ export function useProviderManagement(
                     setProviderBalanceNeuron(BigInt(0))
                     setProviderPendingRefund(0)
                 }
-            } catch (err: unknown) {
-                setProviderBalance(null)
-                setProviderBalanceNeuron(null)
-                setProviderPendingRefund(null)
+            } catch {
+                // Account doesn't exist yet or other error - set to 0
+                setProviderBalance(0)
+                setProviderBalanceNeuron(BigInt(0))
+                setProviderPendingRefund(0)
             }
         } else if (!selectedProvider) {
             // Reset balance states when no provider is selected
@@ -230,98 +189,29 @@ export function useProviderManagement(
         }
     }
 
-    // Only fetch balance when provider is acknowledged
+    // Fetch balance when provider changes
     useEffect(() => {
-        if (providerAcknowledged === true) {
+        if (broker && selectedProvider) {
             refreshProviderBalance()
-        } else if (providerAcknowledged === false) {
-            // Reset balance states when provider is not acknowledged
+        } else {
+            // Reset balance states when no provider selected
             setProviderBalance(null)
             setProviderBalanceNeuron(null)
             setProviderPendingRefund(null)
         }
-    }, [broker, selectedProvider, providerAcknowledged])
-
-    // Initialize tutorial when provider changes
-    useEffect(() => {
-        if (selectedProvider) {
-            const tutorialKey = `tutorial_seen_${selectedProvider.address}`
-            const hasSeenTutorial = localStorage.getItem(tutorialKey)
-
-            if (!hasSeenTutorial) {
-                // Small delay to ensure UI is ready
-                const timer = setTimeout(() => {
-                    setShowTutorial(true)
-                    if (providerAcknowledged === true) {
-                        setTutorialStep('top-up')
-                    } else {
-                        setTutorialStep('verify')
-                    }
-                }, 800)
-
-                return () => clearTimeout(timer)
-            }
-        }
-    }, [selectedProvider, providerAcknowledged, setTutorialStep])
-
-    // Verify provider
-    const verifyProvider = async () => {
-        if (!broker || !selectedProvider) {
-            return
-        }
-
-        setIsVerifyingProvider(true)
-        setErrorWithTimeout(null)
-
-        try {
-            await broker.inference.acknowledgeProviderSigner(
-                selectedProvider.address
-            )
-
-            // Refresh the acknowledgment status
-            const acknowledged = await broker.inference.acknowledged(
-                selectedProvider.address
-            )
-            setProviderAcknowledged(acknowledged)
-
-            // Refresh ledger info and provider balance after successful verification
-            if (acknowledged) {
-                await Promise.all([
-                    refreshLedgerInfo(),
-                    refreshProviderBalance(), // Explicitly refresh balance after verification
-                ])
-            }
-
-            // Progress tutorial to top-up step if tutorial is active
-            if (showTutorial && tutorialStep === 'verify' && acknowledged) {
-                setTutorialStep('top-up')
-            }
-        } catch (err: unknown) {
-            const errorMessage =
-                err instanceof Error
-                    ? err.message
-                    : 'Provider verification failed'
-            setErrorWithTimeout(errorMessage)
-            setProviderAcknowledged(false)
-        } finally {
-            setIsVerifyingProvider(false)
-        }
-    }
+    }, [broker, selectedProvider])
 
     return {
         // State
         providers,
         selectedProvider,
         serviceMetadata,
-        providerAcknowledged,
-        isVerifyingProvider,
         providerBalance,
         providerBalanceNeuron,
         providerPendingRefund,
         isInitializing,
         // Actions
         setSelectedProvider,
-        verifyProvider,
         refreshProviderBalance,
     }
 }

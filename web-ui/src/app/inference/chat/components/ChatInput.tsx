@@ -6,32 +6,18 @@ interface ChatInputProps {
   inputMessage: string;
   setInputMessage: (message: string) => void;
   isProcessing: boolean;
-  isVerifyingProvider: boolean;
-  providerAcknowledged: boolean | null;
-  showTutorial: boolean;
-  tutorialStep: 'verify' | 'top-up' | null;
-  setShowTutorial: (show: boolean) => void;
-  setTutorialStep: (step: 'verify' | 'top-up' | null) => void;
   onSendMessage: () => void;
-  onVerifyProvider: () => void;
 }
 
 export function ChatInput({
   inputMessage,
   setInputMessage,
   isProcessing,
-  isVerifyingProvider,
-  providerAcknowledged,
-  showTutorial,
-  tutorialStep,
-  setShowTutorial,
-  setTutorialStep,
   onSendMessage,
-  onVerifyProvider,
 }: ChatInputProps) {
   // Force client-side rendering to prevent hydration issues
   const [isClient, setIsClient] = useState(false);
-  
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -40,7 +26,7 @@ export function ChatInput({
   const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInputMessage(value);
-    
+
     // Debounce the resize operation using requestAnimationFrame
     requestAnimationFrame(() => {
       const textarea = e.target as HTMLTextAreaElement;
@@ -52,13 +38,11 @@ export function ChatInput({
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (providerAcknowledged === false) {
-        onVerifyProvider();
-      } else if (inputMessage.trim() && !isProcessing) {
+      if (inputMessage.trim() && !isProcessing) {
         onSendMessage();
       }
     }
-  }, [providerAcknowledged, inputMessage, isProcessing, onVerifyProvider, onSendMessage]);
+  }, [inputMessage, isProcessing, onSendMessage]);
 
   // Show loading state until client-side hydration
   if (!isClient) {
@@ -86,41 +70,12 @@ export function ChatInput({
           disabled={isProcessing}
         />
         <button
-          onClick={() => {
-            if (providerAcknowledged === false) {
-              // Close tutorial when verify button is clicked
-              if (showTutorial && tutorialStep === 'verify') {
-                setShowTutorial(false);
-                setTutorialStep(null);
-              }
-              onVerifyProvider();
-            } else {
-              onSendMessage();
-            }
-          }}
-          disabled={
-            providerAcknowledged === false
-              ? isVerifyingProvider
-              : !inputMessage.trim() || isProcessing
-          }
-          className={`${
-            providerAcknowledged === false
-              ? "bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400"
-              : "bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400"
-          } text-white px-4 py-2 rounded-md font-medium flex items-center space-x-2 cursor-pointer ${
-            showTutorial && tutorialStep === 'verify' && providerAcknowledged === false
-              ? 'ring-4 ring-yellow-400 ring-opacity-75 animate-pulse relative z-50'
-              : ''
-          }`}
-          title={
-            providerAcknowledged === false
-              ? "Verify provider to enable messaging"
-              : `Button status: ${
-                  !inputMessage.trim() || isProcessing ? "disabled" : "enabled"
-                }`
-          }
+          onClick={onSendMessage}
+          disabled={!inputMessage.trim() || isProcessing}
+          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-4 py-2 rounded-md font-medium flex items-center space-x-2 cursor-pointer"
+          title={`Button status: ${!inputMessage.trim() || isProcessing ? "disabled" : "enabled"}`}
         >
-          {isProcessing || isVerifyingProvider ? (
+          {isProcessing ? (
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
           ) : (
             <svg
@@ -129,26 +84,15 @@ export function ChatInput({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              {providerAcknowledged === false ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              )}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+              />
             </svg>
           )}
-          <span>
-            {providerAcknowledged === false ? "Verify Provider" : "Send"}
-          </span>
+          <span>Send</span>
         </button>
       </div>
     </div>

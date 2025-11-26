@@ -17,7 +17,6 @@ import { ProviderSelector } from "./ProviderSelector";
 import { MessageList } from "./MessageList";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopUpModal } from "./TopUpModal";
-import { TutorialOverlay } from "./TutorialOverlay";
 
 
 
@@ -36,33 +35,18 @@ export function OptimizedChatPage() {
   const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
   const router = useRouter();
   const { error, setErrorWithTimeout } = useErrorWithTimeout();
-  
-  // Tutorial state
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState<'verify' | 'top-up' | null>(null);
-  
+
   // Provider state management
   const {
     providers,
     selectedProvider,
     serviceMetadata,
-    providerAcknowledged,
-    isVerifyingProvider,
     providerBalance,
     providerBalanceNeuron,
     providerPendingRefund,
     setSelectedProvider,
-    verifyProvider,
     refreshProviderBalance,
-  } = useProviderManagement(
-    broker,
-    refreshLedgerInfo,
-    showTutorial,
-    tutorialStep,
-    setShowTutorial,
-    setTutorialStep,
-    setErrorWithTimeout
-  );
+  } = useProviderManagement(broker);
   
   // Provider dropdown state (UI only)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -517,8 +501,6 @@ export function OptimizedChatPage() {
               providerBalance={providerBalance}
               providerBalanceNeuron={providerBalanceNeuron}
               providerPendingRefund={providerPendingRefund}
-              providerAcknowledged={providerAcknowledged}
-              isVerifyingProvider={isVerifyingProvider}
               onAddFunds={() => {
                 // Use the existing top-up modal logic
                 setShowTopUpModal(true);
@@ -602,14 +584,7 @@ export function OptimizedChatPage() {
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
           isProcessing={isProcessing}
-          isVerifyingProvider={isVerifyingProvider}
-          providerAcknowledged={providerAcknowledged}
-          showTutorial={showTutorial}
-          tutorialStep={tutorialStep}
-          setShowTutorial={setShowTutorial}
-          setTutorialStep={setTutorialStep}
           onSendMessage={sendMessage}
-          onVerifyProvider={verifyProvider}
         />
         </div>
       </div>
@@ -631,19 +606,6 @@ export function OptimizedChatPage() {
         refreshLedgerInfo={refreshLedgerInfo}
         refreshProviderBalance={refreshProviderBalance}
         setErrorWithTimeout={setErrorWithTimeout}
-        showTutorial={showTutorial}
-        tutorialStep={tutorialStep}
-        setShowTutorial={setShowTutorial}
-        setTutorialStep={setTutorialStep}
-      />
-
-      <TutorialOverlay
-        isVisible={showTutorial}
-        step={tutorialStep}
-        onClose={() => {
-          setShowTutorial(false);
-          setTutorialStep(null);
-        }}
       />
     </div>
   );
