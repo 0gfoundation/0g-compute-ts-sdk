@@ -963,62 +963,19 @@ print(completion.choices[0].message)`,
                                                 <p className="text-xs text-gray-600 mt-1">
                                                     (Transfer funds from main
                                                     account to sub-account for
-                                                    the specified provider. We
-                                                    recommend depositing more
-                                                    than 5 0G, as the provider
-                                                    requires a minimum balance
-                                                    to respond.)
+                                                    the specified provider. This
+                                                    will automatically
+                                                    acknowledge the provider as
+                                                    trusted. We recommend
+                                                    depositing more than 5 0G,
+                                                    as the provider requires a
+                                                    minimum balance to respond.)
                                                 </p>
                                             </div>
 
                                             <div>
                                                 <h3 className="text-base font-medium text-gray-700 mb-2">
-                                                    5. Accredit provider
-                                                </h3>
-                                                <div className="relative">
-                                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto">
-                                                        <code className="text-gray-800 text-sm font-mono">
-                                                            {selectedProviderForBuild
-                                                                ? `0g-compute-cli inference acknowledge-provider --provider ${selectedProviderForBuild.address}`
-                                                                : '0g-compute-cli inference acknowledge-provider --provider <provider_address>'}
-                                                        </code>
-                                                    </div>
-                                                    <button
-                                                        onClick={() =>
-                                                            copyToClipboard(
-                                                                selectedProviderForBuild
-                                                                    ? `0g-compute-cli inference acknowledge-provider --provider ${selectedProviderForBuild.address}`
-                                                                    : '0g-compute-cli inference acknowledge-provider --provider <provider_address>'
-                                                            )
-                                                        }
-                                                        className="absolute top-2 right-2 p-2 rounded-md hover:bg-gray-200 transition-colors cursor-pointer"
-                                                        title="Copy to clipboard"
-                                                    >
-                                                        <svg
-                                                            className="w-4 h-4 text-gray-500"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                <p className="text-xs text-gray-600 mt-1">
-                                                    (This step indicates that
-                                                    the user acknowledges the
-                                                    provider)
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                <h3 className="text-base font-medium text-gray-700 mb-2">
-                                                    6. Get secret for the
+                                                    5. Get secret for the
                                                     provider
                                                 </h3>
                                                 <div className="relative">
@@ -1070,11 +1027,11 @@ print(completion.choices[0].message)`,
                                                     'speech-to-text') && (
                                                 <div>
                                                     <h3 className="text-base font-medium text-gray-700 mb-2">
-                                                        7. SDK Examples
+                                                        6. SDK Examples
                                                     </h3>
                                                     <p className="text-xs text-gray-600 mb-3">
                                                         Use your secret obtained
-                                                        from step 6 in the
+                                                        from step 5 in the
                                                         examples below:
                                                     </p>
 

@@ -856,7 +856,7 @@ function LedgerContent() {
                       <div className="mb-4">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">Delete Account</h3>
                         <p className="text-xs text-gray-600 mb-3">
-                          Withdraw all funds and close your account. Your account will be automatically deleted when balance reaches zero.
+                          Withdraw all funds and close your account.
                         </p>
                         {!canDeleteAccount && (
                           <div className="flex items-start p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
