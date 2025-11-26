@@ -130,6 +130,57 @@ function inference(program) {
         });
     });
     program
+        .command('update-service')
+        .description('[For provider] Update your service (url, model, input price, output price)')
+        .option('--url <url>', 'New service URL')
+        .option('--model <model>', 'New model name')
+        .option('--input-price <price>', 'New input price in 0G (e.g., 0.000000000000000001)')
+        .option('--output-price <price>', 'New output price in 0G (e.g., 0.000000000000000001)')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        // Check that at least one update option is provided
+        if (!options.url &&
+            !options.model &&
+            !options.inputPrice &&
+            !options.outputPrice) {
+            console.error('Error: At least one of --url, --model, --input-price, or --output-price must be provided');
+            process.exit(1);
+        }
+        (0, util_1.withBroker)(options, async (broker) => {
+            const updateOptions = {};
+            if (options.url) {
+                updateOptions.url = options.url;
+            }
+            if (options.model) {
+                updateOptions.model = options.model;
+            }
+            if (options.inputPrice) {
+                updateOptions.inputPrice = (0, util_1.a0giToNeuron)(parseFloat(options.inputPrice));
+            }
+            if (options.outputPrice) {
+                updateOptions.outputPrice = (0, util_1.a0giToNeuron)(parseFloat(options.outputPrice));
+            }
+            if (options.gasPrice) {
+                updateOptions.gasPrice = options.gasPrice;
+            }
+            console.log('Updating service with options:', {
+                url: updateOptions.url,
+                model: updateOptions.model,
+                inputPrice: updateOptions.inputPrice
+                    ? `${updateOptions.inputPrice} neuron`
+                    : undefined,
+                outputPrice: updateOptions.outputPrice
+                    ? `${updateOptions.outputPrice} neuron`
+                    : undefined,
+            });
+            await broker.inference.updateService(updateOptions);
+            console.log('Service updated successfully!');
+        });
+    });
+    program
         .command('serve')
         .description('Start local inference service')
         .requiredOption('--provider <address>', 'Provider address')

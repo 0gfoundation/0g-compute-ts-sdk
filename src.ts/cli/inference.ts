@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withBroker, neuronToA0gi, initBroker } from './util'
+import { withBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
 import { getRpcEndpoint } from './network-setup'
 import { ensurePrivateKeyConfiguration } from './private-key-setup'
 import { interactiveSelect, textInput } from './interactive-selection'
@@ -148,6 +148,84 @@ export default function inference(program: Command) {
             withBroker(options, async (broker) => {
                 await broker.inference.removeService(options.gasPrice)
                 console.log('Service removed successfully!')
+            })
+        })
+
+    program
+        .command('update-service')
+        .description(
+            '[For provider] Update your service (url, model, input price, output price)'
+        )
+        .option('--url <url>', 'New service URL')
+        .option('--model <model>', 'New model name')
+        .option(
+            '--input-price <price>',
+            'New input price in 0G (e.g., 0.000000000000000001)'
+        )
+        .option(
+            '--output-price <price>',
+            'New output price in 0G (e.g., 0.000000000000000001)'
+        )
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+            // Check that at least one update option is provided
+            if (
+                !options.url &&
+                !options.model &&
+                !options.inputPrice &&
+                !options.outputPrice
+            ) {
+                console.error(
+                    'Error: At least one of --url, --model, --input-price, or --output-price must be provided'
+                )
+                process.exit(1)
+            }
+
+            withBroker(options, async (broker) => {
+                const updateOptions: {
+                    url?: string
+                    model?: string
+                    inputPrice?: bigint
+                    outputPrice?: bigint
+                    gasPrice?: number
+                } = {}
+
+                if (options.url) {
+                    updateOptions.url = options.url
+                }
+                if (options.model) {
+                    updateOptions.model = options.model
+                }
+                if (options.inputPrice) {
+                    updateOptions.inputPrice = a0giToNeuron(
+                        parseFloat(options.inputPrice)
+                    )
+                }
+                if (options.outputPrice) {
+                    updateOptions.outputPrice = a0giToNeuron(
+                        parseFloat(options.outputPrice)
+                    )
+                }
+                if (options.gasPrice) {
+                    updateOptions.gasPrice = options.gasPrice
+                }
+
+                console.log('Updating service with options:', {
+                    url: updateOptions.url,
+                    model: updateOptions.model,
+                    inputPrice: updateOptions.inputPrice
+                        ? `${updateOptions.inputPrice} neuron`
+                        : undefined,
+                    outputPrice: updateOptions.outputPrice
+                        ? `${updateOptions.outputPrice} neuron`
+                        : undefined,
+                })
+
+                await broker.inference.updateService(updateOptions)
+                console.log('Service updated successfully!')
             })
         })
 

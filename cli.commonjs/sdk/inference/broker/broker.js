@@ -358,6 +358,28 @@ class InferenceBroker {
             (0, utils_1.throwFormattedError)(error);
         }
     };
+    /**
+     * Update service (Provider owner only)
+     *
+     * This function allows the provider owner to update their existing service.
+     * All parameters are optional - if not provided, the current value is preserved.
+     *
+     * @param options - Update options
+     * @param options.url - New service URL
+     * @param options.model - New model name
+     * @param options.inputPrice - New input price (in neuron, the smallest unit)
+     * @param options.outputPrice - New output price (in neuron, the smallest unit)
+     * @param options.gasPrice - Optional gas price for the transaction
+     * @throws Will throw an error if the caller is not the service owner or if update fails.
+     */
+    updateService = async (options) => {
+        try {
+            return await this.modelProcessor.updateService(options);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
 }
 exports.InferenceBroker = InferenceBroker;
 /**
