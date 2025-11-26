@@ -139,7 +139,10 @@ export class InferenceServingContract {
         return this.serving.lockTime()
     }
 
-    async listService(offset: number = 0, limit: number = 50): Promise<ServiceStructOutput[]> {
+    async listService(
+        offset: number = 0,
+        limit: number = 50
+    ): Promise<ServiceStructOutput[]> {
         try {
             const result = await this.serving.getAllServices(offset, limit)
             return result.services

@@ -120,10 +120,11 @@ type TEESettlementDataStruct = {
     signature: BytesLike;
 };
 interface InferenceServingInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
-    getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult'): EventFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
     encodeFunctionData(functionFragment: 'accountExists', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESigner', values: [AddressLike, boolean]): string;
     encodeFunctionData(functionFragment: 'acknowledgeTEESignerByOwner', values: [AddressLike]): string;
@@ -156,6 +157,7 @@ interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'updateLockTime', values: [BigNumberish]): string;
     decodeFunctionResult(functionFragment: 'MAX_LOCKTIME', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MIN_LOCKTIME', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_PROVIDER_STAKE', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'accountExists', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESigner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeTEESignerByOwner', data: BytesLike): Result;
@@ -238,6 +240,30 @@ declare namespace OwnershipTransferredEvent$2 {
     interface OutputObject {
         previousOwner: string;
         newOwner: string;
+    }
+    type Event = TypedContractEvent$2<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter$2<Event>;
+    type Log = TypedEventLog$2<Event>;
+    type LogDescription = TypedLogDescription$2<Event>;
+}
+declare namespace ProviderStakeReturnedEvent {
+    type InputTuple = [provider: AddressLike, amount: BigNumberish];
+    type OutputTuple = [provider: string, amount: bigint];
+    interface OutputObject {
+        provider: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent$2<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter$2<Event>;
+    type Log = TypedEventLog$2<Event>;
+    type LogDescription = TypedLogDescription$2<Event>;
+}
+declare namespace ProviderStakedEvent {
+    type InputTuple = [provider: AddressLike, amount: BigNumberish];
+    type OutputTuple = [provider: string, amount: bigint];
+    interface OutputObject {
+        provider: string;
+        amount: bigint;
     }
     type Event = TypedContractEvent$2<InputTuple, OutputTuple, OutputObject>;
     type Filter = TypedDeferredTopicFilter$2<Event>;
@@ -372,6 +398,7 @@ interface InferenceServing extends BaseContract {
     removeAllListeners<TCEvent extends TypedContractEvent$2>(event?: TCEvent): Promise<this>;
     MAX_LOCKTIME: TypedContractMethod$2<[], [bigint], 'view'>;
     MIN_LOCKTIME: TypedContractMethod$2<[], [bigint], 'view'>;
+    MIN_PROVIDER_STAKE: TypedContractMethod$2<[], [bigint], 'view'>;
     accountExists: TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -400,7 +427,7 @@ interface InferenceServing extends BaseContract {
         params: ServiceParamsStruct
     ], [
         void
-    ], 'nonpayable'>;
+    ], 'payable'>;
     deleteAccount: TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -572,6 +599,7 @@ interface InferenceServing extends BaseContract {
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
     getFunction(nameOrSignature: 'MAX_LOCKTIME'): TypedContractMethod$2<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MIN_LOCKTIME'): TypedContractMethod$2<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_PROVIDER_STAKE'): TypedContractMethod$2<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'accountExists'): TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -592,7 +620,7 @@ interface InferenceServing extends BaseContract {
     ], [
         void
     ], 'payable'>;
-    getFunction(nameOrSignature: 'addOrUpdateService'): TypedContractMethod$2<[params: ServiceParamsStruct], [void], 'nonpayable'>;
+    getFunction(nameOrSignature: 'addOrUpdateService'): TypedContractMethod$2<[params: ServiceParamsStruct], [void], 'payable'>;
     getFunction(nameOrSignature: 'deleteAccount'): TypedContractMethod$2<[
         user: AddressLike,
         provider: AddressLike
@@ -748,6 +776,8 @@ interface InferenceServing extends BaseContract {
     getEvent(key: 'BalanceUpdated'): TypedContractEvent$2<BalanceUpdatedEvent$1.InputTuple, BalanceUpdatedEvent$1.OutputTuple, BalanceUpdatedEvent$1.OutputObject>;
     getEvent(key: 'BatchBalanceUpdated'): TypedContractEvent$2<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
+    getEvent(key: 'ProviderStakeReturned'): TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+    getEvent(key: 'ProviderStaked'): TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
     getEvent(key: 'ProviderTEESignerAcknowledged'): TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
     getEvent(key: 'RefundRequested'): TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
     getEvent(key: 'ServiceRemoved'): TypedContractEvent$2<ServiceRemovedEvent$1.InputTuple, ServiceRemovedEvent$1.OutputTuple, ServiceRemovedEvent$1.OutputObject>;
@@ -760,6 +790,10 @@ interface InferenceServing extends BaseContract {
         BatchBalanceUpdated: TypedContractEvent$2<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
         'OwnershipTransferred(address,address)': TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
         OwnershipTransferred: TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
+        'ProviderStakeReturned(address,uint256)': TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+        ProviderStakeReturned: TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+        'ProviderStaked(address,uint256)': TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
+        ProviderStaked: TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
         'ProviderTEESignerAcknowledged(address,address,bool)': TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
         ProviderTEESignerAcknowledged: TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
         'RefundRequested(address,address,uint256,uint256)': TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
@@ -943,11 +977,13 @@ type LedgerStructOutput = [
     additionalInfo: string;
 };
 interface LedgerManagerInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_SERVICES', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_ACCOUNT_BALANCE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_TRANSFER_AMOUNT', values?: undefined): string;
     encodeFunctionData(functionFragment: 'addLedger', values: [string]): string;
     encodeFunctionData(functionFragment: 'deleteLedger', values?: undefined): string;
     encodeFunctionData(functionFragment: 'depositFund', values?: undefined): string;
@@ -975,6 +1011,8 @@ interface LedgerManagerInterface extends Interface {
     decodeFunctionResult(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_PROVIDERS_PER_BATCH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_SERVICES', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_ACCOUNT_BALANCE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_TRANSFER_AMOUNT', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'deleteLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'depositFund', data: BytesLike): Result;
@@ -1061,6 +1099,8 @@ interface LedgerManager extends BaseContract {
     MAX_ADDITIONAL_INFO_LENGTH: TypedContractMethod$1<[], [bigint], 'view'>;
     MAX_PROVIDERS_PER_BATCH: TypedContractMethod$1<[], [bigint], 'view'>;
     MAX_SERVICES: TypedContractMethod$1<[], [bigint], 'view'>;
+    MIN_ACCOUNT_BALANCE: TypedContractMethod$1<[], [bigint], 'view'>;
+    MIN_TRANSFER_AMOUNT: TypedContractMethod$1<[], [bigint], 'view'>;
     addLedger: TypedContractMethod$1<[
         additionalInfo: string
     ], [
@@ -1184,6 +1224,8 @@ interface LedgerManager extends BaseContract {
     getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH'): TypedContractMethod$1<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_BATCH'): TypedContractMethod$1<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_SERVICES'): TypedContractMethod$1<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_ACCOUNT_BALANCE'): TypedContractMethod$1<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_TRANSFER_AMOUNT'): TypedContractMethod$1<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'addLedger'): TypedContractMethod$1<[
         additionalInfo: string
     ], [

@@ -14,9 +14,13 @@ export type Verifiability =
     | VerifiabilityEnum.ZKML
 
 export class ModelProcessor extends ZGServingUserBrokerBase {
-    async listService(offset: number = 0, limit: number = 50): Promise<ServiceStructOutput[]> {
+    async listService(
+        offset: number = 0,
+        limit: number = 50
+    ): Promise<ServiceStructOutput[]> {
         try {
             const services = await this.contract.listService(offset, limit)
+            return services
         } catch (error) {
             throwFormattedError(error)
         }

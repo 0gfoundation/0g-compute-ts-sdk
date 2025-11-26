@@ -47,11 +47,13 @@ export type LedgerStructOutput = [
     additionalInfo: string;
 };
 export interface LedgerManagerInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_SERVICES', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_ACCOUNT_BALANCE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_TRANSFER_AMOUNT', values?: undefined): string;
     encodeFunctionData(functionFragment: 'addLedger', values: [string]): string;
     encodeFunctionData(functionFragment: 'deleteLedger', values?: undefined): string;
     encodeFunctionData(functionFragment: 'depositFund', values?: undefined): string;
@@ -79,6 +81,8 @@ export interface LedgerManagerInterface extends Interface {
     decodeFunctionResult(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_PROVIDERS_PER_BATCH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_SERVICES', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_ACCOUNT_BALANCE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_TRANSFER_AMOUNT', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'deleteLedger', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'depositFund', data: BytesLike): Result;
@@ -165,6 +169,8 @@ export interface LedgerManager extends BaseContract {
     MAX_ADDITIONAL_INFO_LENGTH: TypedContractMethod<[], [bigint], 'view'>;
     MAX_PROVIDERS_PER_BATCH: TypedContractMethod<[], [bigint], 'view'>;
     MAX_SERVICES: TypedContractMethod<[], [bigint], 'view'>;
+    MIN_ACCOUNT_BALANCE: TypedContractMethod<[], [bigint], 'view'>;
+    MIN_TRANSFER_AMOUNT: TypedContractMethod<[], [bigint], 'view'>;
     addLedger: TypedContractMethod<[
         additionalInfo: string
     ], [
@@ -288,6 +294,8 @@ export interface LedgerManager extends BaseContract {
     getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_BATCH'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_SERVICES'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_ACCOUNT_BALANCE'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_TRANSFER_AMOUNT'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'addLedger'): TypedContractMethod<[
         additionalInfo: string
     ], [

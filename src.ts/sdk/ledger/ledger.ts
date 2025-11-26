@@ -175,10 +175,18 @@ export class LedgerProcessor {
      *
      * @throws  An error if the deposit fails.
      */
-    async depositFundFor(recipient: AddressLike, balance: number, gasPrice?: number) {
+    async depositFundFor(
+        recipient: AddressLike,
+        balance: number,
+        gasPrice?: number
+    ) {
         try {
             const amount = this.a0giToNeuron(balance).toString()
-            await this.ledgerContract.depositFundFor(recipient, amount, gasPrice)
+            await this.ledgerContract.depositFundFor(
+                recipient,
+                amount,
+                gasPrice
+            )
         } catch (error) {
             throwFormattedError(error)
         }

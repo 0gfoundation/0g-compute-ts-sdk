@@ -79,6 +79,8 @@ export interface LedgerManagerInterface extends Interface {
             | 'MAX_ADDITIONAL_INFO_LENGTH'
             | 'MAX_PROVIDERS_PER_BATCH'
             | 'MAX_SERVICES'
+            | 'MIN_ACCOUNT_BALANCE'
+            | 'MIN_TRANSFER_AMOUNT'
             | 'addLedger'
             | 'deleteLedger'
             | 'depositFund'
@@ -122,6 +124,14 @@ export interface LedgerManagerInterface extends Interface {
     ): string
     encodeFunctionData(
         functionFragment: 'MAX_SERVICES',
+        values?: undefined
+    ): string
+    encodeFunctionData(
+        functionFragment: 'MIN_ACCOUNT_BALANCE',
+        values?: undefined
+    ): string
+    encodeFunctionData(
+        functionFragment: 'MIN_TRANSFER_AMOUNT',
         values?: undefined
     ): string
     encodeFunctionData(functionFragment: 'addLedger', values: [string]): string
@@ -225,6 +235,14 @@ export interface LedgerManagerInterface extends Interface {
     ): Result
     decodeFunctionResult(
         functionFragment: 'MAX_SERVICES',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'MIN_ACCOUNT_BALANCE',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'MIN_TRANSFER_AMOUNT',
         data: BytesLike
     ): Result
     decodeFunctionResult(functionFragment: 'addLedger', data: BytesLike): Result
@@ -419,6 +437,10 @@ export interface LedgerManager extends BaseContract {
 
     MAX_SERVICES: TypedContractMethod<[], [bigint], 'view'>
 
+    MIN_ACCOUNT_BALANCE: TypedContractMethod<[], [bigint], 'view'>
+
+    MIN_TRANSFER_AMOUNT: TypedContractMethod<[], [bigint], 'view'>
+
     addLedger: TypedContractMethod<
         [additionalInfo: string],
         [[bigint, bigint]],
@@ -563,6 +585,12 @@ export interface LedgerManager extends BaseContract {
     ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
         nameOrSignature: 'MAX_SERVICES'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'MIN_ACCOUNT_BALANCE'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'MIN_TRANSFER_AMOUNT'
     ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
         nameOrSignature: 'addLedger'
