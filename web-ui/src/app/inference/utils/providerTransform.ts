@@ -48,13 +48,14 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
   const verifiability = serviceObj.verifiability || "TEE";
   const serviceUrl = serviceObj.url || "";
 
-  // Convert prices from neuron to 0G per million tokens
-  // EXACTLY as in original ChatPage - with BigInt() wrapper
+  // Convert prices from neuron to 0G
+  // For text-to-image services, prices are per image, not per million tokens
+  const priceMultiplier = serviceObj.serviceType === 'text-to-image' ? BigInt(1) : BigInt(1000000);
   const inputPrice = serviceObj.inputPrice
-    ? neuronToA0gi(serviceObj.inputPrice * BigInt(1000000))
+    ? neuronToA0gi(serviceObj.inputPrice * priceMultiplier)
     : undefined;
   const outputPrice = serviceObj.outputPrice
-    ? neuronToA0gi(serviceObj.outputPrice * BigInt(1000000))
+    ? neuronToA0gi(serviceObj.outputPrice * priceMultiplier)
     : undefined;
 
   return {
