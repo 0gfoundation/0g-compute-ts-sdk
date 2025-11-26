@@ -225,7 +225,7 @@ print(transcription.text)`,
     "model": "${serviceModel}",
     "prompt": "A cute baby sea otter",
     "n": 1,
-    "size": "1024x1024"
+    "size": "512x512"
   }'`,
                 javascript: `const OpenAI = require('openai');
 
@@ -239,7 +239,7 @@ async function main() {
     model: '${serviceModel}',
     prompt: 'A cute baby sea otter',
     n: 1,
-    size: '1024x1024'
+    size: '512x512'
   });
   
   console.log(response.data);
@@ -257,7 +257,7 @@ response = client.images.generate(
     model='${serviceModel}',
     prompt='A cute baby sea otter',
     n=1,
-    size='1024x1024'
+    size='512x512'
 )
 
 print(response.data)`,

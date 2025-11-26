@@ -876,7 +876,7 @@ export default function inference(program: Command) {
     "model": "${serviceModel}",
     "prompt": "A cute baby sea otter",
     "n": 1,
-    "size": "1024x1024"
+    "size": "512x512"
   }'`)
                             )
                         } else {
