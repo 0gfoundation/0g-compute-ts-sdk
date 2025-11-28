@@ -954,8 +954,9 @@ export default function inference(program: Command) {
     "model": "${serviceModel}",
     "prompt": "A cute baby sea otter",
     "n": 1,
-    "size": "512x512"
-  }'`)
+    "size": "512x512",
+    "response_format": "b64_json"
+  }' | jq -r ".data[0].b64_json" | base64 -d > output.png && open output.png`)
                             )
                         } else {
                             // Default to chatbot/text type
