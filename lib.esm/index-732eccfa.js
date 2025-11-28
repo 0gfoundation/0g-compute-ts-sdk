@@ -13341,8 +13341,13 @@ class ZGServingUserBrokerBase {
             const extractor = await this.getExtractor(provider);
             const svc = await extractor.getSvcInfo();
             // Calculate target and trigger thresholds
-            const targetThreshold = this.topUpTargetThreshold *
+            // Minimum target threshold is 1 0G (10^18 neuron)
+            const minTargetThreshold = BigInt(10 ** 18);
+            const calculatedTargetThreshold = this.topUpTargetThreshold *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice));
+            const targetThreshold = calculatedTargetThreshold > minTargetThreshold
+                ? calculatedTargetThreshold
+                : minTargetThreshold;
             const triggerThreshold = this.topUpTriggerThreshold *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice));
             // Check if it's the first round
@@ -13844,11 +13849,13 @@ class RequestProcessor extends ZGServingUserBrokerBase {
     async checkProviderSignerStatus(providerAddress, gasPrice) {
         try {
             // Ensure user has an account with the provider
+            // Minimum transfer amount is 1 0G (10^18 neuron)
+            const minTransferAmount = BigInt(10 ** 18);
             try {
                 await this.contract.getAccount(providerAddress);
             }
             catch {
-                await this.ledger.transferFund(providerAddress, 'inference', BigInt(0), gasPrice);
+                await this.ledger.transferFund(providerAddress, 'inference', minTransferAmount, gasPrice);
             }
             // Get service information (now contains TEE signer info)
             const service = await this.getService(providerAddress);
@@ -13879,12 +13886,14 @@ class RequestProcessor extends ZGServingUserBrokerBase {
     async acknowledgeProviderSigner(providerAddress, gasPrice) {
         try {
             // Ensure user has an account with the provider
+            // Minimum transfer amount is 1 0G (10^18 neuron)
+            const minTransferAmount = BigInt(10 ** 18);
             let account;
             try {
                 account = await this.contract.getAccount(providerAddress);
             }
             catch {
-                await this.ledger.transferFund(providerAddress, 'inference', BigInt(0), gasPrice);
+                await this.ledger.transferFund(providerAddress, 'inference', minTransferAmount, gasPrice);
             }
             if (account && account.acknowledged) {
                 // Already acknowledged
@@ -15357,7 +15366,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-cb1f84c0.js');
+    const { download } = await import('./index-3bece28d.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -20767,4 +20776,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-bb852881.js.map
+//# sourceMappingURL=index-732eccfa.js.map

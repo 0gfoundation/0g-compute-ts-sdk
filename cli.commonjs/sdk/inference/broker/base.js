@@ -272,8 +272,13 @@ class ZGServingUserBrokerBase {
             const extractor = await this.getExtractor(provider);
             const svc = await extractor.getSvcInfo();
             // Calculate target and trigger thresholds
-            const targetThreshold = this.topUpTargetThreshold *
+            // Minimum target threshold is 1 0G (10^18 neuron)
+            const minTargetThreshold = BigInt(10 ** 18);
+            const calculatedTargetThreshold = this.topUpTargetThreshold *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice));
+            const targetThreshold = calculatedTargetThreshold > minTargetThreshold
+                ? calculatedTargetThreshold
+                : minTargetThreshold;
             const triggerThreshold = this.topUpTriggerThreshold *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice));
             // Check if it's the first round
