@@ -120,13 +120,15 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
     }> {
         try {
             // Ensure user has an account with the provider
+            // Minimum transfer amount is 1 0G (10^18 neuron)
+            const minTransferAmount = BigInt(10 ** 18)
             try {
                 await this.contract.getAccount(providerAddress)
             } catch {
                 await this.ledger.transferFund(
                     providerAddress,
                     'inference',
-                    BigInt(0),
+                    minTransferAmount,
                     gasPrice
                 )
             }
@@ -165,6 +167,8 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
     ): Promise<void> {
         try {
             // Ensure user has an account with the provider
+            // Minimum transfer amount is 1 0G (10^18 neuron)
+            const minTransferAmount = BigInt(10 ** 18)
             let account
             try {
                 account = await this.contract.getAccount(providerAddress)
@@ -172,7 +176,7 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
                 await this.ledger.transferFund(
                     providerAddress,
                     'inference',
-                    BigInt(0),
+                    minTransferAmount,
                     gasPrice
                 )
             }
