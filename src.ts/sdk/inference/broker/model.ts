@@ -94,7 +94,11 @@ export class ModelProcessor extends ZGServingUserBrokerBase {
                 txOptions.gasPrice = options.gasPrice
             }
 
-            await this.contract.sendTx('addOrUpdateService', [params], txOptions)
+            await this.contract.sendTx(
+                'addOrUpdateService',
+                [params],
+                txOptions
+            )
         } catch (error) {
             throwFormattedError(error)
         }
