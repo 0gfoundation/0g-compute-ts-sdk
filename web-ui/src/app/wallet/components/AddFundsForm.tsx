@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -7,20 +8,37 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Info, Loader2 } from 'lucide-react'
 
 interface AddFundsFormProps {
-    amount: string
-    onAmountChange: (value: string) => void
-    onSubmit: () => void
-    isLoading: boolean
-    error?: string | null
+    depositFund: (amount: number) => Promise<void>
+    onSuccess?: () => void
 }
 
-export function AddFundsForm({
-    amount,
-    onAmountChange,
-    onSubmit,
-    isLoading,
-    error,
-}: AddFundsFormProps) {
+export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
+    const [amount, setAmount] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const handleSubmit = async () => {
+        if (!amount) return
+
+        const numAmount = parseFloat(amount)
+        if (numAmount <= 0) return
+
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            await depositFund(numAmount)
+            alert(`Successfully added ${amount} 0G tokens to your account!`)
+            setAmount('')
+            onSuccess?.()
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to add funds'
+            setError(errorMessage)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     return (
         <Card className="bg-gray-50">
             <CardContent className="p-4">
@@ -39,7 +57,7 @@ export function AddFundsForm({
                                     type="number"
                                     id="amount"
                                     value={amount}
-                                    onChange={(e) => onAmountChange(e.target.value)}
+                                    onChange={(e) => setAmount(e.target.value)}
                                     placeholder="0.1"
                                     step="0.01"
                                     min="0"
@@ -58,7 +76,7 @@ export function AddFundsForm({
                         )}
 
                         <Button
-                            onClick={onSubmit}
+                            onClick={handleSubmit}
                             disabled={!amount || isLoading || parseFloat(amount) <= 0}
                             className="w-full bg-purple-600 hover:bg-purple-700"
                         >
