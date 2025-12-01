@@ -1,19 +1,24 @@
 "use client";
 
 import React, { useCallback, useState, useEffect } from 'react';
+import { Square } from 'lucide-react';
 
 interface ChatInputProps {
   inputMessage: string;
   setInputMessage: (message: string) => void;
   isProcessing: boolean;
+  isStreaming?: boolean;
   onSendMessage: () => void;
+  onStopGeneration?: () => void;
 }
 
 export function ChatInput({
   inputMessage,
   setInputMessage,
   isProcessing,
+  isStreaming = false,
   onSendMessage,
+  onStopGeneration,
 }: ChatInputProps) {
   // Force client-side rendering to prevent hydration issues
   const [isClient, setIsClient] = useState(false);
@@ -44,6 +49,14 @@ export function ChatInput({
     }
   }, [inputMessage, isProcessing, onSendMessage]);
 
+  const handleButtonClick = useCallback(() => {
+    if (isStreaming && onStopGeneration) {
+      onStopGeneration();
+    } else if (inputMessage.trim() && !isProcessing) {
+      onSendMessage();
+    }
+  }, [isStreaming, onStopGeneration, inputMessage, isProcessing, onSendMessage]);
+
   // Show loading state until client-side hydration
   if (!isClient) {
     return (
@@ -67,32 +80,46 @@ export function ChatInput({
           className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 resize-none overflow-y-auto disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           style={{ minHeight: '40px', maxHeight: '120px' }}
           rows={1}
-          disabled={isProcessing}
+          disabled={isProcessing && !isStreaming}
         />
         <button
-          onClick={onSendMessage}
-          disabled={!inputMessage.trim() || isProcessing}
-          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-4 py-2 rounded-md font-medium flex items-center space-x-2 cursor-pointer"
-          title={`Button status: ${!inputMessage.trim() || isProcessing ? "disabled" : "enabled"}`}
+          onClick={handleButtonClick}
+          disabled={!isStreaming && (!inputMessage.trim() || isProcessing)}
+          className={`px-4 py-2 rounded-md font-medium flex items-center space-x-2 cursor-pointer transition-colors ${
+            isStreaming
+              ? 'bg-red-500 hover:bg-red-600 text-white'
+              : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white'
+          }`}
+          title={isStreaming ? "Stop generation" : (isProcessing ? "Loading..." : "Send message")}
         >
-          {isProcessing ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+          {isStreaming ? (
+            <>
+              <Square className="w-4 h-4 fill-current" />
+              <span>Stop</span>
+            </>
+          ) : isProcessing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+              <span>Send</span>
+            </>
           ) : (
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-              />
-            </svg>
+            <>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+              <span>Send</span>
+            </>
           )}
-          <span>Send</span>
         </button>
       </div>
     </div>

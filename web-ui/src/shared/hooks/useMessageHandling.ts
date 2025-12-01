@@ -1,5 +1,4 @@
-import { useState, useRef } from 'react';
-import { a0giToNeuron } from '../utils/currency';
+import { useRef, useCallback } from 'react';
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -63,6 +62,19 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     messagesEndRef,
   } = config;
 
+  // AbortController for stopping generation
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Stop generation function
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      setIsStreaming(false);
+    }
+  }, [setIsLoading, setIsStreaming]);
+
   const sendMessage = async () => {
     if (!inputMessage.trim() || !selectedProvider || !broker) {
       return;
@@ -107,6 +119,10 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     }, 0);
     
     let firstContentReceived = false;
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     try {
       // Get service metadata
@@ -156,6 +172,7 @@ export function useMessageHandling(config: MessageHandlingConfig) {
           model: model,
           stream: true,
         }),
+        signal, // Add abort signal
       });
 
       if (!response.ok) {
@@ -299,10 +316,21 @@ export function useMessageHandling(config: MessageHandlingConfig) {
         setIsLoading(false);
       }
       setIsStreaming(false);
+      abortControllerRef.current = null;
     } catch (err: unknown) {
-      // Handle errors
+      // Check if it was aborted by user
+      if (err instanceof Error && err.name === 'AbortError') {
+        // User stopped generation - don't show error
+        // Keep the partial message if any
+        setIsLoading(false);
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+        return;
+      }
+
+      // Handle other errors
       let errorMessage = "Failed to send message. Please try again.";
-      
+
       if (err instanceof Error) {
         errorMessage = err.message;
       } else if (typeof err === 'string') {
@@ -314,19 +342,20 @@ export function useMessageHandling(config: MessageHandlingConfig) {
           errorMessage = String(err);
         }
       }
-      
+
       setErrorWithTimeout(`Chat error: ${errorMessage}`);
 
       // Remove the loading message if it exists
       setMessages((prev) =>
         prev.filter((msg) => msg.role !== "assistant" || msg.content !== "")
       );
-      
+
       // Ensure loading is stopped
       if (!firstContentReceived) {
         setIsLoading(false);
       }
       setIsStreaming(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -385,5 +414,6 @@ export function useMessageHandling(config: MessageHandlingConfig) {
   return {
     sendMessage,
     verifyResponse,
+    stopGeneration,
   };
 }
