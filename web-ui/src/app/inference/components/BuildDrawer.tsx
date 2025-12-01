@@ -8,10 +8,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { BookOpen, Zap, Settings, ExternalLink } from 'lucide-react'
+import { BookOpen, Zap, Settings } from 'lucide-react'
 import type { Provider } from '@/shared/types/broker'
-import { CodeBlock, InlineCodeBlock } from './CodeBlock'
+import { CodeBlock } from './CodeBlock'
+import { SetupStep, ResourceCard } from './drawer-components'
 import {
     CODE_TABS,
     getQuickStartCodeExample,
@@ -238,68 +238,5 @@ export function BuildDrawer({ provider, isOpen, onClose }: BuildDrawerProps) {
                 </div>
             </SheetContent>
         </Sheet>
-    )
-}
-
-interface SetupStepProps {
-    step: number
-    title: string
-    code: string
-    description?: string
-}
-
-function SetupStep({ step, title, code, description }: SetupStepProps) {
-    return (
-        <div>
-            <h3 className="text-base font-medium text-gray-700 mb-2">
-                {step}. {title}
-            </h3>
-            <InlineCodeBlock code={code} />
-            {description && (
-                <p className="text-xs text-gray-600 mt-1">{description}</p>
-            )}
-        </div>
-    )
-}
-
-interface ResourceCardProps {
-    icon: React.ComponentType<{ className?: string }>
-    title: string
-    description: string
-    href: string
-    buttonText: string
-}
-
-function ResourceCard({
-    icon: Icon,
-    title,
-    description,
-    href,
-    buttonText,
-}: ResourceCardProps) {
-    return (
-        <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-6 border border-gray-200">
-            <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                    <Icon className="w-6 h-6 text-purple-600 mt-0.5" />
-                </div>
-                <div className="flex-1">
-                    <h3 className="text-base font-medium text-gray-900 mb-2">
-                        {title}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3">{description}</p>
-                    <Button asChild className="bg-purple-600 hover:bg-purple-700">
-                        <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {buttonText}
-                            <ExternalLink className="ml-2 h-4 w-4" />
-                        </a>
-                    </Button>
-                </div>
-            </div>
-        </div>
     )
 }

@@ -1,0 +1,89 @@
+'use client'
+
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Info, Loader2 } from 'lucide-react'
+
+interface AddFundsFormProps {
+    amount: string
+    onAmountChange: (value: string) => void
+    onSubmit: () => void
+    isLoading: boolean
+    error?: string | null
+}
+
+export function AddFundsForm({
+    amount,
+    onAmountChange,
+    onSubmit,
+    isLoading,
+    error,
+}: AddFundsFormProps) {
+    return (
+        <Card className="bg-gray-50">
+            <CardContent className="p-4">
+                <h2 className="text-base font-semibold text-gray-900 mb-4">
+                    Add Funds
+                </h2>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
+                                Amount
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    type="number"
+                                    id="amount"
+                                    value={amount}
+                                    onChange={(e) => onAmountChange(e.target.value)}
+                                    placeholder="0.1"
+                                    step="0.01"
+                                    min="0"
+                                    className="pr-12"
+                                />
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span className="text-gray-500 text-sm">0G</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <Alert variant="destructive">
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        <Button
+                            onClick={onSubmit}
+                            disabled={!amount || isLoading || parseFloat(amount) <= 0}
+                            className="w-full bg-purple-600 hover:bg-purple-700"
+                        >
+                            {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            {isLoading ? "Adding Funds..." : "Add Funds"}
+                        </Button>
+                    </div>
+
+                    <div className="bg-purple-50 rounded-lg p-4">
+                        <div className="flex items-start">
+                            <Info className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-purple-800">
+                                    How it works
+                                </h3>
+                                <ul className="mt-2 text-sm text-purple-700 space-y-1">
+                                    <li>Funds are deposited to your account</li>
+                                    <li>They are used automatically for AI service payments</li>
+                                    <li>Unused funds can be withdrawn anytime</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
