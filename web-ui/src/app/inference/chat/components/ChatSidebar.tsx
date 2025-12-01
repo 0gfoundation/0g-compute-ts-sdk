@@ -1,6 +1,27 @@
 "use client";
 
 import * as React from "react";
+import { useState, useEffect } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+// Hook to detect mobile screen
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 interface SearchResult {
   sessionId: string;
@@ -23,6 +44,7 @@ interface ChatHistory {
 
 interface ChatSidebarProps {
   showHistorySidebar: boolean;
+  onClose: () => void;
   isProcessing: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -33,8 +55,8 @@ interface ChatSidebarProps {
   handleHistoryClick: (sessionId: string, targetMessage?: string) => Promise<void>;
 }
 
-export function ChatSidebar({
-  showHistorySidebar,
+// Shared sidebar content component
+function SidebarContent({
   isProcessing,
   searchQuery,
   setSearchQuery,
@@ -43,13 +65,9 @@ export function ChatSidebar({
   clearSearch,
   chatHistory,
   handleHistoryClick,
-}: ChatSidebarProps) {
-  if (!showHistorySidebar) {
-    return null;
-  }
-
+}: Omit<ChatSidebarProps, 'showHistorySidebar' | 'onClose'>) {
   return (
-    <div className="w-80 border-r border-gray-200 flex flex-col">
+    <>
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-gray-900 sr-only">Chat History</h3>
@@ -76,7 +94,7 @@ export function ChatSidebar({
           </svg>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto">
         {/* Search Results */}
         {searchQuery ? (
@@ -88,7 +106,7 @@ export function ChatSidebar({
               </div>
             ) : searchResults.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
-                No messages found for "{searchQuery}"
+                No messages found for &quot;{searchQuery}&quot;
               </div>
             ) : (
               <div className="space-y-2">
@@ -99,8 +117,8 @@ export function ChatSidebar({
                   <div
                     key={index}
                     className={`p-3 bg-white border border-gray-200 rounded-lg transition-colors ${
-                      isProcessing 
-                        ? 'opacity-50 cursor-not-allowed' 
+                      isProcessing
+                        ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-purple-50 hover:border-purple-200 cursor-pointer'
                     }`}
                     onClick={async () => {
@@ -108,10 +126,11 @@ export function ChatSidebar({
                         try {
                           // Clear search first
                           clearSearch();
-                          
+
                           // Load the session and scroll to the specific message
                           await handleHistoryClick(result.sessionId, result.content);
                         } catch (err) {
+                          // Handle error silently
                         }
                       }
                     }}
@@ -125,13 +144,13 @@ export function ChatSidebar({
                         View →
                       </span>
                     </div>
-                    <div className="text-sm text-gray-900 overflow-hidden" style={{ 
-                      display: '-webkit-box', 
-                      WebkitLineClamp: 2, 
-                      WebkitBoxOrient: 'vertical' 
+                    <div className="text-sm text-gray-900 overflow-hidden" style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
                     }}>
-                      {result.content.length > 100 
-                        ? result.content.substring(0, 100) + '...' 
+                      {result.content.length > 100
+                        ? result.content.substring(0, 100) + '...'
                         : result.content}
                     </div>
                   </div>
@@ -174,7 +193,7 @@ export function ChatSidebar({
                     {new Date(session.updated_at).toLocaleDateString()}
                   </div>
                 </button>
-                
+
                 {/* Delete button */}
                 <button
                   onClick={(e) => {
@@ -201,6 +220,57 @@ export function ChatSidebar({
           )
         )}
       </div>
-    </div>
+    </>
+  );
+}
+
+export function ChatSidebar({
+  showHistorySidebar,
+  onClose,
+  isProcessing,
+  searchQuery,
+  setSearchQuery,
+  searchResults,
+  isSearching,
+  clearSearch,
+  chatHistory,
+  handleHistoryClick,
+}: ChatSidebarProps) {
+  const isMobile = useIsMobile();
+
+  const contentProps = {
+    isProcessing,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    isSearching,
+    clearSearch,
+    chatHistory,
+    handleHistoryClick,
+  };
+
+  return (
+    <>
+      {/* Desktop Sidebar - hidden on mobile */}
+      {showHistorySidebar && !isMobile && (
+        <div className="w-80 border-r border-gray-200 flex flex-col">
+          <SidebarContent {...contentProps} />
+        </div>
+      )}
+
+      {/* Mobile Sheet - only visible on mobile */}
+      {isMobile && (
+        <Sheet open={showHistorySidebar} onOpenChange={(open) => !open && onClose()}>
+          <SheetContent side="left" className="w-80 p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b border-gray-200 bg-gray-50">
+              <SheetTitle>Chat History</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <SidebarContent {...contentProps} />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+    </>
   );
 }

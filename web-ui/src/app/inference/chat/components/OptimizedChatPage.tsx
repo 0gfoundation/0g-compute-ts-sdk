@@ -441,6 +441,7 @@ export function OptimizedChatPage() {
         {/* History Sidebar */}
         <ChatSidebar
           showHistorySidebar={showHistorySidebar}
+          onClose={() => setShowHistorySidebar(false)}
           isProcessing={isProcessing}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -472,7 +473,7 @@ export function OptimizedChatPage() {
               }}
             />
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <div className="relative group">
                 <button
                   onClick={() => {
@@ -481,7 +482,8 @@ export function OptimizedChatPage() {
                     }
                   }}
                   disabled={isProcessing}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center space-x-1 cursor-pointer ${
+                  title="Toggle chat history"
+                  className={`px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center space-x-1 cursor-pointer ${
                     isProcessing
                       ? 'text-gray-400 cursor-not-allowed'
                       : showHistorySidebar
@@ -492,18 +494,18 @@ export function OptimizedChatPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>History</span>
+                <span className="hidden sm:inline">History</span>
                 </button>
-                
-                {/* History Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
+
+                {/* History Tooltip - only show on desktop */}
+                <div className="hidden sm:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
                   Toggle chat history
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                     <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="relative group">
                 <button
                 onClick={() => {
@@ -512,7 +514,8 @@ export function OptimizedChatPage() {
                   }
                 }}
                 disabled={isProcessing}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center space-x-1 cursor-pointer ${
+                title="Start new chat"
+                className={`px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center space-x-1 cursor-pointer ${
                   isProcessing
                     ? 'text-gray-400 cursor-not-allowed'
                     : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
@@ -521,11 +524,11 @@ export function OptimizedChatPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span>New</span>
+                <span className="hidden sm:inline">New</span>
                 </button>
-                
-                {/* New Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
+
+                {/* New Tooltip - only show on desktop */}
+                <div className="hidden sm:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
                   Start new chat
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                     <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>

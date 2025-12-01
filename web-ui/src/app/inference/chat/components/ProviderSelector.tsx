@@ -179,8 +179,8 @@ export function ProviderSelector({
       {/* Provider Info Bar - Redesigned */}
       {selectedProvider && (
         <div className="flex items-center gap-2">
-          {/* Left Section: Provider Status and Address */}
-          <div className="flex items-center gap-2 flex-1">
+          {/* Left Section: Provider Status and Address - hidden on mobile */}
+          <div className="hidden lg:flex items-center gap-2 flex-1">
             {/* Verification Status */}
             {selectedProvider.verifiability?.toLowerCase().includes('teeml') || selectedProvider.verifiability?.toLowerCase().includes('tee') ? (
               <div className="flex items-center gap-1">
@@ -197,7 +197,7 @@ export function ProviderSelector({
                 <span className="text-xs font-medium text-purple-700">Standard</span>
               </div>
             )}
-            
+
             {/* Provider Address with Copy */}
             <div className="flex items-center gap-1">
               <span className="text-xs text-gray-500 font-mono">
@@ -229,10 +229,10 @@ export function ProviderSelector({
               </div>
             </div>
           </div>
-          {/* Center Section: Price Info */}
+          {/* Center Section: Price Info - hidden on small screens */}
           {(selectedProvider.inputPrice !== undefined ||
             selectedProvider.outputPrice !== undefined) && (
-            <div className="relative group">
+            <div className="hidden md:block relative group">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-gray-200">
                 <svg
                   className="w-3.5 h-3.5 text-gray-500"
@@ -346,6 +346,7 @@ export function ProviderSelector({
                   ? 'bg-yellow-500 text-white hover:bg-yellow-600'
                   : 'bg-purple-500 text-white hover:bg-purple-600'
               }`}
+              title="Add Funds"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -360,7 +361,7 @@ export function ProviderSelector({
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              <span>Add Funds</span>
+              <span className="hidden sm:inline">Add Funds</span>
             </button>
           </div>
         </div>
