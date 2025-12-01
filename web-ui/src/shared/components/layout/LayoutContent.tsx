@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAccount, useDisconnect, useChainId } from "wagmi";
-import { Sidebar } from "./Sidebar";
 import { use0GBroker } from "../../hooks/use0GBroker";
 import { NavigationProvider, useNavigation } from "../navigation/OptimizedNavigation";
 import SimpleLoader from "../ui/SimpleLoader";
@@ -12,28 +11,28 @@ interface LayoutContentProps {
   children: React.ReactNode;
 }
 
-const MainContentArea: React.FC<{ children: React.ReactNode; isHomePage: boolean }> = React.memo(({ 
-  children, 
-  isHomePage 
+const MainContentArea: React.FC<{ children: React.ReactNode; isHomePage: boolean }> = React.memo(({
+  children,
+  isHomePage
 }) => {
   const { isNavigating, targetRoute } = useNavigation();
 
   if (isNavigating) {
     return (
-      <main className="p-4">
+      <div className="p-4">
         <SimpleLoader message={`Loading ${targetRoute || 'page'}...`} />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-4">
+    <div>
       {isHomePage ? (
         <div className="container mx-auto px-4 py-8">{children}</div>
       ) : (
         children
       )}
-    </main>
+    </div>
   );
 });
 
@@ -45,101 +44,80 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const { broker, isInitializing, isChainSwitching, error: brokerError } = use0GBroker();
-  
+  const { broker, isInitializing, isChainSwitching } = use0GBroker();
+
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialDeposit, setInitialDeposit] = useState<string>("3");
-  
-  // Track last checked state to avoid redundant checks (using ref to avoid triggering re-renders)
+
   const lastCheckedStateRef = useRef<{
     pathname: string;
     chainId: number;
     checkedAt: number;
   } | null>(null);
-  
-  // Track previous chainId to detect chain switching locally
-  const previousChainIdRef = useRef<number | undefined>(undefined); // Start as undefined
+
+  const previousChainIdRef = useRef<number | undefined>(undefined);
   const [isLocalChainSwitching, setIsLocalChainSwitching] = useState(false);
-  
-  // Initialize previous chainId ref on mount
+
   useEffect(() => {
     if (previousChainIdRef.current === undefined) {
       previousChainIdRef.current = chainId;
     }
   }, [chainId]);
 
-  // Detect chain switching immediately when chainId changes
   useEffect(() => {
     if (previousChainIdRef.current !== undefined && previousChainIdRef.current !== chainId) {
-      // Chain is switching - immediately hide modals and set switching state
       setIsLocalChainSwitching(true);
       setShowDepositModal(false);
-      
-      // Clear last checked state
       lastCheckedStateRef.current = null;
-      
-      // Reset switching state after broker has time to initialize
+
       const resetTimer = setTimeout(() => {
         setIsLocalChainSwitching(false);
-      }, 2000); // Give broker time to initialize
-      
+      }, 2000);
+
       return () => clearTimeout(resetTimer);
     }
-    
-    // Update previous chainId
+
     previousChainIdRef.current = chainId;
   }, [chainId]);
 
   useEffect(() => {
     const checkLedger = async () => {
-      // Wait until broker is fully ready (not initializing and not chain switching)
-      // Also add a small delay to ensure broker has synced with the new network
       if (broker && isConnected && !isHomePage && !isInitializing && !isChainSwitching && !isLocalChainSwitching) {
-        // Additional check: ensure we're not too close to the last chain change
         const now = Date.now();
         const lastChecked = lastCheckedStateRef.current;
         if (lastChecked && lastChecked.chainId !== chainId && (now - lastChecked.checkedAt) < 3000) {
           return;
         }
-        
-        // Skip check if we recently checked the same state
-        if (lastChecked && 
-            lastChecked.pathname === pathname && 
+
+        if (lastChecked &&
+            lastChecked.pathname === pathname &&
             lastChecked.chainId === chainId &&
-            (now - lastChecked.checkedAt) < 5000) { // 5 second cooldown for same state
+            (now - lastChecked.checkedAt) < 5000) {
           return;
         }
-        
+
         try {
           const ledger = await broker.ledger.getLedger();
-          // If we get here, it means ledger exists and has data
-          // Check if the balance is valid (totalBalance > 0 indicates a real ledger)
           if (!ledger || ledger.totalBalance === BigInt(0)) {
             setShowDepositModal(true);
           } else {
-            // Ledger exists and has balance, hide modal
             setShowDepositModal(false);
           }
-          
-          // Update last checked state
+
           lastCheckedStateRef.current = {
             pathname,
             chainId,
             checkedAt: now,
           };
         } catch (error) {
-          // Check if error is due to network change (chain switching)
           if (error instanceof Error && error.message.includes('network changed')) {
-            // Don't show modal for network change errors, just wait
             return;
           }
-          
-          // For other errors (e.g., ledger does not exist), prompt for deposit
+
           setShowDepositModal(true);
-          
-          // Update last checked state even on error
+
           lastCheckedStateRef.current = {
             pathname,
             chainId,
@@ -148,11 +126,10 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
         }
       }
     };
-    
+
     checkLedger();
   }, [broker, isConnected, isHomePage, chainId, pathname, isInitializing, isChainSwitching, isLocalChainSwitching]);
 
-  // Clear modals and errors when wallet is disconnected
   useEffect(() => {
     if (!isConnected) {
       setShowDepositModal(false);
@@ -160,17 +137,14 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     }
   }, [isConnected]);
 
-  // Reset state when network changes to ensure clean state for new network
   useEffect(() => {
     if (isConnected) {
       setError(null);
       setIsLoading(false);
-      // Clear last checked state when chain changes to force a new check
       lastCheckedStateRef.current = null;
     }
   }, [chainId, isConnected]);
 
-  // Hide modal during initialization and chain switching to prevent flickering
   useEffect(() => {
     if (isInitializing || isChainSwitching || isLocalChainSwitching) {
       setShowDepositModal(false);
@@ -191,7 +165,6 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     try {
       await broker.ledger.addLedger(depositAmount);
       setShowDepositModal(false);
-      // Reset initial deposit for next time
       setInitialDeposit("3");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create account. Please try again.';
@@ -209,12 +182,10 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
   const handleCopyAddress = async () => {
     if (!address) return;
-    
+
     try {
       await navigator.clipboard.writeText(address);
-      // Optional: You could add a toast notification here
     } catch {
-      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = address;
       document.body.appendChild(textArea);
@@ -230,16 +201,13 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
   return (
     <NavigationProvider>
-      <div className={`min-h-screen bg-gray-50 ${isHomePage ? "pt-20" : "pl-52 pt-20"}`}>
-        {isHomePage ? null : <Sidebar />}
-        <MainContentArea isHomePage={isHomePage}>
-          {children}
-        </MainContentArea>
-      </div>
+      <MainContentArea isHomePage={isHomePage}>
+        {children}
+      </MainContentArea>
 
-      {/* Global Account Creation Modal - only show when broker is fully ready */}
+      {/* Global Account Creation Modal */}
       {showDepositModal && !isInitializing && !isChainSwitching && !isLocalChainSwitching && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80">
             <div className="text-center mb-4">
               <h3 className="text-lg font-medium text-gray-900 mb-2 whitespace-nowrap">
@@ -331,7 +299,6 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
           </div>
         </div>
       )}
-
     </NavigationProvider>
   );
 };
