@@ -21,9 +21,6 @@ function LedgerContent() {
     depositFund,
   } = use0GBroker();
 
-  const [addAmount, setAddAmount] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'detail'>('overview');
   const [expandedRefunds, setExpandedRefunds] = useState<{ [key: string]: boolean }>({});
   const [refundDetails, setRefundDetails] = useState<{ [key: string]: { amount: bigint, remainTime: bigint }[] }>({});
@@ -32,8 +29,7 @@ function LedgerContent() {
   const [isRetrievingAll, setIsRetrievingAll] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: string, show: boolean }>({ message: '', show: false });
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Handle tab parameter from URL
   useEffect(() => {
@@ -122,25 +118,6 @@ function LedgerContent() {
     fineTunings: [],
   };
 
-  const handleAddFunds = async () => {
-    if (!addAmount || !broker) return;
-
-    setIsAdding(true);
-    setError(null);
-
-    try {
-      const amount = parseFloat(addAmount);
-      await depositFund(amount);
-      alert(`Successfully added ${addAmount} 0G tokens to your account!`);
-      setAddAmount("");
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add funds';
-      setError(errorMessage);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
   const handleRetrieveAll = async () => {
     if (!broker) return;
     setIsRetrievingAll(true);
@@ -198,73 +175,6 @@ function LedgerContent() {
     }
   };
 
-  const handleWithdraw = async () => {
-    if (!withdrawAmount || !broker) return;
-
-    const amount = parseFloat(withdrawAmount);
-    const availableAmount = parseFloat(displayLedgerInfo.availableBalance);
-    const totalAmount = parseFloat(displayLedgerInfo.totalBalance);
-    const maxWithdrawable = Math.max(0, Math.min(availableAmount, totalAmount - 3));
-
-    if (amount <= 0) {
-      setError("Amount must be greater than 0");
-      return;
-    }
-
-    if (amount > maxWithdrawable) {
-      setError("Total balance must remain at least 3 0G");
-      return;
-    }
-
-    setIsAdding(true);
-    setError(null);
-
-    try {
-      if (typeof broker.ledger.refund === 'function') {
-        await broker.ledger.refund(amount);
-        setShowWithdrawModal(false);
-        setWithdrawAmount("");
-        await refreshLedgerInfo();
-      } else {
-        setError('Withdraw functionality is not available yet.');
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw';
-      setError(errorMessage);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!broker) return;
-
-    const availableAmount = parseFloat(displayLedgerInfo.availableBalance);
-    const lockedAmount = parseFloat(displayLedgerInfo.locked);
-    const canDeleteAccount = lockedAmount === 0;
-
-    if (!canDeleteAccount || availableAmount <= 0) return;
-
-    if (!confirm('Are you sure you want to withdraw all funds and delete your account? This action cannot be undone.')) {
-      return;
-    }
-
-    setIsDeleting(true);
-    setError(null);
-
-    try {
-      await broker.ledger.refund(availableAmount);
-      setShowWithdrawModal(false);
-      alert('All funds have been withdrawn and your account has been deleted.');
-      router.push('/');
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw all funds';
-      setError(errorMessage);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   if (!isConnected) {
     return (
       <div className="w-full">
@@ -309,13 +219,10 @@ function LedgerContent() {
                 isLoading={isInitializing}
               />
 
-              {/* Add Funds Section */}
+              {/* Add Funds Section - Now self-contained */}
               <AddFundsForm
-                amount={addAmount}
-                onAmountChange={setAddAmount}
-                onSubmit={handleAddFunds}
-                isLoading={isAdding}
-                error={error}
+                depositFund={depositFund}
+                onSuccess={refreshLedgerInfo}
               />
             </TabsContent>
 
@@ -343,24 +250,16 @@ function LedgerContent() {
         </div>
       </Tabs>
 
-      {/* Withdraw Dialog */}
+      {/* Withdraw Dialog - Now self-contained */}
       <WithdrawDialog
         isOpen={showWithdrawModal}
-        onClose={() => {
-          setShowWithdrawModal(false);
-          setError(null);
-        }}
+        onClose={() => setShowWithdrawModal(false)}
         availableBalance={displayLedgerInfo.availableBalance}
         totalBalance={displayLedgerInfo.totalBalance}
         lockedBalance={displayLedgerInfo.locked}
-        withdrawAmount={withdrawAmount}
-        onWithdrawAmountChange={setWithdrawAmount}
-        onWithdraw={handleWithdraw}
-        onDeleteAccount={handleDeleteAccount}
-        isWithdrawing={isAdding}
-        isDeleting={isDeleting}
-        error={error}
-        formatNumber={formatNumber}
+        refund={(amount) => broker!.ledger.refund(amount)}
+        onSuccess={refreshLedgerInfo}
+        onDeleteSuccess={() => router.push('/')}
       />
     </div>
   );

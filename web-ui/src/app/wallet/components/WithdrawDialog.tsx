@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
     Dialog,
     DialogContent,
@@ -18,14 +19,21 @@ interface WithdrawDialogProps {
     availableBalance: string
     totalBalance: string
     lockedBalance: string
-    withdrawAmount: string
-    onWithdrawAmountChange: (value: string) => void
-    onWithdraw: () => void
-    onDeleteAccount: () => void
-    isWithdrawing: boolean
-    isDeleting: boolean
-    error: string | null
-    formatNumber: (value: string | number) => string
+    refund: (amount: number) => Promise<void>
+    onSuccess?: () => void
+    onDeleteSuccess?: () => void
+}
+
+// Helper function to format numbers
+const formatNumber = (value: string | number) => {
+    if (!value || value === "0" || value === 0) return "0"
+    const num = parseFloat(value.toString())
+    if (isNaN(num)) return "0"
+    return num.toLocaleString('en-US', {
+        useGrouping: false,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 20
+    })
 }
 
 export function WithdrawDialog({
@@ -34,28 +42,85 @@ export function WithdrawDialog({
     availableBalance,
     totalBalance,
     lockedBalance,
-    withdrawAmount,
-    onWithdrawAmountChange,
-    onWithdraw,
-    onDeleteAccount,
-    isWithdrawing,
-    isDeleting,
-    error,
-    formatNumber,
+    refund,
+    onSuccess,
+    onDeleteSuccess,
 }: WithdrawDialogProps) {
+    const [withdrawAmount, setWithdrawAmount] = useState('')
+    const [isWithdrawing, setIsWithdrawing] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    // Reset state when dialog closes
+    useEffect(() => {
+        if (!isOpen) {
+            setWithdrawAmount('')
+            setError(null)
+        }
+    }, [isOpen])
+
     const availableAmount = parseFloat(availableBalance)
     const totalAmount = parseFloat(totalBalance)
     const lockedAmount = parseFloat(lockedBalance)
     const maxWithdrawable = Math.max(0, Math.min(availableAmount, totalAmount - 3))
     const canDeleteAccount = lockedAmount === 0
 
-    const handleClose = () => {
-        onWithdrawAmountChange('')
-        onClose()
+    const handleWithdraw = async () => {
+        if (!withdrawAmount) return
+
+        const amount = parseFloat(withdrawAmount)
+
+        if (amount <= 0) {
+            setError("Amount must be greater than 0")
+            return
+        }
+
+        if (amount > maxWithdrawable) {
+            setError("Total balance must remain at least 3 0G")
+            return
+        }
+
+        setIsWithdrawing(true)
+        setError(null)
+
+        try {
+            await refund(amount)
+            setWithdrawAmount('')
+            onClose()
+            onSuccess?.()
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw'
+            setError(errorMessage)
+        } finally {
+            setIsWithdrawing(false)
+        }
+    }
+
+    const handleDeleteAccount = async () => {
+        if (!canDeleteAccount || availableAmount <= 0) return
+
+        if (!confirm('Are you sure you want to withdraw all funds and delete your account? This action cannot be undone.')) {
+            return
+        }
+
+        setIsDeleting(true)
+        setError(null)
+
+        try {
+            await refund(availableAmount)
+            onClose()
+            alert('All funds have been withdrawn and your account has been deleted.')
+            onDeleteSuccess?.()
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw all funds'
+            setError(errorMessage)
+        } finally {
+            setIsDeleting(false)
+        }
     }
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Withdraw Funds</DialogTitle>
@@ -71,7 +136,7 @@ export function WithdrawDialog({
                                 type="number"
                                 id="withdraw-amount"
                                 value={withdrawAmount}
-                                onChange={(e) => onWithdrawAmountChange(e.target.value)}
+                                onChange={(e) => setWithdrawAmount(e.target.value)}
                                 placeholder="0.0"
                                 step="0.01"
                                 min="0"
@@ -98,11 +163,11 @@ export function WithdrawDialog({
                 </div>
 
                 <DialogFooter className="flex gap-3 sm:gap-3">
-                    <Button variant="outline" onClick={handleClose} className="flex-1">
+                    <Button variant="outline" onClick={onClose} className="flex-1">
                         Cancel
                     </Button>
                     <Button
-                        onClick={onWithdraw}
+                        onClick={handleWithdraw}
                         disabled={!withdrawAmount || isWithdrawing || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > maxWithdrawable}
                         className="flex-1 bg-purple-600 hover:bg-purple-700"
                     >
@@ -129,7 +194,7 @@ export function WithdrawDialog({
                     </div>
                     <Button
                         variant="outline"
-                        onClick={onDeleteAccount}
+                        onClick={handleDeleteAccount}
                         disabled={!canDeleteAccount || isDeleting || availableAmount <= 0}
                         className="w-full border-red-300 text-red-600 hover:bg-red-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
                     >
