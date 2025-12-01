@@ -37,7 +37,6 @@ const nextConfig = {
     transpilePackages: ['@0glabs/0g-serving-broker'],
     output: 'export',
     trailingSlash: false, // Change to false for better SPA behavior
-    distDir: 'out', // Explicitly set output directory
     
     // Optimize bundle splitting
     experimental: {
