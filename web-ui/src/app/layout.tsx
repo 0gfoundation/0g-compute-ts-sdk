@@ -6,6 +6,7 @@ import { Providers } from "../../Providers";
 import { Navbar } from "../shared/components/layout/Navbar";
 import { Sidebar } from "../shared/components/layout/Sidebar";
 import { LayoutContent } from "../shared/components/layout/LayoutContent";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,6 +44,7 @@ export default function RootLayout({
               </main>
             </div>
           </div>
+          <Toaster />
         </Providers>
       </body>
     </html>

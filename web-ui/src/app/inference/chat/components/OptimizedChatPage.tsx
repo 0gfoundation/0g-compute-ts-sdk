@@ -6,7 +6,6 @@ import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { use0GBroker } from "../../../../shared/hooks/use0GBroker";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
-import { useErrorWithTimeout } from "../../../../shared/hooks/useErrorWithTimeout";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
 import { useStreamingState } from "../../../../shared/hooks/useStreamingState";
 import { useProviderManagement } from "../../hooks/useProviderManagement";
@@ -17,6 +16,7 @@ import { ProviderSelector } from "./ProviderSelector";
 import { MessageList } from "./MessageList";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopUpModal } from "./TopUpModal";
+import { useToast } from "@/hooks/use-toast";
 
 
 
@@ -34,7 +34,18 @@ export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
   const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
   const router = useRouter();
-  const { error, setErrorWithTimeout } = useErrorWithTimeout();
+  const { toast } = useToast();
+
+  // Use toast for non-blocking errors
+  const setErrorWithTimeout = useCallback((error: string | null) => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.length > 200 ? error.substring(0, 200) + "..." : error,
+      });
+    }
+  }, [toast]);
 
   // Provider state management
   const {
@@ -89,7 +100,7 @@ export function OptimizedChatPage() {
   const { searchQuery, setSearchQuery, searchResults, isSearching, clearSearch } = useProviderSearch(chatHistory);
   
   // Message handling hook
-  const { sendMessage, verifyResponse } = useMessageHandling({
+  const { sendMessage, verifyResponse, stopGeneration } = useMessageHandling({
     broker,
     selectedProvider,
     serviceMetadata,
@@ -401,52 +412,6 @@ export function OptimizedChatPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-          <div className="flex items-start">
-            <svg
-              className="w-5 h-5 text-red-500 mr-3 mt-0.5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <p className="text-sm text-red-700 mt-1 break-words whitespace-pre-wrap">
-                {(() => {
-                  try {
-                    // Try to parse as JSON if it looks like JSON
-                    if (error.trim().startsWith('{') && error.trim().endsWith('}')) {
-                      const parsed = JSON.parse(error);
-                      return JSON.stringify(parsed, null, 2);
-                    }
-                    return error;
-                  } catch {
-                    return error;
-                  }
-                })()}
-              </p>
-            </div>
-            <button
-              onClick={() => setErrorWithTimeout(null)}
-              className="ml-2 text-red-400 hover:text-red-600 flex-shrink-0"
-              title="Close error message"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Funding alert reserved for future use */}
       {/* {showFundingAlert && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
@@ -577,6 +542,8 @@ export function OptimizedChatPage() {
           isLoading={isLoading}
           isStreaming={isStreaming}
           verifyResponse={verifyResponse}
+          messagesContainerRef={messagesContainerRef}
+          messagesEndRef={messagesEndRef}
         />
 
         {/* Input */}
@@ -584,7 +551,9 @@ export function OptimizedChatPage() {
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
           isProcessing={isProcessing}
+          isStreaming={isStreaming}
           onSendMessage={sendMessage}
+          onStopGeneration={stopGeneration}
         />
         </div>
       </div>

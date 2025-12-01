@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useReducer, useEffect, useCallback } from 'react';
 import { dbManager, type ChatMessage, type ChatSession } from '../lib/database';
 
 export interface UseChatHistoryOptions {
@@ -11,44 +11,144 @@ export interface UseChatHistoryReturn {
   // Current session
   currentSessionId: string | null;
   messages: ChatMessage[];
-  
+
   // Session management
   sessions: ChatSession[];
   createNewSession: (title?: string) => Promise<string>;
   loadSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
-  
+
   // Message management
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => Promise<string | null>;
   updateMessage: (index: number, updates: Partial<ChatMessage>) => void;
   clearCurrentSession: () => Promise<void>;
-  
+
   // Search and history
   searchMessages: (query: string) => Promise<ChatMessage[]>;
-  
+
   // State
   isLoading: boolean;
   error: string | null;
 }
 
+// State type
+interface ChatHistoryState {
+  currentSessionId: string | null;
+  messages: ChatMessage[];
+  sessions: ChatSession[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Action types
+type ChatHistoryAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'LOAD_SESSIONS_SUCCESS'; payload: ChatSession[] }
+  | { type: 'CREATE_SESSION_SUCCESS'; payload: { sessionId: string; sessions: ChatSession[] } }
+  | { type: 'LOAD_SESSION_SUCCESS'; payload: { sessionId: string; messages: ChatMessage[] } }
+  | { type: 'DELETE_SESSION_SUCCESS'; payload: { sessionId: string; sessions: ChatSession[]; wasCurrentSession: boolean } }
+  | { type: 'UPDATE_SESSION_TITLE_SUCCESS'; payload: ChatSession[] }
+  | { type: 'ADD_MESSAGE_SUCCESS'; payload: { sessionId: string; sessions?: ChatSession[] } }
+  | { type: 'UPDATE_MESSAGE'; payload: { index: number; updates: Partial<ChatMessage> } }
+  | { type: 'CLEAR_SESSION_SUCCESS' }
+  | { type: 'SET_MESSAGES'; payload: ChatMessage[] };
+
+// Initial state
+const initialState: ChatHistoryState = {
+  currentSessionId: null,
+  messages: [],
+  sessions: [],
+  isLoading: false,
+  error: null,
+};
+
+// Reducer function
+function chatHistoryReducer(state: ChatHistoryState, action: ChatHistoryAction): ChatHistoryState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+
+    case 'LOAD_SESSIONS_SUCCESS':
+      return { ...state, sessions: action.payload, error: null };
+
+    case 'CREATE_SESSION_SUCCESS':
+      return {
+        ...state,
+        currentSessionId: action.payload.sessionId,
+        sessions: action.payload.sessions,
+        messages: [],
+        error: null,
+      };
+
+    case 'LOAD_SESSION_SUCCESS':
+      return {
+        ...state,
+        currentSessionId: action.payload.sessionId,
+        messages: action.payload.messages,
+        isLoading: false,
+        error: null,
+      };
+
+    case 'DELETE_SESSION_SUCCESS':
+      return {
+        ...state,
+        sessions: action.payload.sessions,
+        currentSessionId: action.payload.wasCurrentSession ? null : state.currentSessionId,
+        messages: action.payload.wasCurrentSession ? [] : state.messages,
+        error: null,
+      };
+
+    case 'UPDATE_SESSION_TITLE_SUCCESS':
+      return { ...state, sessions: action.payload, error: null };
+
+    case 'ADD_MESSAGE_SUCCESS':
+      return {
+        ...state,
+        currentSessionId: action.payload.sessionId,
+        sessions: action.payload.sessions || state.sessions,
+        error: null,
+      };
+
+    case 'UPDATE_MESSAGE':
+      return {
+        ...state,
+        messages: state.messages.map((msg, index) =>
+          index === action.payload.index
+            ? { ...msg, ...action.payload.updates }
+            : msg
+        ),
+      };
+
+    case 'CLEAR_SESSION_SUCCESS':
+      return { ...state, messages: [], error: null };
+
+    case 'SET_MESSAGES':
+      return { ...state, messages: action.payload };
+
+    default:
+      return state;
+  }
+}
+
 export function useChatHistory({ walletAddress, providerAddress, autoSave = true }: UseChatHistoryOptions): UseChatHistoryReturn {
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(chatHistoryReducer, initialState);
 
   // Load sessions (database will initialize automatically)
   useEffect(() => {
     const initializeDatabase = async () => {
       try {
-        setIsLoading(true);
-        await loadSessions();
+        dispatch({ type: 'SET_LOADING', payload: true });
+        const walletSessions = await dbManager.getChatSessions(walletAddress || undefined);
+        dispatch({ type: 'LOAD_SESSIONS_SUCCESS', payload: walletSessions });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Database initialization failed');
+        dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Database initialization failed' });
       } finally {
-        setIsLoading(false);
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
@@ -56,14 +156,15 @@ export function useChatHistory({ walletAddress, providerAddress, autoSave = true
   }, [walletAddress]);
 
   // Load sessions for current wallet (all providers)
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (): Promise<ChatSession[]> => {
     try {
-      // Only pass walletAddress if it's not empty, don't filter by provider
       const effectiveWalletAddress = walletAddress || undefined;
       const walletSessions = await dbManager.getChatSessions(effectiveWalletAddress);
-      setSessions(walletSessions);
+      dispatch({ type: 'LOAD_SESSIONS_SUCCESS', payload: walletSessions });
+      return walletSessions;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sessions');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to load sessions' });
+      return [];
     }
   }, [walletAddress]);
 
@@ -72,27 +173,24 @@ export function useChatHistory({ walletAddress, providerAddress, autoSave = true
     try {
       // Use empty string for provider_address as sessions are now shared across providers
       const sessionId = await dbManager.createChatSession('', walletAddress || '', title);
-      setCurrentSessionId(sessionId);
-      setMessages([]);
-      await loadSessions(); // Refresh sessions list
+      const sessions = await dbManager.getChatSessions(walletAddress || undefined);
+      dispatch({ type: 'CREATE_SESSION_SUCCESS', payload: { sessionId, sessions } });
       return sessionId;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create session');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to create session' });
       throw err;
     }
-  }, [walletAddress, loadSessions]);
+  }, [walletAddress]);
 
   // Load existing session
   const loadSession = useCallback(async (sessionId: string) => {
     try {
-      setIsLoading(true);
+      dispatch({ type: 'SET_LOADING', payload: true });
       const sessionMessages = await dbManager.getMessages(sessionId);
-      setCurrentSessionId(sessionId);
-      setMessages(sessionMessages);
+      dispatch({ type: 'LOAD_SESSION_SUCCESS', payload: { sessionId, messages: sessionMessages } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load session');
-    } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to load session' });
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, []);
 
@@ -100,29 +198,24 @@ export function useChatHistory({ walletAddress, providerAddress, autoSave = true
   const deleteSession = useCallback(async (sessionId: string) => {
     try {
       await dbManager.deleteChatSession(sessionId);
-      
-      // If we deleted the current session, clear it
-      if (currentSessionId === sessionId) {
-        setCurrentSessionId(null);
-        setMessages([]);
-      }
-      
-      // Refresh sessions list
-      await loadSessions();
+      const sessions = await dbManager.getChatSessions(walletAddress || undefined);
+      const wasCurrentSession = state.currentSessionId === sessionId;
+      dispatch({ type: 'DELETE_SESSION_SUCCESS', payload: { sessionId, sessions, wasCurrentSession } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete session');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to delete session' });
     }
-  }, [currentSessionId, loadSessions]);
+  }, [walletAddress, state.currentSessionId]);
 
   // Update session title
   const updateSessionTitle = useCallback(async (sessionId: string, title: string) => {
     try {
       await dbManager.updateChatSessionTitle(sessionId, title);
-      await loadSessions(); // Refresh sessions list
+      const sessions = await dbManager.getChatSessions(walletAddress || undefined);
+      dispatch({ type: 'UPDATE_SESSION_TITLE_SUCCESS', payload: sessions });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update session title');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to update session title' });
     }
-  }, [loadSessions]);
+  }, [walletAddress]);
 
   // Generate chat title from first user message
   const generateChatTitle = useCallback((content: string): string => {
@@ -139,11 +232,12 @@ export function useChatHistory({ walletAddress, providerAddress, autoSave = true
   const addMessage = useCallback(async (messageData: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<string | null> => {
     try {
       // If no current session, create one
-      let sessionId = currentSessionId;
+      let sessionId = state.currentSessionId;
+      let newSessions: ChatSession[] | undefined;
+
       if (!sessionId) {
-        sessionId = await createNewSession();
-        // Update the current session ID immediately
-        setCurrentSessionId(sessionId);
+        sessionId = await dbManager.createChatSession('', walletAddress || '');
+        newSessions = await dbManager.getChatSessions(walletAddress || undefined);
       }
 
       const message: Omit<ChatMessage, 'id'> = {
@@ -155,101 +249,94 @@ export function useChatHistory({ walletAddress, providerAddress, autoSave = true
       // Save to database if autoSave is enabled
       if (autoSave) {
         await dbManager.saveMessage(sessionId, message);
-        
+
         // If this is the first user message, update session title
         if (messageData.role === 'user') {
           // Check if session already has a title by checking messages in database
           const existingMessages = await dbManager.getMessages(sessionId);
           const userMessages = existingMessages.filter(m => m.role === 'user');
-          
+
           // Only set title if this is the first user message
           if (userMessages.length === 1) { // Just saved one user message
             const title = generateChatTitle(messageData.content);
             await dbManager.updateChatSessionTitle(sessionId, title);
-            await loadSessions(); // Refresh sessions to show new title
+            newSessions = await dbManager.getChatSessions(walletAddress || undefined);
           }
         }
       }
 
-      // Return the session ID for the caller to use
+      dispatch({ type: 'ADD_MESSAGE_SUCCESS', payload: { sessionId, sessions: newSessions } });
       return sessionId;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add message');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to add message' });
       return null;
     }
-  }, [currentSessionId, autoSave, createNewSession, messages, generateChatTitle, loadSessions]);
+  }, [state.currentSessionId, walletAddress, providerAddress, autoSave, generateChatTitle]);
 
   // Update message in current session
   const updateMessage = useCallback((index: number, updates: Partial<ChatMessage>) => {
-    setMessages(prev => {
-      const newMessages = [...prev];
-      if (index >= 0 && index < newMessages.length) {
-        newMessages[index] = { ...newMessages[index], ...updates };
-        
-        // Update in database if message has ID and verification status changed
-        const message = newMessages[index];
-        if (message.id && (updates.is_verified !== undefined || updates.is_verifying !== undefined)) {
-          dbManager.updateMessageVerification(
-            message.id,
-            message.is_verified ?? false,
-            message.is_verifying ?? false
-          ).catch(err => {
-            // Silently handle verification update errors
-          });
-        }
-      }
-      return newMessages;
-    });
-  }, []);
+    dispatch({ type: 'UPDATE_MESSAGE', payload: { index, updates } });
+
+    // Update in database if message has ID and verification status changed
+    const message = state.messages[index];
+    if (message?.id && (updates.is_verified !== undefined || updates.is_verifying !== undefined)) {
+      dbManager.updateMessageVerification(
+        message.id,
+        updates.is_verified ?? message.is_verified ?? false,
+        updates.is_verifying ?? message.is_verifying ?? false
+      ).catch(() => {
+        // Silently handle verification update errors
+      });
+    }
+  }, [state.messages]);
 
   // Clear current session messages
   const clearCurrentSession = useCallback(async () => {
-    if (currentSessionId) {
+    if (state.currentSessionId) {
       try {
-        await dbManager.clearMessages(currentSessionId);
-        setMessages([]);
+        await dbManager.clearMessages(state.currentSessionId);
+        dispatch({ type: 'CLEAR_SESSION_SUCCESS' });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to clear session');
+        dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to clear session' });
       }
     } else {
-      setMessages([]);
+      dispatch({ type: 'CLEAR_SESSION_SUCCESS' });
     }
-  }, [currentSessionId]);
+  }, [state.currentSessionId]);
 
   // Search messages
   const searchMessages = useCallback(async (query: string): Promise<ChatMessage[]> => {
     try {
-      // Only pass walletAddress if it's not empty
       const effectiveWalletAddress = walletAddress || undefined;
       return await dbManager.searchMessages(query, effectiveWalletAddress, providerAddress);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to search messages');
+      dispatch({ type: 'SET_ERROR', payload: err instanceof Error ? err.message : 'Failed to search messages' });
       return [];
     }
   }, [walletAddress, providerAddress]);
 
   return {
     // Current session
-    currentSessionId,
-    messages,
-    
+    currentSessionId: state.currentSessionId,
+    messages: state.messages,
+
     // Session management
-    sessions,
+    sessions: state.sessions,
     createNewSession,
     loadSession,
     deleteSession,
     updateSessionTitle,
-    
+
     // Message management
     addMessage,
     updateMessage,
     clearCurrentSession,
-    
+
     // Search and history
     searchMessages,
-    
+
     // State
-    isLoading,
-    error,
+    isLoading: state.isLoading,
+    error: state.error,
   };
 }
