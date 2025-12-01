@@ -85,13 +85,15 @@ export function ProviderFundsTable({
                             >
                                 <Card className="bg-white">
                                     <CardContent className="p-4">
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div>
-                                                <div className="text-xs font-medium text-gray-500 mb-1">Provider Address</div>
-                                                <div className="text-sm font-medium text-gray-900 font-mono break-all">
-                                                    {provider.provider}
-                                                </div>
+                                        {/* Provider Address - always full width on mobile */}
+                                        <div className="mb-3 md:mb-0">
+                                            <div className="text-xs font-medium text-gray-500 mb-1">Provider Address</div>
+                                            <div className="text-sm font-medium text-gray-900 font-mono break-all">
+                                                {provider.provider}
                                             </div>
+                                        </div>
+                                        {/* Fund info - side by side on mobile, grid on desktop */}
+                                        <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                                             <div>
                                                 <div className="text-xs font-medium text-gray-500 mb-1">Current Fund</div>
                                                 <div className="text-sm font-medium text-gray-900">
@@ -151,7 +153,7 @@ export function ProviderFundsTable({
                                                     <div className="space-y-2">
                                                         {refundDetails[refundKey].map((refund, refundIndex) => (
                                                             <div key={refundIndex} className="bg-gray-50 rounded p-3">
-                                                                <div className="grid grid-cols-3 gap-4">
+                                                                <div className="grid grid-cols-2 gap-4">
                                                                     <div>
                                                                         <div className="text-xs font-medium text-gray-500 mb-1">Amount</div>
                                                                         <div className="text-xs font-medium text-gray-900">
@@ -164,7 +166,6 @@ export function ProviderFundsTable({
                                                                             {formatTime(Number(refund.remainTime))}
                                                                         </div>
                                                                     </div>
-                                                                    <div></div>
                                                                 </div>
                                                             </div>
                                                         ))}

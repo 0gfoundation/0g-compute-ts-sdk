@@ -45,7 +45,7 @@ export function BuildDrawer({ provider, isOpen, onClose }: BuildDrawerProps) {
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
                 side="right"
-                className="w-1/2 min-w-[600px] overflow-y-auto sm:max-w-none"
+                className="w-full sm:w-[85vw] md:w-[70vw] lg:w-1/2 lg:min-w-[600px] overflow-y-auto sm:max-w-none"
             >
                 <SheetHeader className="mb-6">
                     <SheetTitle className="text-xl">
