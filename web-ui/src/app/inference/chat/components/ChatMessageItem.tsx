@@ -58,7 +58,7 @@ function CodeBlock({
   }
 
   return (
-    <div className="relative group my-3">
+    <div className="relative group my-3 max-w-full">
       <div className="absolute top-0 right-0 flex items-center gap-2 px-2 py-1 rounded-bl-md rounded-tr-md bg-gray-800 text-gray-400 text-xs z-10">
         {language && <span className="uppercase font-medium">{language}</span>}
         <button
@@ -77,16 +77,22 @@ function CodeBlock({
         style={oneDark}
         language={language || "text"}
         PreTag="div"
+        wrapLongLines={true}
         customStyle={{
           margin: 0,
           borderRadius: "0.375rem",
           padding: "1rem",
           paddingTop: "2rem",
-          fontSize: "0.8125rem",
+          fontSize: "0.75rem",
+          overflowX: "auto",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
         }}
         codeTagProps={{
           style: {
             fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
           },
         }}
       >
@@ -127,24 +133,24 @@ const ChatMessageItem = memo(function ChatMessageItem({
       className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`flex items-start gap-3 max-w-[85%] sm:max-w-[80%] ${
+        className={`flex items-start gap-3 max-w-[85%] sm:max-w-[80%] min-w-0 ${
           message.role === "user" ? "flex-row-reverse" : "flex-row"
         }`}
       >
         <Avatar role={message.role as "user" | "assistant"} />
 
         <div
-          className={`rounded-lg px-4 py-2 break-words transition-colors ${
+          className={`rounded-lg px-4 py-2 break-words transition-colors overflow-hidden min-w-0 ${
             message.role === "user"
               ? "bg-purple-600 text-white"
               : "bg-gray-100 text-gray-900"
           }`}
-          style={{ maxWidth: "100%", overflowWrap: "break-word" }}
+          style={{ overflowWrap: "break-word", wordBreak: "break-word" }}
           data-message-content={message.content.substring(0, 100)}
         >
-          <div className="text-sm">
+          <div className="text-sm overflow-hidden">
             {message.role === "assistant" ? (
-              <div className="prose prose-sm max-w-none prose-p:mb-2 prose-p:leading-relaxed prose-headings:font-semibold prose-h1:text-xl prose-h1:mb-3 prose-h2:text-lg prose-h2:mb-2 prose-h3:text-base prose-h3:mb-2 prose-ul:mb-2 prose-ol:mb-2 prose-li:mb-1 prose-blockquote:border-purple-500 prose-blockquote:text-gray-700 prose-a:text-purple-600 prose-strong:text-gray-900">
+              <div className="prose prose-sm max-w-none overflow-hidden prose-p:mb-2 prose-p:leading-relaxed prose-headings:font-semibold prose-h1:text-xl prose-h1:mb-3 prose-h2:text-lg prose-h2:mb-2 prose-h3:text-base prose-h3:mb-2 prose-ul:mb-2 prose-ol:mb-2 prose-li:mb-1 prose-blockquote:border-purple-500 prose-blockquote:text-gray-700 prose-a:text-purple-600 prose-strong:text-gray-900 prose-pre:overflow-x-auto prose-code:break-all">
                 <ReactMarkdown
                   components={{
                     code: ({ children, className, ...props }) => {

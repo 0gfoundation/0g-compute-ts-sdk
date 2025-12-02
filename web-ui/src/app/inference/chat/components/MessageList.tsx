@@ -47,7 +47,7 @@ export function MessageList({
   const endRef = externalEndRef || internalEndRef;
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 space-y-3 sm:space-y-4">
       {messages
         .map((message, originalIndex) => ({ message, originalIndex }))
         .filter(({ message }) => message.role !== "system")

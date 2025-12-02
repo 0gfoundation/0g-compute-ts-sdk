@@ -10,8 +10,9 @@ export const CHAT_CONFIG = {
   HIGHLIGHT_REMOVAL_DELAY: 100, // Delay before removing highlight in ms
   HIGHLIGHT_SEARCH_LENGTH: 50, // Number of characters to match when searching
   
-  // UI dimensions
-  CHAT_HEIGHT: 'calc(100vh - 175px)', // Main chat container height
+  // UI dimensions - responsive heights handled via CSS classes
+  CHAT_HEIGHT_MOBILE: 'calc(100vh - 130px)', // Mobile: navbar + smaller header
+  CHAT_HEIGHT_DESKTOP: 'calc(100vh - 175px)', // Desktop: navbar + header with margins
   ICON_SIZE: {
     small: 'w-4 h-4',
     medium: 'w-5 h-5',
