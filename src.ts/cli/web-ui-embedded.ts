@@ -36,7 +36,10 @@ function getPackageRoot(): string {
     return path.resolve(__dirname, '../..')
 }
 
-export async function startEmbeddedWebUI(port = 3090): Promise<void> {
+export async function startEmbeddedWebUI(
+    port = 3090,
+    host = 'localhost'
+): Promise<void> {
     const packageRoot = getPackageRoot()
     console.log(`📦 Package root: ${packageRoot}`)
 
@@ -57,7 +60,7 @@ export async function startEmbeddedWebUI(port = 3090): Promise<void> {
         console.log(
             '✅ Using static export build (fastest startup, smallest size)'
         )
-        await serveStaticExport(staticExportPath, port)
+        await serveStaticExport(staticExportPath, port, host)
         return
     }
 
@@ -65,7 +68,7 @@ export async function startEmbeddedWebUI(port = 3090): Promise<void> {
     const standaloneBuildPath = path.join(webUIRoot, '.next', 'standalone')
     if (existsSync(standaloneBuildPath)) {
         console.log('⚠️  Using standalone build (fallback)')
-        await serveStandaloneBuild(standaloneBuildPath, webUIRoot, port)
+        await serveStandaloneBuild(standaloneBuildPath, webUIRoot, port, host)
         return
     }
 
@@ -81,7 +84,8 @@ export async function startEmbeddedWebUI(port = 3090): Promise<void> {
 
 async function serveStaticExport(
     staticPath: string,
-    port: number
+    port: number,
+    host: string
 ): Promise<void> {
     console.log(`📁 Serving static files from: ${staticPath}`)
 
@@ -193,10 +197,16 @@ async function serveStaticExport(
         })
     )
 
-    const server = app.listen(port, () => {
+    const server = app.listen(port, host, () => {
+        const displayHost = host === '0.0.0.0' ? 'all interfaces' : host
         console.log(
-            `🚀 Static web UI server running on http://localhost:${port}`
+            `🚀 Static web UI server running on http://${displayHost}:${port}`
         )
+        if (host === '0.0.0.0') {
+            console.log(
+                `📡 Accessible from LAN at http://<your-local-ip>:${port}`
+            )
+        }
         console.log(`📊 Serving from: ${staticPath}`)
     })
 
@@ -216,7 +226,8 @@ async function serveStaticExport(
 async function serveStandaloneBuild(
     standalonePath: string,
     webUIRoot: string,
-    port: number
+    port: number,
+    host: string
 ): Promise<void> {
     const standaloneServerPath = path.join(standalonePath, 'server.js')
 
@@ -315,9 +326,10 @@ async function serveStandaloneBuild(
 
     // Set environment and start the server
 
-    console.log(
-        `🚀 Starting Next.js standalone server on http://localhost:${port}`
-    )
+    console.log(`🚀 Starting Next.js standalone server on http://${host}:${port}`)
+    if (host === '0.0.0.0') {
+        console.log(`📡 Accessible from LAN at http://<your-local-ip>:${port}`)
+    }
 
     const serverProcess = spawn('node', ['server.js'], {
         cwd: standalonePath,
@@ -325,6 +337,7 @@ async function serveStandaloneBuild(
         env: {
             ...process.env,
             PORT: port.toString(),
+            HOSTNAME: host,
             NODE_ENV: 'production',
         },
         shell: process.platform === 'win32',
@@ -354,8 +367,14 @@ export default function webUIEmbedded(cmd: Command): void {
     cmd.command('start-web')
         .description('Start embedded web UI server')
         .option('-p, --port <port>', 'Port to run the server on', '3090')
+        .option(
+            '-H, --host <host>',
+            'Host to bind the server to (use 0.0.0.0 for LAN access)',
+            'localhost'
+        )
         .action(async (options) => {
             const port = parseInt(options.port, 10)
-            await startEmbeddedWebUI(port)
+            const host = options.host
+            await startEmbeddedWebUI(port, host)
         })
 }
