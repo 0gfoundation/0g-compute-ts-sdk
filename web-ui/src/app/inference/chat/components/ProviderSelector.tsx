@@ -56,32 +56,32 @@ export function ProviderSelector({
   onAddFunds,
 }: ProviderSelectorProps) {
   return (
-    <div className="flex items-center space-x-2 sm:space-x-4">
+    <div className="flex items-center space-x-1 sm:space-x-2 xl:space-x-4 min-w-0 flex-1">
       {/* Provider Selection Dropdown */}
-      <div className="relative min-w-[180px] sm:min-w-[300px] lg:min-w-[400px] provider-dropdown">
+      <div className="relative min-w-0 flex-shrink sm:min-w-[140px] lg:min-w-[200px] xl:min-w-[400px] provider-dropdown">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="w-full bg-white border border-gray-300 rounded-md pl-3 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-sm"
+          className="w-full bg-white border border-gray-300 rounded-md pl-2 sm:pl-3 pr-8 sm:pr-10 py-2 sm:py-3 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-xs sm:text-sm"
           disabled={isInitializing || providers.length === 0}
         >
           {isInitializing ? (
-            <span className="text-gray-500">Loading providers...</span>
+            <span className="text-gray-500">Loading...</span>
           ) : providers.length === 0 ? (
-            <span className="text-gray-500">
-              No providers available
-            </span>
+            <span className="text-gray-500">No providers</span>
           ) : selectedProvider ? (
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="font-medium text-sm">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <span className="font-medium text-xs sm:text-sm truncate">
                   {selectedProvider.name}
                 </span>
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-600 text-xs">
+                {/* Address - only on xl screens */}
+                <span className="hidden xl:inline text-gray-500">•</span>
+                <span className="hidden xl:inline text-gray-600 text-xs">
                   {selectedProvider.address.slice(0, 8)}...
                   {selectedProvider.address.slice(-6)}
                 </span>
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                {/* Verifiability badge - hidden on small screens */}
+                <span className={`hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                   selectedProvider.verifiability?.toLowerCase().includes('teeml') || selectedProvider.verifiability?.toLowerCase().includes('tee')
                     ? 'bg-green-100 text-green-800'
                     : 'bg-purple-100 text-purple-800'
@@ -91,14 +91,14 @@ export function ProviderSelector({
                 {OFFICIAL_PROVIDERS.some(
                   (op) => op.address === selectedProvider.address
                 ) && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                     0G
                   </span>
                 )}
               </div>
             </div>
           ) : (
-            <span className="text-gray-500">Select a provider</span>
+            <span className="text-gray-500">Select</span>
           )}
         </button>
         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
@@ -121,7 +121,7 @@ export function ProviderSelector({
 
         {/* Dropdown Menu */}
         {isDropdownOpen && providers.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-10 w-full min-w-[200px] sm:min-w-[280px] mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
             {providers.map((provider) => (
               <div
                 key={provider.address}
@@ -129,17 +129,19 @@ export function ProviderSelector({
                   onProviderSelect(provider);
                   setIsDropdownOpen(false);
                 }}
-                className="px-3 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                className="px-2 sm:px-3 py-2 sm:py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-sm">{provider.name}</span>
-                    <span className="text-gray-500">•</span>
-                    <span className="text-gray-600 text-xs">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap">
+                    <span className="font-medium text-xs sm:text-sm">{provider.name}</span>
+                    {/* Address - hidden on mobile */}
+                    <span className="hidden md:inline text-gray-500">•</span>
+                    <span className="hidden md:inline text-gray-600 text-xs">
                       {provider.address.slice(0, 8)}...
                       {provider.address.slice(-6)}
                     </span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                    {/* Verifiability badge */}
+                    <span className={`inline-flex items-center px-1 sm:px-1.5 py-0.5 rounded text-xs font-medium ${
                       provider.verifiability?.toLowerCase().includes('teeml') || provider.verifiability?.toLowerCase().includes('tee')
                         ? 'bg-green-100 text-green-800'
                         : 'bg-purple-100 text-purple-800'
@@ -149,7 +151,7 @@ export function ProviderSelector({
                     {OFFICIAL_PROVIDERS.some(
                       (op) => op.address === provider.address
                     ) && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                         0G
                       </span>
                     )}
@@ -159,15 +161,16 @@ export function ProviderSelector({
                 provider.outputPrice !== undefined ? (
                   <div className="mt-1 text-xs text-gray-500">
                     {provider.inputPrice !== undefined && (
-                      <span>Input: {provider.inputPrice.toFixed(2)} 0G/M</span>
+                      <span>{provider.inputPrice.toFixed(2)}</span>
                     )}
                     {provider.inputPrice !== undefined &&
                       provider.outputPrice !== undefined && (
-                        <span className="mx-1">•</span>
+                        <span>/</span>
                       )}
                     {provider.outputPrice !== undefined && (
-                      <span>Output: {provider.outputPrice.toFixed(2)} 0G/M</span>
+                      <span>{provider.outputPrice.toFixed(2)}</span>
                     )}
+                    <span className="ml-1">0G/M</span>
                   </div>
                 ) : null}
               </div>
@@ -178,9 +181,9 @@ export function ProviderSelector({
 
       {/* Provider Info Bar - Redesigned */}
       {selectedProvider && (
-        <div className="flex items-center gap-2">
-          {/* Left Section: Provider Status and Address - hidden on mobile */}
-          <div className="hidden lg:flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Left Section: Provider Status and Address - only on xl screens */}
+          <div className="hidden xl:flex items-center gap-2 flex-1">
             {/* Verification Status */}
             {selectedProvider.verifiability?.toLowerCase().includes('teeml') || selectedProvider.verifiability?.toLowerCase().includes('tee') ? (
               <div className="flex items-center gap-1">
@@ -229,10 +232,10 @@ export function ProviderSelector({
               </div>
             </div>
           </div>
-          {/* Center Section: Price Info - hidden on small screens */}
+          {/* Center Section: Price Info - only on lg screens and up */}
           {(selectedProvider.inputPrice !== undefined ||
             selectedProvider.outputPrice !== undefined) && (
-            <div className="hidden md:block relative group">
+            <div className="hidden lg:block relative group">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-gray-200">
                 <svg
                   className="w-3.5 h-3.5 text-gray-500"
@@ -277,8 +280,8 @@ export function ProviderSelector({
             </div>
           )}
           {/* Right Section: Balance and Add Funds */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md">
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+          <div className="flex items-center gap-1 sm:gap-1.5 px-1 sm:px-2 py-1 rounded-md">
+            <div className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded-md text-xs ${
               (providerBalanceNeuron !== null && providerBalanceNeuron === BigInt(0)) || (providerBalance ?? 0) === 0
                 ? 'bg-red-50 border-red-200'
                 : providerBalanceNeuron !== null &&
@@ -288,9 +291,10 @@ export function ProviderSelector({
                 ? 'bg-yellow-50 border-yellow-200'
                 : 'bg-white border-gray-200'
             }`}>
+              {/* Status icon - hidden on very small screens */}
               {(providerBalanceNeuron !== null && providerBalanceNeuron === BigInt(0)) || (providerBalance ?? 0) === 0 ? (
                 <svg
-                  className="w-3.5 h-3.5 text-red-500"
+                  className="hidden sm:block w-3.5 h-3.5 text-red-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -301,18 +305,18 @@ export function ProviderSelector({
                 selectedProvider.outputPriceNeuron !== undefined &&
                 providerBalanceNeuron <= BigInt(50000) * (selectedProvider.inputPriceNeuron + selectedProvider.outputPriceNeuron) ? (
                 <svg
-                  className="w-3.5 h-3.5 text-yellow-500"
+                  className="hidden sm:block w-3.5 h-3.5 text-yellow-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="hidden sm:block w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               )}
-              <span className={`text-xs font-medium ${
+              <span className={`font-medium whitespace-nowrap ${
                 (providerBalanceNeuron !== null && providerBalanceNeuron === BigInt(0)) || (providerBalance ?? 0) === 0
                   ? 'text-red-700'
                   : providerBalanceNeuron !== null &&
@@ -324,19 +328,21 @@ export function ProviderSelector({
               }`}>
                 {providerBalance !== null ? (
                   <>
-                    {formatNumber(providerBalance)} 0G
+                    <span className="sm:hidden">{providerBalance.toFixed(2)}</span>
+                    <span className="hidden sm:inline">{formatNumber(providerBalance)}</span>
+                    <span className="ml-0.5">0G</span>
                     {providerPendingRefund !== null && providerPendingRefund > 0 && (
-                      <span className="text-orange-600"> (+{formatNumber(providerPendingRefund)} pending)</span>
+                      <span className="hidden md:inline text-orange-600"> (+{formatNumber(providerPendingRefund)} pending)</span>
                     )}
                   </>
                 ) : (
-                  'Loading...'
+                  '...'
                 )}
               </span>
             </div>
             <button
               onClick={onAddFunds}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-2 sm:py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                 (providerBalanceNeuron !== null && providerBalanceNeuron === BigInt(0)) || (providerBalance ?? 0) === 0
                   ? 'bg-red-500 text-white hover:bg-red-600 shadow-md animate-pulse'
                   : providerBalanceNeuron !== null &&
