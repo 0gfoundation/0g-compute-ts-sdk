@@ -28,7 +28,7 @@ function getPackageRoot() {
     // Fallback to relative path
     return path_1.default.resolve(__dirname, '../..');
 }
-async function startEmbeddedWebUI(port = 3090) {
+async function startEmbeddedWebUI(port = 3090, host = 'localhost') {
     const packageRoot = getPackageRoot();
     console.log(`📦 Package root: ${packageRoot}`);
     const webUIRoot = path_1.default.join(packageRoot, 'web-ui');
@@ -41,14 +41,14 @@ async function startEmbeddedWebUI(port = 3090) {
     const staticExportPath = path_1.default.join(webUIRoot, 'out');
     if ((0, fs_1.existsSync)(staticExportPath)) {
         console.log('✅ Using static export build (fastest startup, smallest size)');
-        await serveStaticExport(staticExportPath, port);
+        await serveStaticExport(staticExportPath, port, host);
         return;
     }
     // Fallback to standalone build
     const standaloneBuildPath = path_1.default.join(webUIRoot, '.next', 'standalone');
     if ((0, fs_1.existsSync)(standaloneBuildPath)) {
         console.log('⚠️  Using standalone build (fallback)');
-        await serveStandaloneBuild(standaloneBuildPath, webUIRoot, port);
+        await serveStandaloneBuild(standaloneBuildPath, webUIRoot, port, host);
         return;
     }
     // No valid build found
@@ -58,7 +58,7 @@ async function startEmbeddedWebUI(port = 3090) {
     console.error(`  - Standalone build: ${standaloneBuildPath}`);
     console.error('Please build the web UI first with: npm run build:with-ui-fast');
 }
-async function serveStaticExport(staticPath, port) {
+async function serveStaticExport(staticPath, port, host) {
     console.log(`📁 Serving static files from: ${staticPath}`);
     const app = (0, express_1.default)();
     // Security headers
@@ -140,8 +140,12 @@ async function serveStaticExport(staticPath, port) {
             }
         },
     }));
-    const server = app.listen(port, () => {
-        console.log(`🚀 Static web UI server running on http://localhost:${port}`);
+    const server = app.listen(port, host, () => {
+        const displayHost = host === '0.0.0.0' ? 'all interfaces' : host;
+        console.log(`🚀 Static web UI server running on http://${displayHost}:${port}`);
+        if (host === '0.0.0.0') {
+            console.log(`📡 Accessible from LAN at http://<your-local-ip>:${port}`);
+        }
         console.log(`📊 Serving from: ${staticPath}`);
     });
     // Handle process termination
@@ -155,7 +159,7 @@ async function serveStaticExport(staticPath, port) {
     process.on('SIGINT', gracefulShutdown);
     process.on('SIGTERM', gracefulShutdown);
 }
-async function serveStandaloneBuild(standalonePath, webUIRoot, port) {
+async function serveStandaloneBuild(standalonePath, webUIRoot, port, host) {
     const standaloneServerPath = path_1.default.join(standalonePath, 'server.js');
     // Check if it's a valid embedded Web UI structure
     const expectedFiles = [
@@ -235,13 +239,17 @@ async function serveStandaloneBuild(standalonePath, webUIRoot, port) {
         }
     }
     // Set environment and start the server
-    console.log(`🚀 Starting Next.js standalone server on http://localhost:${port}`);
+    console.log(`🚀 Starting Next.js standalone server on http://${host}:${port}`);
+    if (host === '0.0.0.0') {
+        console.log(`📡 Accessible from LAN at http://<your-local-ip>:${port}`);
+    }
     const serverProcess = (0, child_process_1.spawn)('node', ['server.js'], {
         cwd: standalonePath,
         stdio: 'inherit',
         env: {
             ...process.env,
             PORT: port.toString(),
+            HOSTNAME: host,
             NODE_ENV: 'production',
         },
         shell: process.platform === 'win32',
@@ -267,9 +275,11 @@ function webUIEmbedded(cmd) {
     cmd.command('start-web')
         .description('Start embedded web UI server')
         .option('-p, --port <port>', 'Port to run the server on', '3090')
+        .option('-H, --host <host>', 'Host to bind the server to (use 0.0.0.0 for LAN access)', 'localhost')
         .action(async (options) => {
         const port = parseInt(options.port, 10);
-        await startEmbeddedWebUI(port);
+        const host = options.host;
+        await startEmbeddedWebUI(port, host);
     });
 }
 //# sourceMappingURL=web-ui-embedded.js.map
