@@ -6,6 +6,7 @@ import { useAccount, useDisconnect, useChainId } from "wagmi";
 import { use0GBroker } from "../../hooks/use0GBroker";
 import { NavigationProvider, useNavigation } from "../navigation/OptimizedNavigation";
 import SimpleLoader from "../ui/SimpleLoader";
+import { copyToClipboard } from "@/lib/utils";
 
 interface LayoutContentProps {
   children: React.ReactNode;
@@ -182,17 +183,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
   const handleCopyAddress = async () => {
     if (!address) return;
-
-    try {
-      await navigator.clipboard.writeText(address);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = address;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
+    await copyToClipboard(address);
   };
 
   const formatAddress = (addr: string) => {

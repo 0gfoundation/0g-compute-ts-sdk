@@ -3,6 +3,7 @@
 import React from 'react';
 import type { Provider } from '../../../../shared/types/broker';
 import { OFFICIAL_PROVIDERS } from '../../constants/providers';
+import { copyToClipboard } from '@/lib/utils';
 
 // Helper function to format numbers with appropriate precision
 const formatNumber = (num: number): string => {
@@ -208,7 +209,7 @@ export function ProviderSelector({
               </span>
               <div className="relative group">
                 <button
-                  onClick={() => navigator.clipboard.writeText(selectedProvider.address)}
+                  onClick={() => copyToClipboard(selectedProvider.address)}
                   className="p-1 rounded hover:bg-gray-200 transition-colors cursor-pointer"
                 >
                 <svg
@@ -226,7 +227,7 @@ export function ProviderSelector({
                 </svg>
                 </button>
                 {/* Copy Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
                   Copy address
                 </div>
               </div>
@@ -265,7 +266,10 @@ export function ProviderSelector({
                 </span>
               </div>
               {/* Price Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20 whitespace-nowrap">
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-[-1px]">
+                  <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                </div>
                 <div className="font-semibold mb-1">Price per Million Tokens</div>
                 {selectedProvider.inputPrice !== undefined && (
                   <div>Input: {selectedProvider.inputPrice.toFixed(2)} 0G</div>
@@ -273,9 +277,6 @@ export function ProviderSelector({
                 {selectedProvider.outputPrice !== undefined && (
                   <div>Output: {selectedProvider.outputPrice.toFixed(2)} 0G</div>
                 )}
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                </div>
               </div>
             </div>
           )}
