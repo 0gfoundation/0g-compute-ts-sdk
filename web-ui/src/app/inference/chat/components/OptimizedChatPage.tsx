@@ -455,7 +455,7 @@ export function OptimizedChatPage() {
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Header with Provider Selection */}
-        <div className="p-2 sm:p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <div className="p-2 sm:p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg overflow-visible relative z-10">
           <div className="flex justify-between items-center gap-1 sm:gap-2">
             <ProviderSelector
               providers={providers}

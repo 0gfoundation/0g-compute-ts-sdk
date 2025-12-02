@@ -16,7 +16,7 @@ import {
     AlertCircle,
     Loader2,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, copyToClipboard } from '@/lib/utils'
 import type { Provider } from '@/shared/types/broker'
 
 interface ProviderCardProps {
@@ -37,8 +37,8 @@ export function ProviderCard({
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
 
-    const copyAddress = () => {
-        navigator.clipboard.writeText(provider.address)
+    const copyAddress = async () => {
+        await copyToClipboard(provider.address)
     }
 
     const truncatedAddress = `${provider.address.slice(0, 8)}...${provider.address.slice(-6)}`

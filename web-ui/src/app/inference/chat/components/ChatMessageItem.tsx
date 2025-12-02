@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy, Check, User, Bot } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils";
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -40,12 +41,10 @@ function CodeBlock({
   const codeContent = String(children).replace(/\n$/, "");
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(codeContent);
+    const success = await copyToClipboard(codeContent);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
     }
   }, [codeContent]);
 
