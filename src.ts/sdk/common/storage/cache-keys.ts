@@ -28,7 +28,7 @@ export const CACHE_KEY_PREFIXES = {
     // Check balance
     CHECK_BALANCE: '_checkBalance',
 
-    // Session token cache
+    // Session token cache (for ephemeral tokens)
     SESSION_TOKEN: 'session_',
 } as const
 
@@ -71,7 +71,7 @@ export const CacheKeyHelpers = {
         return id // Keep as is since it's already unique
     },
 
-    // Session token key
+    // Session token key (for ephemeral tokens cache)
     getSessionTokenKey(userAddress: string, providerAddress: string): string {
         return `${CACHE_KEY_PREFIXES.SESSION_TOKEN}${userAddress}_${providerAddress}`
     },

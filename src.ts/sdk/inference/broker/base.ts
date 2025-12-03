@@ -22,18 +22,68 @@ export interface TdxQuoteResponse {
     signingAddress: string
 }
 
+/**
+ * Special token ID reserved for ephemeral tokens.
+ * Ephemeral tokens (tokenId=255) are not checked against the revoked bitmap,
+ * only generation check applies. This allows unlimited ephemeral tokens without
+ * consuming the 0-254 tokenId quota.
+ */
+export const EPHEMERAL_TOKEN_ID = 255
+
+/**
+ * Maximum duration for ephemeral tokens (24 hours in milliseconds).
+ * Ephemeral tokens must have an expiration time and cannot exceed this duration.
+ */
+export const EPHEMERAL_TOKEN_MAX_DURATION = 24 * 60 * 60 * 1000 // 24 hours
+
+/**
+ * Session mode for token generation
+ */
+export enum SessionMode {
+    /** Ephemeral token: uses tokenId=255, not individually revocable, no quota consumption */
+    Ephemeral = 'ephemeral',
+    /** Persistent token: uses tokenId 0-254, individually revocable, consumes quota */
+    Persistent = 'persistent',
+}
+
 export interface SessionToken {
     address: string
     provider: string
     timestamp: number
-    expiresAt: number
+    expiresAt: number // 0 = never expires
     nonce: string
+    generation: number // Token generation for batch revocation
+    tokenId: number // 0-254: persistent tokens, 255: ephemeral token
 }
 
 export interface CachedSession {
     token: SessionToken
     signature: string
     rawMessage: string
+}
+
+/**
+ * API Key information for persistent tokens
+ */
+export interface ApiKeyInfo {
+    /** Token ID (0-254) */
+    tokenId: number
+    /** Creation timestamp in milliseconds */
+    createdAt: number
+    /** Expiration timestamp in milliseconds, 0 = never expires */
+    expiresAt: number
+    /** The raw token string for Authorization header */
+    rawToken: string
+}
+
+/**
+ * Options for generating session tokens
+ */
+export interface SessionTokenOptions {
+    /** Session mode: ephemeral (default) or persistent */
+    mode?: SessionMode
+    /** Duration in milliseconds. 0 = never expires. Default: 24 hours for ephemeral */
+    duration?: number
 }
 
 export abstract class ZGServingUserBrokerBase {
@@ -45,8 +95,6 @@ export abstract class ZGServingUserBrokerBase {
     private topUpTriggerThreshold = BigInt(1000000)
     private topUpTargetThreshold = BigInt(2000000)
     protected ledger: LedgerBroker
-
-    private sessionDuration = 24 * 60 * 60 * 1000 // 24 hours validity
 
     constructor(
         contract: InferenceServingContract,
@@ -241,15 +289,115 @@ export abstract class ZGServingUserBrokerBase {
         }
     }
 
+    /**
+     * Get account info from cache or contract.
+     * @param providerAddress - The provider address
+     */
+    private async getAccountInfo(
+        providerAddress: string
+    ): Promise<{ generation: number; revokedBitmap: bigint }> {
+        const userAddress = this.contract.getUserAddress()
+        const cacheKey = `account_info_${userAddress}_${providerAddress}`
+
+        // Try cache first
+        const cached = (await this.cache.getItem(cacheKey)) as {
+            generation: number
+            revokedBitmap: string // stored as string for serialization
+        } | null
+        if (cached) {
+            return {
+                generation: cached.generation,
+                revokedBitmap: BigInt(cached.revokedBitmap),
+            }
+        }
+
+        // Fetch from contract
+        try {
+            const account = await this.contract.getAccount(providerAddress)
+            // Handle case where account exists but fields don't exist (pre-upgrade accounts)
+            const info = {
+                generation:
+                    account.generation != null
+                        ? Number(account.generation)
+                        : 0,
+                revokedBitmap: account.revokedBitmap ?? BigInt(0),
+            }
+
+            // Cache for 5 minutes
+            await this.cache.setItem(
+                cacheKey,
+                {
+                    generation: info.generation,
+                    revokedBitmap: info.revokedBitmap.toString(),
+                },
+                5 * 60 * 1000,
+                CacheValueTypeEnum.Other
+            )
+
+            return info
+        } catch {
+            // Account may not exist yet
+            return {
+                generation: 0,
+                revokedBitmap: BigInt(0),
+            }
+        }
+    }
+
+    /**
+     * Generate a new session token with generation and tokenId for revocation support
+     * @param providerAddress - The provider address
+     * @param options - Optional configuration for token generation
+     * @returns The cached session with token, signature, and raw message
+     */
     async generateSessionToken(
         providerAddress: string,
-        sessionDuration?: number
+        options?: SessionTokenOptions
     ): Promise<CachedSession> {
         const userAddress = this.contract.getUserAddress()
         const timestamp = Date.now()
-        const duration = sessionDuration ?? this.sessionDuration
-        const expiresAt = timestamp + duration
+        const mode = options?.mode ?? SessionMode.Ephemeral
         const nonce = this.generateNonce()
+
+        // Determine duration and expiresAt based on mode
+        let duration: number
+        let expiresAt: number
+
+        if (mode === SessionMode.Ephemeral) {
+            // Ephemeral tokens MUST have an expiration time and cannot exceed 24 hours
+            duration = options?.duration ?? EPHEMERAL_TOKEN_MAX_DURATION
+            if (duration <= 0) {
+                // Force ephemeral tokens to have expiration
+                duration = EPHEMERAL_TOKEN_MAX_DURATION
+            }
+            if (duration > EPHEMERAL_TOKEN_MAX_DURATION) {
+                throw new Error(
+                    `Ephemeral token duration cannot exceed 24 hours (${EPHEMERAL_TOKEN_MAX_DURATION}ms)`
+                )
+            }
+            expiresAt = timestamp + duration
+        } else {
+            // Persistent tokens can have any duration, including never expires (0)
+            duration = options?.duration ?? 0
+            expiresAt = duration > 0 ? timestamp + duration : 0
+        }
+
+        // Determine tokenId based on mode
+        let tokenId: number
+        let generation: number
+
+        if (mode === SessionMode.Ephemeral) {
+            // Ephemeral tokens always use tokenId=255
+            tokenId = EPHEMERAL_TOKEN_ID
+            const accountInfo = await this.getAccountInfo(providerAddress)
+            generation = accountInfo.generation
+        } else {
+            // Persistent tokens: find available tokenId from bitmap
+            // CLI usage is single-instance, so cache is fine
+            const accountInfo = await this.getAccountInfo(providerAddress)
+            generation = accountInfo.generation
+            tokenId = this.findAvailableTokenId(accountInfo.revokedBitmap)
+        }
 
         const token: SessionToken = {
             address: userAddress,
@@ -257,6 +405,8 @@ export abstract class ZGServingUserBrokerBase {
             timestamp,
             expiresAt,
             nonce,
+            generation,
+            tokenId,
         }
 
         // Create message to be signed
@@ -276,21 +426,51 @@ export abstract class ZGServingUserBrokerBase {
             rawMessage: message,
         }
 
-        // Cache the session using the existing cache with proper TTL
-        const cacheKey = CacheKeyHelpers.getSessionTokenKey(
-            userAddress,
-            providerAddress
-        )
-        await this.cache.setItem(
-            cacheKey,
-            session,
-            duration,
-            CacheValueTypeEnum.Session
-        )
+        // Only cache ephemeral sessions
+        if (mode === SessionMode.Ephemeral) {
+            const cacheKey = CacheKeyHelpers.getSessionTokenKey(
+                userAddress,
+                providerAddress
+            )
+            await this.cache.setItem(
+                cacheKey,
+                session,
+                duration,
+                CacheValueTypeEnum.Session
+            )
+        }
 
         return session
     }
 
+    /**
+     * Find the smallest available tokenId from the revoked bitmap.
+     * @param revokedBitmap - The bitmap of revoked tokenIds
+     * @returns The smallest available tokenId (0-254)
+     */
+    private findAvailableTokenId(revokedBitmap: bigint): number {
+        // Find the smallest available tokenId (0-254)
+        // tokenId 255 is reserved for ephemeral tokens
+        for (let tokenId = 0; tokenId < EPHEMERAL_TOKEN_ID; tokenId++) {
+            const bit = BigInt(1) << BigInt(tokenId)
+            if ((revokedBitmap & bit) === BigInt(0)) {
+                // This tokenId is not revoked, it's available
+                return tokenId
+            }
+        }
+
+        // All 255 tokenIds are revoked
+        throw new Error(
+            'API Key limit reached (255). Call revokeAllTokens() to reset.'
+        )
+    }
+
+    /**
+     * Get or create an ephemeral session token for the provider.
+     * Ephemeral tokens use tokenId=255 and don't consume the API key quota.
+     * @param providerAddress - The provider address
+     * @returns The cached or newly generated session
+     */
     async getOrCreateSession(providerAddress: string): Promise<CachedSession> {
         const userAddress = this.contract.getUserAddress()
         const cacheKey = CacheKeyHelpers.getSessionTokenKey(
@@ -301,22 +481,37 @@ export abstract class ZGServingUserBrokerBase {
             cacheKey
         )) as CachedSession | null
 
-        // Check if cached session exists and is not expired (with 1 hour buffer)
-        if (cached && cached.token.expiresAt > Date.now() + 60 * 60 * 1000) {
-            return cached
+        if (cached) {
+            // Ephemeral tokens always have expiration time
+            // Check if token has enough time remaining (at least 1 hour)
+            const hasTimeRemaining =
+                cached.token.expiresAt > Date.now() + 60 * 60 * 1000
+
+            if (hasTimeRemaining) {
+                return cached
+            }
         }
 
-        // Generate new session
-        return await this.generateSessionToken(providerAddress)
+        // Generate new ephemeral session
+        return await this.generateSessionToken(providerAddress, {
+            mode: SessionMode.Ephemeral,
+        })
     }
 
+    /**
+     * Get request headers with an ephemeral session token.
+     * This is the default method for SDK usage - it uses ephemeral tokens
+     * that don't consume the API key quota.
+     * @param providerAddress - The provider address
+     * @returns Headers with Authorization
+     */
     async getHeader(providerAddress: string): Promise<ServingRequestHeaders> {
         // Check if provider is acknowledged - this is still necessary
         if (!(await this.userAcknowledged(providerAddress))) {
             throw new Error('Provider signer is not acknowledged')
         }
 
-        // Get or create session token
+        // Get or create ephemeral session token
         const session = await this.getOrCreateSession(providerAddress)
 
         return {
@@ -324,6 +519,93 @@ export abstract class ZGServingUserBrokerBase {
                 session.rawMessage + '|' + session.signature
             ).toString('base64')}`,
         }
+    }
+
+    // ==================== API Key Management ====================
+
+    /**
+     * Create a new API Key (persistent token).
+     * API Keys consume tokenId quota (0-254) and can be individually revoked.
+     * The tokenId is determined by finding the smallest available ID from the contract's bitmap.
+     * @param providerAddress - The provider address
+     * @param options - Optional configuration
+     * @returns The API key information including the raw token
+     */
+    async createApiKey(
+        providerAddress: string,
+        options?: {
+            expiresIn?: number // milliseconds, 0 = never expires
+        }
+    ): Promise<ApiKeyInfo> {
+        const session = await this.generateSessionToken(providerAddress, {
+            mode: SessionMode.Persistent,
+            duration: options?.expiresIn ?? 0, // Default: never expires
+        })
+
+        const rawToken = `app-sk-${Buffer.from(
+            session.rawMessage + '|' + session.signature
+        ).toString('base64')}`
+
+        return {
+            tokenId: session.token.tokenId,
+            createdAt: session.token.timestamp,
+            expiresAt: session.token.expiresAt,
+            rawToken,
+        }
+    }
+
+    /**
+     * Revoke an API Key by its tokenId.
+     * This calls the contract to revoke the token.
+     * @param providerAddress - The provider address
+     * @param tokenId - The token ID to revoke (0-254)
+     * @param gasPrice - Optional gas price
+     */
+    async revokeApiKey(
+        providerAddress: string,
+        tokenId: number,
+        gasPrice?: number
+    ): Promise<void> {
+        if (tokenId === EPHEMERAL_TOKEN_ID) {
+            throw new Error(
+                'Cannot revoke ephemeral token individually. Use revokeAllTokens() instead.'
+            )
+        }
+
+        // Revoke on contract
+        await this.contract.revokeToken(providerAddress, tokenId, gasPrice)
+    }
+
+    /**
+     * Revoke all tokens (both ephemeral and persistent).
+     * This increments the generation, invalidating all existing tokens.
+     * @param providerAddress - The provider address
+     * @param gasPrice - Optional gas price
+     */
+    async revokeAllTokens(
+        providerAddress: string,
+        gasPrice?: number
+    ): Promise<void> {
+        // Revoke on contract
+        await this.contract.revokeAllTokens(providerAddress, gasPrice)
+
+        // Clear ephemeral session cache
+        await this.clearEphemeralSession(providerAddress)
+    }
+
+    /**
+     * Clear ephemeral session cache
+     */
+    private async clearEphemeralSession(
+        providerAddress: string
+    ): Promise<void> {
+        const userAddress = this.contract.getUserAddress()
+        const cacheKey = CacheKeyHelpers.getSessionTokenKey(
+            userAddress,
+            providerAddress
+        )
+        // Remove by setting to null with short TTL
+        await this.cache.setItem(cacheKey, null, 1, CacheValueTypeEnum.Other)
     }
 
     async calculateFee(extractor: Extractor, content: string): Promise<bigint> {

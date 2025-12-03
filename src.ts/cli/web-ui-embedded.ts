@@ -326,7 +326,9 @@ async function serveStandaloneBuild(
 
     // Set environment and start the server
 
-    console.log(`🚀 Starting Next.js standalone server on http://${host}:${port}`)
+    console.log(
+        `🚀 Starting Next.js standalone server on http://${host}:${port}`
+    )
     if (host === '0.0.0.0') {
         console.log(`📡 Accessible from LAN at http://<your-local-ip>:${port}`)
     }

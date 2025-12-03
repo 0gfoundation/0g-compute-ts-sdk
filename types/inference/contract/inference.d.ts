@@ -36,5 +36,26 @@ export declare class InferenceServingContract {
     getService(providerAddress: string): Promise<ServiceStructOutput>;
     getUserAddress(): string;
     checkReceipt(receipt: ContractTransactionReceipt | null): void;
+    /**
+     * Revoke a single session token
+     * @param provider - The provider address
+     * @param tokenId - The token ID to revoke (0-254)
+     * @param gasPrice - Optional gas price
+     */
+    revokeToken(provider: AddressLike, tokenId: number, gasPrice?: number): Promise<void>;
+    /**
+     * Revoke multiple session tokens
+     * @param provider - The provider address
+     * @param tokenIds - Array of token IDs to revoke
+     * @param gasPrice - Optional gas price
+     */
+    revokeTokens(provider: AddressLike, tokenIds: number[], gasPrice?: number): Promise<void>;
+    /**
+     * Revoke all session tokens by incrementing generation
+     * This invalidates all existing tokens and resets the tokenId counter
+     * @param provider - The provider address
+     * @param gasPrice - Optional gas price
+     */
+    revokeAllTokens(provider: AddressLike, gasPrice?: number): Promise<void>;
 }
 //# sourceMappingURL=inference.d.ts.map
