@@ -183,6 +183,61 @@ class InferenceServingContract {
             throw new Error('Transaction reverted');
         }
     }
+    // === Session Token Revocation Methods ===
+    /**
+     * Revoke a single session token
+     * @param provider - The provider address
+     * @param tokenId - The token ID to revoke (0-254)
+     * @param gasPrice - Optional gas price
+     */
+    async revokeToken(provider, tokenId, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('revokeToken', [provider, tokenId], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    /**
+     * Revoke multiple session tokens
+     * @param provider - The provider address
+     * @param tokenIds - Array of token IDs to revoke
+     * @param gasPrice - Optional gas price
+     */
+    async revokeTokens(provider, tokenIds, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('revokeTokens', [provider, tokenIds], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    /**
+     * Revoke all session tokens by incrementing generation
+     * This invalidates all existing tokens and resets the tokenId counter
+     * @param provider - The provider address
+     * @param gasPrice - Optional gas price
+     */
+    async revokeAllTokens(provider, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('revokeAllTokens', [provider], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
 }
 exports.InferenceServingContract = InferenceServingContract;
 //# sourceMappingURL=inference.js.map

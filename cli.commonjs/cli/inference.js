@@ -13,15 +13,15 @@ const axios_1 = tslib_1.__importDefault(require("axios"));
 const fs_1 = tslib_1.__importDefault(require("fs"));
 const ethers_1 = require("ethers");
 async function promptDurationSelection() {
-    console.log(chalk_1.default.blue('\n⏱️  Secret Duration Selection'));
+    console.log(chalk_1.default.blue('\n⏱️  API Key Duration Selection'));
     console.log();
     const durationChoice = await (0, interactive_selection_1.interactiveSelect)({
-        message: 'Please select the secret expiration duration:',
+        message: 'Please select the API Key expiration duration:',
         options: [
             {
-                title: '5 minutes',
-                value: '300000',
-                description: '300 seconds (5 minutes)',
+                title: 'Never expires',
+                value: '0',
+                description: 'API Key will never expire (can still be revoked)',
             },
             {
                 title: '1 hour',
@@ -34,6 +34,16 @@ async function promptDurationSelection() {
                 description: '86400 seconds (24 hours)',
             },
             {
+                title: '7 days',
+                value: '604800000',
+                description: '604800 seconds (7 days)',
+            },
+            {
+                title: '30 days',
+                value: '2592000000',
+                description: '2592000 seconds (30 days)',
+            },
+            {
                 title: 'Custom duration',
                 value: 'custom',
                 description: 'Enter custom duration in seconds',
@@ -42,10 +52,10 @@ async function promptDurationSelection() {
     });
     if (durationChoice === 'custom') {
         console.log();
-        const customSeconds = await (0, interactive_selection_1.textInput)('Enter duration in seconds:');
+        const customSeconds = await (0, interactive_selection_1.textInput)('Enter duration in seconds (0 for never expires):');
         const seconds = parseInt(customSeconds);
-        if (isNaN(seconds) || seconds <= 0) {
-            throw new Error('Duration must be a positive number');
+        if (isNaN(seconds) || seconds < 0) {
+            throw new Error('Duration must be a non-negative number');
         }
         return seconds * 1000; // Convert to milliseconds
     }
@@ -610,7 +620,7 @@ function inference(program) {
     });
     program
         .command('get-secret')
-        .description('Generate an authentication secret for API access')
+        .description('Generate an authentication secret (API Key) for API access')
         .requiredOption('--provider <address>', 'Provider address')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -619,10 +629,9 @@ function inference(program) {
         try {
             const duration = await promptDurationSelection();
             (0, util_1.withBroker)(options, async (broker) => {
-                const session = await broker.inference.requestProcessor.generateSessionToken(options.provider, duration);
-                const rawData = session.rawMessage + '|' + session.signature;
-                const secret = Buffer.from(rawData, 'utf8').toString('base64');
-                const bearerToken = `app-sk-${secret}`;
+                // Use createApiKey to generate a persistent token
+                const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, { expiresIn: duration });
+                const bearerToken = apiKey.rawToken;
                 // Get service metadata to determine service type
                 // TODO: Support pagination for listing services
                 const services = await broker.inference.listService();
@@ -634,35 +643,35 @@ function inference(program) {
                 const serviceType = service.serviceType;
                 const serviceUrl = service.url;
                 const serviceModel = service.model || 'default-model';
-                // Verify the base64 can be decoded back correctly
-                try {
-                    const decoded = Buffer.from(secret, 'base64').toString('utf8');
-                    const isValid = decoded === rawData;
-                    console.log();
-                    console.log(chalk_1.default.green('✓ Secret generated successfully!'));
-                    console.log(chalk_1.default.gray(`Provider: ${options.provider}`));
-                    console.log(chalk_1.default.gray(`Service Type: ${serviceType}`));
-                    console.log(chalk_1.default.gray(`Duration: ${duration}ms (${Math.round((duration / 1000 / 60 / 60) * 100) / 100} hours)`));
-                    console.log(chalk_1.default.gray(`Secret length: ${secret.length} characters`));
-                    console.log(chalk_1.default.gray(`Base64 verification: ${isValid ? 'PASS' : 'FAIL'}`));
-                    console.log();
-                    console.log(chalk_1.default.blue('Use this Authorization header:'));
-                    console.log();
-                    console.log(chalk_1.default.white('Authorization: Bearer ' + bearerToken));
-                    console.log();
-                    // Show curl examples based on service type
-                    console.log(chalk_1.default.blue('Example curl command:'));
-                    console.log();
-                    if (serviceType === 'speech-to-text') {
-                        console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/audio/transcriptions \\
+                console.log();
+                console.log(chalk_1.default.green('✓ API Key generated successfully!'));
+                console.log(chalk_1.default.gray(`Provider: ${options.provider}`));
+                console.log(chalk_1.default.gray(`Service Type: ${serviceType}`));
+                console.log(chalk_1.default.gray(`Token ID: ${apiKey.tokenId}`));
+                if (apiKey.expiresAt > 0) {
+                    console.log(chalk_1.default.gray(`Expires: ${new Date(apiKey.expiresAt).toLocaleString()}`));
+                }
+                else {
+                    console.log(chalk_1.default.gray(`Expires: Never`));
+                }
+                console.log();
+                console.log(chalk_1.default.blue('Use this Authorization header:'));
+                console.log();
+                console.log(chalk_1.default.white('Authorization: Bearer ' + bearerToken));
+                console.log();
+                // Show curl examples based on service type
+                console.log(chalk_1.default.blue('Example curl command:'));
+                console.log();
+                if (serviceType === 'speech-to-text') {
+                    console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/audio/transcriptions \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -H "Content-Type: multipart/form-data" \\
   -F "file=@audio.ogg" \\
   -F "model=${serviceModel}" \\
   -F "response_format=json"`));
-                    }
-                    else if (serviceType === 'text-to-image') {
-                        console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/images/generations \\
+                }
+                else if (serviceType === 'text-to-image') {
+                    console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/images/generations \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -d '{
@@ -672,10 +681,10 @@ function inference(program) {
     "size": "512x512",
     "response_format": "b64_json"
   }' | jq -r ".data[0].b64_json" | base64 -d > output.png && open output.png`));
-                    }
-                    else {
-                        // Default to chatbot/text type
-                        console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/chat/completions \\
+                }
+                else {
+                    // Default to chatbot/text type
+                    console.log(chalk_1.default.white(`curl ${serviceUrl}/v1/proxy/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${bearerToken}" \\
   -d '{
@@ -691,20 +700,13 @@ function inference(program) {
       }
     ]
   }'`));
-                    }
-                    console.log();
-                    console.log(chalk_1.default.yellow('⚠️  IMPORTANT SECURITY NOTES:'));
-                    console.log(chalk_1.default.yellow('   • This secret cannot be revoked once generated (temporarily)'));
-                    console.log(chalk_1.default.yellow('   • Keep it secure and do not share it'));
-                    console.log(chalk_1.default.yellow('   • It will expire automatically after the specified duration'));
-                    if (!isValid) {
-                        console.log();
-                        console.log(chalk_1.default.red('⚠️  Warning: Base64 encoding verification failed!'));
-                    }
                 }
-                catch (error) {
-                    console.log();
-                    console.log(chalk_1.default.red('⚠️  Error verifying base64 encoding:', error));
+                console.log();
+                console.log(chalk_1.default.yellow('⚠️  IMPORTANT SECURITY NOTES:'));
+                console.log(chalk_1.default.yellow(`   • This API Key can be revoked using: 0g-compute-cli inference revoke-token --provider ${options.provider} --token-id ${apiKey.tokenId}`));
+                console.log(chalk_1.default.yellow('   • Keep it secure and do not share it'));
+                if (apiKey.expiresAt > 0) {
+                    console.log(chalk_1.default.yellow('   • It will expire automatically at the specified time'));
                 }
             });
         }
@@ -717,6 +719,41 @@ function inference(program) {
             }
             process.exit(1);
         }
+    });
+    program
+        .command('revoke-token')
+        .description('Revoke a specific API Key by its token ID')
+        .requiredOption('--provider <address>', 'Provider address')
+        .requiredOption('--token-id <id>', 'Token ID to revoke (0-254)')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        const tokenId = parseInt(options.tokenId);
+        if (isNaN(tokenId) || tokenId < 0 || tokenId > 254) {
+            console.error(chalk_1.default.red('Error: Token ID must be a number between 0 and 254'));
+            process.exit(1);
+        }
+        (0, util_1.withBroker)(options, async (broker) => {
+            await broker.inference.requestProcessor.revokeApiKey(options.provider, tokenId, options.gasPrice);
+            console.log(chalk_1.default.green(`✓ Token ID ${tokenId} revoked successfully for provider ${options.provider}`));
+        });
+    });
+    program
+        .command('revoke-all-tokens')
+        .description('Revoke all API Keys for a provider (increments generation)')
+        .requiredOption('--provider <address>', 'Provider address')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        (0, util_1.withBroker)(options, async (broker) => {
+            await broker.inference.requestProcessor.revokeAllTokens(options.provider, options.gasPrice);
+            console.log(chalk_1.default.green(`✓ All tokens revoked successfully for provider ${options.provider}`));
+            console.log(chalk_1.default.yellow('   Note: All existing API Keys and ephemeral tokens are now invalid.'));
+        });
     });
 }
 //# sourceMappingURL=inference.js.map

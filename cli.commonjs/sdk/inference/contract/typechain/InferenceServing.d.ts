@@ -56,6 +56,8 @@ export type AccountStruct = {
     additionalInfo: string;
     acknowledged: boolean;
     validRefundsLength: BigNumberish;
+    generation: BigNumberish;
+    revokedBitmap: BigNumberish;
 };
 export type AccountStructOutput = [
     user: string,
@@ -66,7 +68,9 @@ export type AccountStructOutput = [
     refunds: RefundStructOutput[],
     additionalInfo: string,
     acknowledged: boolean,
-    validRefundsLength: bigint
+    validRefundsLength: bigint,
+    generation: bigint,
+    revokedBitmap: bigint
 ] & {
     user: string;
     provider: string;
@@ -77,6 +81,8 @@ export type AccountStructOutput = [
     additionalInfo: string;
     acknowledged: boolean;
     validRefundsLength: bigint;
+    generation: bigint;
+    revokedBitmap: bigint;
 };
 export type ServiceStruct = {
     provider: AddressLike;
@@ -140,8 +146,8 @@ export type TEESettlementDataStructOutput = [
     signature: string;
 };
 export interface InferenceServingInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
-    getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult'): EventFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getGeneration' | 'getPendingRefund' | 'getRevokedBitmap' | 'getService' | 'initialize' | 'initialized' | 'isTokenRevoked' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeAllTokens' | 'revokeTEESignerAcknowledgement' | 'revokeToken' | 'revokeTokens' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
@@ -158,10 +164,13 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'getAllAccounts', values: [BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getAllServices', values: [BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'getBatchAccountsByUsers', values: [AddressLike[]]): string;
+    encodeFunctionData(functionFragment: 'getGeneration', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'getPendingRefund', values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: 'getRevokedBitmap', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'getService', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'initialize', values: [BigNumberish, AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'initialized', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'isTokenRevoked', values: [AddressLike, AddressLike, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'ledgerAddress', values?: undefined): string;
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string;
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
@@ -170,7 +179,10 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'removeService', values?: undefined): string;
     encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
     encodeFunctionData(functionFragment: 'requestRefundAll', values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: 'revokeAllTokens', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'revokeTEESignerAcknowledgement', values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: 'revokeToken', values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: 'revokeTokens', values: [AddressLike, BigNumberish[]]): string;
     encodeFunctionData(functionFragment: 'settleFeesWithTEE', values: [TEESettlementDataStruct[]]): string;
     encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
@@ -191,10 +203,13 @@ export interface InferenceServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'getAllAccounts', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'getAllServices', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'getBatchAccountsByUsers', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'getGeneration', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'getPendingRefund', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'getRevokedBitmap', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'getService', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'initialize', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'initialized', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'isTokenRevoked', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'ledgerAddress', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'lockTime', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
@@ -203,11 +218,35 @@ export interface InferenceServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'removeService', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'requestRefundAll', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'revokeAllTokens', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'revokeTEESignerAcknowledgement', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'revokeToken', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'revokeTokens', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'settleFeesWithTEE', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'updateLockTime', data: BytesLike): Result;
+}
+export declare namespace AllTokensRevokedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        newGeneration: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        newGeneration: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        newGeneration: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
 }
 export declare namespace BalanceUpdatedEvent {
     type InputTuple = [
@@ -403,6 +442,44 @@ export declare namespace TEESettlementResultEvent {
     type Log = TypedEventLog<Event>;
     type LogDescription = TypedLogDescription<Event>;
 }
+export declare namespace TokenRevokedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        tokenId: BigNumberish
+    ];
+    type OutputTuple = [user: string, provider: string, tokenId: bigint];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        tokenId: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace TokensRevokedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        tokenIds: BigNumberish[]
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        tokenIds: bigint[]
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        tokenIds: bigint[];
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
 export interface InferenceServing extends BaseContract {
     connect(runner?: ContractRunner | null): InferenceServing;
     waitForDeployment(): Promise<this>;
@@ -522,7 +599,19 @@ export interface InferenceServing extends BaseContract {
     ], [
         AccountStructOutput[]
     ], 'view'>;
+    getGeneration: TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike
+    ], [
+        bigint
+    ], 'view'>;
     getPendingRefund: TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike
+    ], [
+        bigint
+    ], 'view'>;
+    getRevokedBitmap: TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
     ], [
@@ -541,6 +630,13 @@ export interface InferenceServing extends BaseContract {
         void
     ], 'nonpayable'>;
     initialized: TypedContractMethod<[], [boolean], 'view'>;
+    isTokenRevoked: TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike,
+        tokenId: BigNumberish
+    ], [
+        boolean
+    ], 'view'>;
     ledgerAddress: TypedContractMethod<[], [string], 'view'>;
     lockTime: TypedContractMethod<[], [bigint], 'view'>;
     owner: TypedContractMethod<[], [string], 'view'>;
@@ -581,8 +677,25 @@ export interface InferenceServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    revokeAllTokens: TypedContractMethod<[
+        provider: AddressLike
+    ], [
+        void
+    ], 'nonpayable'>;
     revokeTEESignerAcknowledgement: TypedContractMethod<[
         provider: AddressLike
+    ], [
+        void
+    ], 'nonpayable'>;
+    revokeToken: TypedContractMethod<[
+        provider: AddressLike,
+        tokenId: BigNumberish
+    ], [
+        void
+    ], 'nonpayable'>;
+    revokeTokens: TypedContractMethod<[
+        provider: AddressLike,
+        tokenIds: BigNumberish[]
     ], [
         void
     ], 'nonpayable'>;
@@ -715,7 +828,19 @@ export interface InferenceServing extends BaseContract {
     ], [
         AccountStructOutput[]
     ], 'view'>;
+    getFunction(nameOrSignature: 'getGeneration'): TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike
+    ], [
+        bigint
+    ], 'view'>;
     getFunction(nameOrSignature: 'getPendingRefund'): TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike
+    ], [
+        bigint
+    ], 'view'>;
+    getFunction(nameOrSignature: 'getRevokedBitmap'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
     ], [
@@ -734,6 +859,13 @@ export interface InferenceServing extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction(nameOrSignature: 'initialized'): TypedContractMethod<[], [boolean], 'view'>;
+    getFunction(nameOrSignature: 'isTokenRevoked'): TypedContractMethod<[
+        user: AddressLike,
+        provider: AddressLike,
+        tokenId: BigNumberish
+    ], [
+        boolean
+    ], 'view'>;
     getFunction(nameOrSignature: 'ledgerAddress'): TypedContractMethod<[], [string], 'view'>;
     getFunction(nameOrSignature: 'lockTime'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'owner'): TypedContractMethod<[], [string], 'view'>;
@@ -774,7 +906,20 @@ export interface InferenceServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    getFunction(nameOrSignature: 'revokeAllTokens'): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'revokeTEESignerAcknowledgement'): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>;
+    getFunction(nameOrSignature: 'revokeToken'): TypedContractMethod<[
+        provider: AddressLike,
+        tokenId: BigNumberish
+    ], [
+        void
+    ], 'nonpayable'>;
+    getFunction(nameOrSignature: 'revokeTokens'): TypedContractMethod<[
+        provider: AddressLike,
+        tokenIds: BigNumberish[]
+    ], [
+        void
+    ], 'nonpayable'>;
     getFunction(nameOrSignature: 'settleFeesWithTEE'): TypedContractMethod<[
         settlements: TEESettlementDataStruct[]
     ], [
@@ -793,6 +938,7 @@ export interface InferenceServing extends BaseContract {
     getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<[interfaceId: BytesLike], [boolean], 'view'>;
     getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<[newOwner: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'updateLockTime'): TypedContractMethod<[_locktime: BigNumberish], [void], 'nonpayable'>;
+    getEvent(key: 'AllTokensRevoked'): TypedContractEvent<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
     getEvent(key: 'BalanceUpdated'): TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
     getEvent(key: 'BatchBalanceUpdated'): TypedContractEvent<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
@@ -803,7 +949,11 @@ export interface InferenceServing extends BaseContract {
     getEvent(key: 'ServiceRemoved'): TypedContractEvent<ServiceRemovedEvent.InputTuple, ServiceRemovedEvent.OutputTuple, ServiceRemovedEvent.OutputObject>;
     getEvent(key: 'ServiceUpdated'): TypedContractEvent<ServiceUpdatedEvent.InputTuple, ServiceUpdatedEvent.OutputTuple, ServiceUpdatedEvent.OutputObject>;
     getEvent(key: 'TEESettlementResult'): TypedContractEvent<TEESettlementResultEvent.InputTuple, TEESettlementResultEvent.OutputTuple, TEESettlementResultEvent.OutputObject>;
+    getEvent(key: 'TokenRevoked'): TypedContractEvent<TokenRevokedEvent.InputTuple, TokenRevokedEvent.OutputTuple, TokenRevokedEvent.OutputObject>;
+    getEvent(key: 'TokensRevoked'): TypedContractEvent<TokensRevokedEvent.InputTuple, TokensRevokedEvent.OutputTuple, TokensRevokedEvent.OutputObject>;
     filters: {
+        'AllTokensRevoked(address,address,uint256)': TypedContractEvent<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
+        AllTokensRevoked: TypedContractEvent<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
         BalanceUpdated: TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
         'BatchBalanceUpdated(address[],uint256[],uint256[])': TypedContractEvent<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
@@ -824,6 +974,10 @@ export interface InferenceServing extends BaseContract {
         ServiceUpdated: TypedContractEvent<ServiceUpdatedEvent.InputTuple, ServiceUpdatedEvent.OutputTuple, ServiceUpdatedEvent.OutputObject>;
         'TEESettlementResult(address,uint8,uint256)': TypedContractEvent<TEESettlementResultEvent.InputTuple, TEESettlementResultEvent.OutputTuple, TEESettlementResultEvent.OutputObject>;
         TEESettlementResult: TypedContractEvent<TEESettlementResultEvent.InputTuple, TEESettlementResultEvent.OutputTuple, TEESettlementResultEvent.OutputObject>;
+        'TokenRevoked(address,address,uint8)': TypedContractEvent<TokenRevokedEvent.InputTuple, TokenRevokedEvent.OutputTuple, TokenRevokedEvent.OutputObject>;
+        TokenRevoked: TypedContractEvent<TokenRevokedEvent.InputTuple, TokenRevokedEvent.OutputTuple, TokenRevokedEvent.OutputObject>;
+        'TokensRevoked(address,address,uint8[])': TypedContractEvent<TokensRevokedEvent.InputTuple, TokensRevokedEvent.OutputTuple, TokensRevokedEvent.OutputObject>;
+        TokensRevoked: TypedContractEvent<TokensRevokedEvent.InputTuple, TokensRevokedEvent.OutputTuple, TokensRevokedEvent.OutputObject>;
     };
 }
 //# sourceMappingURL=InferenceServing.d.ts.map

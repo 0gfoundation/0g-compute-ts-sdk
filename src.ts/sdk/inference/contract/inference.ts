@@ -267,4 +267,74 @@ export class InferenceServingContract {
             throw new Error('Transaction reverted')
         }
     }
+
+    // === Session Token Revocation Methods ===
+
+    /**
+     * Revoke a single session token
+     * @param provider - The provider address
+     * @param tokenId - The token ID to revoke (0-254)
+     * @param gasPrice - Optional gas price
+     */
+    async revokeToken(
+        provider: AddressLike,
+        tokenId: number,
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+
+            await this.sendTx('revokeToken', [provider, tokenId], txOptions)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Revoke multiple session tokens
+     * @param provider - The provider address
+     * @param tokenIds - Array of token IDs to revoke
+     * @param gasPrice - Optional gas price
+     */
+    async revokeTokens(
+        provider: AddressLike,
+        tokenIds: number[],
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+
+            await this.sendTx('revokeTokens', [provider, tokenIds], txOptions)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Revoke all session tokens by incrementing generation
+     * This invalidates all existing tokens and resets the tokenId counter
+     * @param provider - The provider address
+     * @param gasPrice - Optional gas price
+     */
+    async revokeAllTokens(
+        provider: AddressLike,
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+
+            await this.sendTx('revokeAllTokens', [provider], txOptions)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
 }

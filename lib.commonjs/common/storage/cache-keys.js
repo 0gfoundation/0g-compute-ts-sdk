@@ -24,7 +24,7 @@ exports.CACHE_KEY_PREFIXES = {
     CACHED_FEE: '_cachedFee',
     // Check balance
     CHECK_BALANCE: '_checkBalance',
-    // Session token cache
+    // Session token cache (for ephemeral tokens)
     SESSION_TOKEN: 'session_',
 };
 // Metadata key suffixes
@@ -58,7 +58,7 @@ exports.CacheKeyHelpers = {
     getContentKey(id) {
         return id; // Keep as is since it's already unique
     },
-    // Session token key
+    // Session token key (for ephemeral tokens cache)
     getSessionTokenKey(userAddress, providerAddress) {
         return `${exports.CACHE_KEY_PREFIXES.SESSION_TOKEN}${userAddress}_${providerAddress}`;
     },
