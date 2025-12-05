@@ -7,6 +7,7 @@ import inference from './inference'
 import webUIEmbedded from './web-ui-embedded'
 import network from './network'
 import auth from './auth'
+import controller from './controller'
 
 export const program = new Command()
 
@@ -33,10 +34,16 @@ const webUICmd = program
     .alias('ui')
     .description('Web UI embedded commands')
 
+const controllerCmd = program
+    .command('controller')
+    .alias('ctrl')
+    .description('Controller commands for managing provider containers')
+
 // Register commands to their respective groups
 fineTuning(fineTuningCmd)
 inference(inferenceCmd)
 webUIEmbedded(webUICmd)
+controller(controllerCmd)
 
 // Register network configuration commands at the root level
 network(program)
