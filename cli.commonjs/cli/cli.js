@@ -10,6 +10,7 @@ const inference_1 = tslib_1.__importDefault(require("./inference"));
 const web_ui_embedded_1 = tslib_1.__importDefault(require("./web-ui-embedded"));
 const network_1 = tslib_1.__importDefault(require("./network"));
 const auth_1 = tslib_1.__importDefault(require("./auth"));
+const controller_1 = tslib_1.__importDefault(require("./controller"));
 exports.program = new commander_1.Command();
 exports.program
     .name('0g-compute-cli')
@@ -29,10 +30,15 @@ const webUICmd = exports.program
     .command('web-ui')
     .alias('ui')
     .description('Web UI embedded commands');
+const controllerCmd = exports.program
+    .command('controller')
+    .alias('ctrl')
+    .description('Controller commands for managing provider containers');
 // Register commands to their respective groups
 (0, fine_tuning_1.default)(fineTuningCmd);
 (0, inference_1.default)(inferenceCmd);
 (0, web_ui_embedded_1.default)(webUICmd);
+(0, controller_1.default)(controllerCmd);
 // Register network configuration commands at the root level
 (0, network_1.default)(exports.program);
 // Register auth commands at the root level
