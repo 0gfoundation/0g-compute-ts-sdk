@@ -65,19 +65,23 @@ async function generateControllerSessionToken(
 
 /**
  * Get Controller endpoint from provider's service URL
- * The controller runs on a different port (default 3090) than the main service
+ * Adds 'controller-' prefix to the hostname
+ * e.g., compute-network-6.example.com -> controller-compute-network-6.example.com
  */
 async function getControllerEndpoint(
     broker: any,
-    userAddress: string,
-    controllerPort: number = 3090
+    userAddress: string
 ): Promise<string> {
     // userAddress is the provider address (derived from private key)
     const serviceMetadata = await broker.inference.getServiceMetadata(
         userAddress
     )
     const url = new URL(serviceMetadata.endpoint)
-    url.port = controllerPort.toString()
+
+    // Add 'controller-' prefix to the hostname
+    url.hostname = `controller-${url.hostname}`
+
+    url.port = ''
     url.pathname = ''
     // Remove trailing slash to avoid double slashes when concatenating paths
     return url.toString().replace(/\/$/, '')
@@ -124,7 +128,6 @@ export default function controller(program: Command) {
     program
         .command('status')
         .description('[For provider] View container status')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -141,11 +144,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -212,7 +211,6 @@ export default function controller(program: Command) {
             '--container <name>',
             'Container name (broker/event or full name)'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -229,11 +227,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -269,7 +263,6 @@ export default function controller(program: Command) {
             '--container <name>',
             'Container name (broker/event or full name)'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -286,11 +279,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -326,7 +315,6 @@ export default function controller(program: Command) {
             '--container <name>',
             'Container name (broker/event or full name)'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -343,11 +331,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -383,7 +367,6 @@ export default function controller(program: Command) {
             '--container <name>',
             'Container name (broker/event or full name)'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -401,11 +384,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -448,7 +427,6 @@ export default function controller(program: Command) {
             'Container name (broker/event or full name)'
         )
         .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -465,11 +443,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -515,7 +489,6 @@ export default function controller(program: Command) {
             'Container name (broker/event or full name)'
         )
         .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -532,11 +505,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -573,7 +542,6 @@ export default function controller(program: Command) {
     program
         .command('list-admins')
         .description('[For provider] List admin wallet addresses')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -590,11 +558,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -627,7 +591,6 @@ export default function controller(program: Command) {
         .command('add-admin')
         .description('[For provider] Add admin wallet address')
         .requiredOption('--address <address>', 'Wallet address to add')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -644,11 +607,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -676,7 +635,6 @@ export default function controller(program: Command) {
         .command('remove-admin')
         .description('[For provider] Remove admin wallet address')
         .requiredOption('--address <address>', 'Wallet address to remove')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -693,11 +651,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -725,7 +679,6 @@ export default function controller(program: Command) {
     program
         .command('list-ips')
         .description('[For provider] List allowed IP addresses')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -742,11 +695,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -781,7 +730,6 @@ export default function controller(program: Command) {
             '--ip <ip>',
             'IP address or CIDR to add (e.g., 192.168.1.100 or 192.168.1.0/24)'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -798,11 +746,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -828,7 +772,6 @@ export default function controller(program: Command) {
         .command('remove-ip')
         .description('[For provider] Remove IP from whitelist')
         .requiredOption('--ip <ip>', 'IP address or CIDR to remove')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -845,11 +788,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -877,7 +816,6 @@ export default function controller(program: Command) {
     program
         .command('image-info')
         .description('[For provider] Get current image information')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -894,11 +832,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
                 logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`)
 
                 const rawToken = await generateControllerSessionToken(wallet)
@@ -930,7 +864,6 @@ export default function controller(program: Command) {
         .description(
             '[For provider] Pull latest image and recreate broker/event containers'
         )
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -947,11 +880,7 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(
-                    broker,
-                    userAddress,
-                    parseInt(options.controllerPort)
-                )
+                const endpoint = await getControllerEndpoint(broker, userAddress)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 

@@ -43,13 +43,16 @@ async function generateControllerSessionToken(wallet, duration = 3600000 // Defa
 }
 /**
  * Get Controller endpoint from provider's service URL
- * The controller runs on a different port (default 3090) than the main service
+ * Adds 'controller-' prefix to the hostname
+ * e.g., compute-network-6.example.com -> controller-compute-network-6.example.com
  */
-async function getControllerEndpoint(broker, userAddress, controllerPort = 3090) {
+async function getControllerEndpoint(broker, userAddress) {
     // userAddress is the provider address (derived from private key)
     const serviceMetadata = await broker.inference.getServiceMetadata(userAddress);
     const url = new URL(serviceMetadata.endpoint);
-    url.port = controllerPort.toString();
+    // Add 'controller-' prefix to the hostname
+    url.hostname = `controller-${url.hostname}`;
+    url.port = '';
     url.pathname = '';
     // Remove trailing slash to avoid double slashes when concatenating paths
     return url.toString().replace(/\/$/, '');
@@ -84,7 +87,6 @@ function controller(program) {
     program
         .command('status')
         .description('[For provider] View container status')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -99,7 +101,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             logger_1.logger.debug(`Fetching container status from: ${endpoint}/v1/containers`);
             const response = await axios_1.default.get(`${endpoint}/v1/containers`, {
@@ -144,7 +146,6 @@ function controller(program) {
         .command('restart')
         .description('[For provider] Restart a specific container')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -159,7 +160,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Restarting container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/restart`, {}, {
@@ -178,7 +179,6 @@ function controller(program) {
         .command('start')
         .description('[For provider] Start a specific container')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -193,7 +193,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Starting container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/start`, {}, {
@@ -212,7 +212,6 @@ function controller(program) {
         .command('stop')
         .description('[For provider] Stop a specific container')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -227,7 +226,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Stopping container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/stop`, {}, {
@@ -246,7 +245,6 @@ function controller(program) {
         .command('get-config')
         .description('[For provider] Get container configuration')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -262,7 +260,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/configs/${options.container}`, {
                 headers: {
@@ -290,7 +288,6 @@ function controller(program) {
         .description('[For provider] Update container configuration')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
         .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -305,7 +302,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
@@ -329,7 +326,6 @@ function controller(program) {
         .description('[For provider] Update configuration and restart container')
         .requiredOption('--container <name>', 'Container name (broker/event or full name)')
         .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -344,7 +340,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
@@ -366,7 +362,6 @@ function controller(program) {
     program
         .command('list-admins')
         .description('[For provider] List admin wallet addresses')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -381,7 +376,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/admin/wallets`, {
                 headers: {
@@ -408,7 +403,6 @@ function controller(program) {
         .command('add-admin')
         .description('[For provider] Add admin wallet address')
         .requiredOption('--address <address>', 'Wallet address to add')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -423,7 +417,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.post(`${endpoint}/v1/admin/wallets`, { address: options.address }, {
                 headers: {
@@ -442,7 +436,6 @@ function controller(program) {
         .command('remove-admin')
         .description('[For provider] Remove admin wallet address')
         .requiredOption('--address <address>', 'Wallet address to remove')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -457,7 +450,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.delete(`${endpoint}/v1/admin/wallets/${encodeURIComponent(options.address)}`, {
                 headers: {
@@ -475,7 +468,6 @@ function controller(program) {
     program
         .command('list-ips')
         .description('[For provider] List allowed IP addresses')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -490,7 +482,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/admin/ips`, {
                 headers: {
@@ -517,7 +509,6 @@ function controller(program) {
         .command('add-ip')
         .description('[For provider] Add IP to whitelist')
         .requiredOption('--ip <ip>', 'IP address or CIDR to add (e.g., 192.168.1.100 or 192.168.1.0/24)')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -532,7 +523,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.post(`${endpoint}/v1/admin/ips`, { ip: options.ip }, {
                 headers: {
@@ -551,7 +542,6 @@ function controller(program) {
         .command('remove-ip')
         .description('[For provider] Remove IP from whitelist')
         .requiredOption('--ip <ip>', 'IP address or CIDR to remove')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -566,7 +556,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.delete(`${endpoint}/v1/admin/ips/${encodeURIComponent(options.ip)}`, {
                 headers: {
@@ -584,7 +574,6 @@ function controller(program) {
     program
         .command('image-info')
         .description('[For provider] Get current image information')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -599,7 +588,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             logger_1.logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/images/info`, {
@@ -623,7 +612,6 @@ function controller(program) {
     program
         .command('update-images')
         .description('[For provider] Pull latest image and recreate broker/event containers')
-        .option('--controller-port <port>', 'Controller port', '3090')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -638,7 +626,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const endpoint = await getControllerEndpoint(broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue('Pulling latest image and updating containers...'));
             console.log(chalk_1.default.yellow('This may take a few minutes. Please wait...\n'));
