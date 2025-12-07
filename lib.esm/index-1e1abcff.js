@@ -14578,12 +14578,20 @@ class Verifier extends ZGServingUserBrokerBase {
             const verifierURL = additionalInfo.VerifierURL;
             const targetSeparated = additionalInfo.TargetSeparated === true;
             const teeVerifier = additionalInfo.TEEVerifier || 'dstack'; // default to dstack
+            const imageName = additionalInfo.ImageName;
+            const imageDigest = additionalInfo.ImageDigest;
             if (teeVerifier === 'dstack' && !verifierURL) {
                 console.warn('⚠️  Warning: VerifierURL not found in additionalInfo');
             }
             // Display service verification configuration
             console.log(`   Provider URL: ${svc.url}`);
             console.log(`   TEE Verifier: ${teeVerifier}`);
+            if (imageName) {
+                console.log(`   Image Name: ${imageName}`);
+            }
+            if (imageDigest) {
+                console.log(`   Image Digest: ${imageDigest}`);
+            }
             // TEE verification method information
             if (teeVerifier === 'dstack') {
                 console.log('   Verification Method: DStack TEE (Intel TDX)');
@@ -15872,7 +15880,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-4d12e684.js');
+    const { download } = await import('./index-822b7794.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21282,4 +21290,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-194a6214.js.map
+//# sourceMappingURL=index-1e1abcff.js.map

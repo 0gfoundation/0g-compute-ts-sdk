@@ -899,6 +899,7 @@ export default function controller(program: Command) {
                     userAddress,
                     parseInt(options.controllerPort)
                 )
+                logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`)
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
