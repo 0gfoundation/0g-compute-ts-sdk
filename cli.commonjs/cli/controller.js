@@ -600,6 +600,7 @@ function controller(program) {
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
             const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            logger_1.logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/images/info`, {
                 headers: {

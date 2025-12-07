@@ -38,6 +38,8 @@ export interface AdditionalInfo {
     TargetSeparated?: boolean
     TEEVerifier?: string
     TargetTeeAddress?: string
+    ImageName?: string
+    ImageDigest?: string
 }
 
 export interface AttestationReport {
@@ -132,6 +134,8 @@ export class Verifier extends ZGServingUserBrokerBase {
             const verifierURL = additionalInfo.VerifierURL
             const targetSeparated = additionalInfo.TargetSeparated === true
             const teeVerifier = additionalInfo.TEEVerifier || 'dstack' // default to dstack
+            const imageName = additionalInfo.ImageName
+            const imageDigest = additionalInfo.ImageDigest
 
             if (teeVerifier === 'dstack' && !verifierURL) {
                 console.warn(
@@ -142,6 +146,12 @@ export class Verifier extends ZGServingUserBrokerBase {
             // Display service verification configuration
             console.log(`   Provider URL: ${svc.url}`)
             console.log(`   TEE Verifier: ${teeVerifier}`)
+            if (imageName) {
+                console.log(`   Image Name: ${imageName}`)
+            }
+            if (imageDigest) {
+                console.log(`   Image Digest: ${imageDigest}`)
+            }
 
             // TEE verification method information
             if (teeVerifier === 'dstack') {

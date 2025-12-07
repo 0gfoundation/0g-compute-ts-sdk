@@ -31,6 +31,8 @@ export interface AdditionalInfo {
     TargetSeparated?: boolean;
     TEEVerifier?: string;
     TargetTeeAddress?: string;
+    ImageName?: string;
+    ImageDigest?: string;
 }
 export interface AttestationReport {
     tcb_info?: Record<string, unknown>;
