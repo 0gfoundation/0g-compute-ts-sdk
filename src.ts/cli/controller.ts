@@ -8,7 +8,6 @@ import Table from 'cli-table3'
 import chalk from 'chalk'
 import axios from 'axios'
 import fs from 'fs'
-import yaml from 'yaml'
 import { ethers, keccak256, toUtf8Bytes } from 'ethers'
 import { logger } from '../sdk/common/logger'
 
@@ -474,9 +473,8 @@ export default function controller(program: Command) {
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
-                // Read config file
+                // Read config file as raw YAML string to avoid parsing issues with hex addresses
                 const configContent = fs.readFileSync(options.config, 'utf-8')
-                const config = yaml.parse(configContent)
 
                 console.log(
                     chalk.blue(
@@ -486,7 +484,7 @@ export default function controller(program: Command) {
 
                 await axios.put(
                     `${endpoint}/v1/configs/${options.container}`,
-                    { config },
+                    { config: configContent },
                     {
                         headers: {
                             Authorization: `Bearer ${rawToken}`,
@@ -542,9 +540,8 @@ export default function controller(program: Command) {
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
-                // Read config file
+                // Read config file as raw YAML string to avoid parsing issues with hex addresses
                 const configContent = fs.readFileSync(options.config, 'utf-8')
-                const config = yaml.parse(configContent)
 
                 console.log(
                     chalk.blue(
@@ -554,7 +551,7 @@ export default function controller(program: Command) {
 
                 await axios.post(
                     `${endpoint}/v1/configs/${options.container}/apply`,
-                    { config },
+                    { config: configContent },
                     {
                         headers: {
                             Authorization: `Bearer ${rawToken}`,
@@ -870,6 +867,166 @@ export default function controller(program: Command) {
                 console.log(
                     chalk.green(`IP removed from whitelist: ${options.ip}`)
                 )
+                process.exit(0)
+            } catch (error) {
+                handleAxiosError(error)
+            }
+        })
+
+    // Image management commands
+    program
+        .command('image-info')
+        .description('[For provider] Get current image information')
+        .option('--controller-port <port>', 'Controller port', '3090')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .action(async (options) => {
+            try {
+                const rpcEndpoint = await getRpcEndpoint(options)
+                const privateKey = await ensurePrivateKeyConfiguration()
+                if (!privateKey) {
+                    throw new Error('Private key is required')
+                }
+
+                const provider = new ethers.JsonRpcProvider(rpcEndpoint)
+                const wallet = new ethers.Wallet(privateKey, provider)
+
+                const broker = await initBroker(options)
+                const userAddress = await wallet.getAddress()
+                const endpoint = await getControllerEndpoint(
+                    broker,
+                    userAddress,
+                    parseInt(options.controllerPort)
+                )
+
+                const rawToken = await generateControllerSessionToken(wallet)
+
+                const response = await axios.get(`${endpoint}/v1/images/info`, {
+                    headers: {
+                        Authorization: `Bearer ${rawToken}`,
+                    },
+                })
+
+                const info = response.data
+
+                console.log(chalk.blue('\nCurrent Image Information:'))
+                console.log(`  Image:    ${info.image}`)
+                console.log(`  Image ID: ${info.imageId}`)
+                console.log(`  Created:  ${info.created}`)
+                console.log(
+                    `  Size:     ${(info.size / 1024 / 1024).toFixed(2)} MB`
+                )
+                process.exit(0)
+            } catch (error) {
+                handleAxiosError(error)
+            }
+        })
+
+    program
+        .command('update-images')
+        .description(
+            '[For provider] Pull latest image and recreate broker/event containers'
+        )
+        .option('--controller-port <port>', 'Controller port', '3090')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .action(async (options) => {
+            try {
+                const rpcEndpoint = await getRpcEndpoint(options)
+                const privateKey = await ensurePrivateKeyConfiguration()
+                if (!privateKey) {
+                    throw new Error('Private key is required')
+                }
+
+                const provider = new ethers.JsonRpcProvider(rpcEndpoint)
+                const wallet = new ethers.Wallet(privateKey, provider)
+
+                const broker = await initBroker(options)
+                const userAddress = await wallet.getAddress()
+                const endpoint = await getControllerEndpoint(
+                    broker,
+                    userAddress,
+                    parseInt(options.controllerPort)
+                )
+
+                const rawToken = await generateControllerSessionToken(wallet)
+
+                console.log(
+                    chalk.blue(
+                        'Pulling latest image and updating containers...'
+                    )
+                )
+                console.log(
+                    chalk.yellow(
+                        'This may take a few minutes. Please wait...\n'
+                    )
+                )
+
+                const response = await axios.post(
+                    `${endpoint}/v1/images/update`,
+                    {},
+                    {
+                        headers: {
+                            Authorization: `Bearer ${rawToken}`,
+                        },
+                        timeout: 300000, // 5 minutes timeout for image pull
+                    }
+                )
+
+                const result = response.data
+
+                if (result.success) {
+                    console.log(chalk.green('Image updated successfully!\n'))
+                    console.log(`  Image:    ${result.image}`)
+                    console.log(`  Image ID: ${result.imageId}\n`)
+
+                    if (
+                        result.updatedContainers &&
+                        result.updatedContainers.length > 0
+                    ) {
+                        const table = new Table({
+                            head: [
+                                'Container',
+                                'Old ID',
+                                'New ID',
+                                'Status',
+                            ],
+                            colWidths: [40, 15, 15, 12],
+                        })
+
+                        result.updatedContainers.forEach(
+                            (container: {
+                                name: string
+                                oldContainerId: string
+                                newContainerId: string
+                                status: string
+                                error?: string
+                            }) => {
+                                const statusColor =
+                                    container.status === 'running'
+                                        ? chalk.green
+                                        : chalk.red
+                                table.push([
+                                    container.name,
+                                    container.oldContainerId,
+                                    container.newContainerId,
+                                    statusColor(container.status),
+                                ])
+                            }
+                        )
+
+                        console.log('Updated Containers:')
+                        console.log(table.toString())
+                    }
+                } else {
+                    console.error(
+                        chalk.red('Image update failed:'),
+                        result.error
+                    )
+                    process.exit(1)
+                }
                 process.exit(0)
             } catch (error) {
                 handleAxiosError(error)

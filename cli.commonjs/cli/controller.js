@@ -10,7 +10,6 @@ const cli_table3_1 = tslib_1.__importDefault(require("cli-table3"));
 const chalk_1 = tslib_1.__importDefault(require("chalk"));
 const axios_1 = tslib_1.__importDefault(require("axios"));
 const fs_1 = tslib_1.__importDefault(require("fs"));
-const yaml_1 = tslib_1.__importDefault(require("yaml"));
 const ethers_1 = require("ethers");
 const logger_1 = require("../sdk/common/logger");
 /**
@@ -308,11 +307,10 @@ function controller(program) {
             const userAddress = await wallet.getAddress();
             const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
             const rawToken = await generateControllerSessionToken(wallet);
-            // Read config file
+            // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
-            const config = yaml_1.default.parse(configContent);
             console.log(chalk_1.default.blue(`Updating config for container: ${options.container}...`));
-            await axios_1.default.put(`${endpoint}/v1/configs/${options.container}`, { config }, {
+            await axios_1.default.put(`${endpoint}/v1/configs/${options.container}`, { config: configContent }, {
                 headers: {
                     Authorization: `Bearer ${rawToken}`,
                     'Content-Type': 'application/json',
@@ -348,11 +346,10 @@ function controller(program) {
             const userAddress = await wallet.getAddress();
             const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
             const rawToken = await generateControllerSessionToken(wallet);
-            // Read config file
+            // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
-            const config = yaml_1.default.parse(configContent);
             console.log(chalk_1.default.blue(`Applying config and restarting container: ${options.container}...`));
-            await axios_1.default.post(`${endpoint}/v1/configs/${options.container}/apply`, { config }, {
+            await axios_1.default.post(`${endpoint}/v1/configs/${options.container}/apply`, { config: configContent }, {
                 headers: {
                     Authorization: `Bearer ${rawToken}`,
                     'Content-Type': 'application/json',
@@ -577,6 +574,113 @@ function controller(program) {
                 },
             });
             console.log(chalk_1.default.green(`IP removed from whitelist: ${options.ip}`));
+            process.exit(0);
+        }
+        catch (error) {
+            handleAxiosError(error);
+        }
+    });
+    // Image management commands
+    program
+        .command('image-info')
+        .description('[For provider] Get current image information')
+        .option('--controller-port <port>', 'Controller port', '3090')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .action(async (options) => {
+        try {
+            const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
+            const privateKey = await (0, private_key_setup_1.ensurePrivateKeyConfiguration)();
+            if (!privateKey) {
+                throw new Error('Private key is required');
+            }
+            const provider = new ethers_1.ethers.JsonRpcProvider(rpcEndpoint);
+            const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
+            const broker = await (0, util_1.initBroker)(options);
+            const userAddress = await wallet.getAddress();
+            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const rawToken = await generateControllerSessionToken(wallet);
+            const response = await axios_1.default.get(`${endpoint}/v1/images/info`, {
+                headers: {
+                    Authorization: `Bearer ${rawToken}`,
+                },
+            });
+            const info = response.data;
+            console.log(chalk_1.default.blue('\nCurrent Image Information:'));
+            console.log(`  Image:    ${info.image}`);
+            console.log(`  Image ID: ${info.imageId}`);
+            console.log(`  Created:  ${info.created}`);
+            console.log(`  Size:     ${(info.size / 1024 / 1024).toFixed(2)} MB`);
+            process.exit(0);
+        }
+        catch (error) {
+            handleAxiosError(error);
+        }
+    });
+    program
+        .command('update-images')
+        .description('[For provider] Pull latest image and recreate broker/event containers')
+        .option('--controller-port <port>', 'Controller port', '3090')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .action(async (options) => {
+        try {
+            const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
+            const privateKey = await (0, private_key_setup_1.ensurePrivateKeyConfiguration)();
+            if (!privateKey) {
+                throw new Error('Private key is required');
+            }
+            const provider = new ethers_1.ethers.JsonRpcProvider(rpcEndpoint);
+            const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
+            const broker = await (0, util_1.initBroker)(options);
+            const userAddress = await wallet.getAddress();
+            const endpoint = await getControllerEndpoint(broker, userAddress, parseInt(options.controllerPort));
+            const rawToken = await generateControllerSessionToken(wallet);
+            console.log(chalk_1.default.blue('Pulling latest image and updating containers...'));
+            console.log(chalk_1.default.yellow('This may take a few minutes. Please wait...\n'));
+            const response = await axios_1.default.post(`${endpoint}/v1/images/update`, {}, {
+                headers: {
+                    Authorization: `Bearer ${rawToken}`,
+                },
+                timeout: 300000, // 5 minutes timeout for image pull
+            });
+            const result = response.data;
+            if (result.success) {
+                console.log(chalk_1.default.green('Image updated successfully!\n'));
+                console.log(`  Image:    ${result.image}`);
+                console.log(`  Image ID: ${result.imageId}\n`);
+                if (result.updatedContainers &&
+                    result.updatedContainers.length > 0) {
+                    const table = new cli_table3_1.default({
+                        head: [
+                            'Container',
+                            'Old ID',
+                            'New ID',
+                            'Status',
+                        ],
+                        colWidths: [40, 15, 15, 12],
+                    });
+                    result.updatedContainers.forEach((container) => {
+                        const statusColor = container.status === 'running'
+                            ? chalk_1.default.green
+                            : chalk_1.default.red;
+                        table.push([
+                            container.name,
+                            container.oldContainerId,
+                            container.newContainerId,
+                            statusColor(container.status),
+                        ]);
+                    });
+                    console.log('Updated Containers:');
+                    console.log(table.toString());
+                }
+            }
+            else {
+                console.error(chalk_1.default.red('Image update failed:'), result.error);
+                process.exit(1);
+            }
             process.exit(0);
         }
         catch (error) {
