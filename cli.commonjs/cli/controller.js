@@ -609,6 +609,7 @@ function controller(program) {
             const info = response.data;
             console.log(chalk_1.default.blue('\nCurrent Image Information:'));
             console.log(`  Image:    ${info.image}`);
+            console.log(`  Digest:   ${info.digest || 'N/A'}`);
             console.log(`  Image ID: ${info.imageId}`);
             console.log(`  Created:  ${info.created}`);
             console.log(`  Size:     ${(info.size / 1024 / 1024).toFixed(2)} MB`);
@@ -650,6 +651,7 @@ function controller(program) {
             if (result.success) {
                 console.log(chalk_1.default.green('Image updated successfully!\n'));
                 console.log(`  Image:    ${result.image}`);
+                console.log(`  Digest:   ${result.digest || 'N/A'}`);
                 console.log(`  Image ID: ${result.imageId}\n`);
                 if (result.updatedContainers &&
                     result.updatedContainers.length > 0) {

@@ -912,6 +912,7 @@ export default function controller(program: Command) {
 
                 console.log(chalk.blue('\nCurrent Image Information:'))
                 console.log(`  Image:    ${info.image}`)
+                console.log(`  Digest:   ${info.digest || 'N/A'}`)
                 console.log(`  Image ID: ${info.imageId}`)
                 console.log(`  Created:  ${info.created}`)
                 console.log(
@@ -980,6 +981,7 @@ export default function controller(program: Command) {
                 if (result.success) {
                     console.log(chalk.green('Image updated successfully!\n'))
                     console.log(`  Image:    ${result.image}`)
+                    console.log(`  Digest:   ${result.digest || 'N/A'}`)
                     console.log(`  Image ID: ${result.imageId}\n`)
 
                     if (
