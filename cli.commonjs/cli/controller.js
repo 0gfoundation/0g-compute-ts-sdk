@@ -6,6 +6,7 @@ const tslib_1 = require("tslib");
 const util_1 = require("./util");
 const network_setup_1 = require("./network-setup");
 const private_key_setup_1 = require("./private-key-setup");
+const controller_endpoint_setup_1 = require("./controller-endpoint-setup");
 const cli_table3_1 = tslib_1.__importDefault(require("cli-table3"));
 const chalk_1 = tslib_1.__importDefault(require("chalk"));
 const axios_1 = tslib_1.__importDefault(require("axios"));
@@ -42,22 +43,6 @@ async function generateControllerSessionToken(wallet, duration = 3600000 // Defa
     return rawToken;
 }
 /**
- * Get Controller endpoint from provider's service URL
- * Adds 'controller-' prefix to the hostname
- * e.g., compute-network-6.example.com -> controller-compute-network-6.example.com
- */
-async function getControllerEndpoint(broker, userAddress) {
-    // userAddress is the provider address (derived from private key)
-    const serviceMetadata = await broker.inference.getServiceMetadata(userAddress);
-    const url = new URL(serviceMetadata.endpoint);
-    // Add 'controller-' prefix to the hostname
-    url.hostname = `controller-${url.hostname}`;
-    url.port = '';
-    url.pathname = '';
-    // Remove trailing slash to avoid double slashes when concatenating paths
-    return url.toString().replace(/\/$/, '');
-}
-/**
  * Handle axios error and display friendly message
  */
 function handleAxiosError(error) {
@@ -90,6 +75,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -101,7 +87,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             logger_1.logger.debug(`Fetching container status from: ${endpoint}/v1/containers`);
             const response = await axios_1.default.get(`${endpoint}/v1/containers`, {
@@ -149,6 +135,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -160,7 +147,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Restarting container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/restart`, {}, {
@@ -182,6 +169,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -193,7 +181,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Starting container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/start`, {}, {
@@ -215,6 +203,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -226,7 +215,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue(`Stopping container: ${options.container}...`));
             await axios_1.default.post(`${endpoint}/v1/containers/${options.container}/stop`, {}, {
@@ -248,6 +237,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .option('--output <path>', 'Output file path (optional)')
         .action(async (options) => {
         try {
@@ -260,7 +250,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/configs/${options.container}`, {
                 headers: {
@@ -291,6 +281,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -302,7 +293,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
@@ -329,6 +320,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -340,7 +332,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
@@ -365,6 +357,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -376,7 +369,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/admin/wallets`, {
                 headers: {
@@ -406,6 +399,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -417,7 +411,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.post(`${endpoint}/v1/admin/wallets`, { address: options.address }, {
                 headers: {
@@ -439,6 +433,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -450,7 +445,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.delete(`${endpoint}/v1/admin/wallets/${encodeURIComponent(options.address)}`, {
                 headers: {
@@ -471,6 +466,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -482,7 +478,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/admin/ips`, {
                 headers: {
@@ -512,6 +508,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -523,7 +520,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.post(`${endpoint}/v1/admin/ips`, { ip: options.ip }, {
                 headers: {
@@ -545,6 +542,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -556,7 +554,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             await axios_1.default.delete(`${endpoint}/v1/admin/ips/${encodeURIComponent(options.ip)}`, {
                 headers: {
@@ -577,6 +575,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -588,7 +587,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             logger_1.logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`);
             const rawToken = await generateControllerSessionToken(wallet);
             const response = await axios_1.default.get(`${endpoint}/v1/images/info`, {
@@ -615,6 +614,7 @@ function controller(program) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
+        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
@@ -626,7 +626,7 @@ function controller(program) {
             const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
             const broker = await (0, util_1.initBroker)(options);
             const userAddress = await wallet.getAddress();
-            const endpoint = await getControllerEndpoint(broker, userAddress);
+            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
             console.log(chalk_1.default.blue('Pulling latest image and updating containers...'));
             console.log(chalk_1.default.yellow('This may take a few minutes. Please wait...\n'));
@@ -677,6 +677,15 @@ function controller(program) {
         catch (error) {
             handleAxiosError(error);
         }
+    });
+    // Controller endpoint management command
+    program
+        .command('reset-controller-endpoint')
+        .description('[For provider] Reset saved controller endpoint configuration')
+        .action(async () => {
+        (0, controller_endpoint_setup_1.resetControllerEndpoint)();
+        console.log(chalk_1.default.gray('Next command will prompt for endpoint configuration again.'));
+        process.exit(0);
     });
 }
 //# sourceMappingURL=controller.js.map
