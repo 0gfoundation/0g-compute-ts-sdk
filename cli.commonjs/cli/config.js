@@ -8,6 +8,9 @@ exports.setConfiguredRpcEndpoint = setConfiguredRpcEndpoint;
 exports.getConfiguredPrivateKey = getConfiguredPrivateKey;
 exports.setConfiguredPrivateKey = setConfiguredPrivateKey;
 exports.clearConfig = clearConfig;
+exports.getConfiguredControllerEndpoint = getConfiguredControllerEndpoint;
+exports.setConfiguredControllerEndpoint = setConfiguredControllerEndpoint;
+exports.clearControllerEndpoint = clearControllerEndpoint;
 const tslib_1 = require("tslib");
 const fs = tslib_1.__importStar(require("fs"));
 const path = tslib_1.__importStar(require("path"));
@@ -101,5 +104,33 @@ function clearConfig() {
     catch {
         // Config file doesn't exist, which is fine
     }
+}
+/**
+ * Gets the controller endpoint from config file
+ */
+function getConfiguredControllerEndpoint() {
+    const config = loadConfig();
+    return {
+        endpoint: config.controllerEndpoint,
+        source: config.controllerEndpointSource,
+    };
+}
+/**
+ * Sets the controller endpoint in config file
+ */
+function setConfiguredControllerEndpoint(endpoint, source) {
+    const config = loadConfig();
+    config.controllerEndpoint = endpoint;
+    config.controllerEndpointSource = source;
+    saveConfig(config);
+}
+/**
+ * Clears the controller endpoint from config
+ */
+function clearControllerEndpoint() {
+    const config = loadConfig();
+    delete config.controllerEndpoint;
+    delete config.controllerEndpointSource;
+    saveConfig(config);
 }
 //# sourceMappingURL=config.js.map

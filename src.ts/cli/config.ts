@@ -8,6 +8,8 @@ interface CLIConfig {
     rpcEndpoint?: string
     network?: 'mainnet' | 'testnet' | 'custom'
     privateKey?: string
+    controllerEndpoint?: string
+    controllerEndpointSource?: 'auto' | 'custom'
     lastUpdated?: string
 }
 
@@ -111,4 +113,41 @@ export function clearConfig(): void {
     } catch {
         // Config file doesn't exist, which is fine
     }
+}
+
+/**
+ * Gets the controller endpoint from config file
+ */
+export function getConfiguredControllerEndpoint(): {
+    endpoint?: string
+    source?: 'auto' | 'custom'
+} {
+    const config = loadConfig()
+    return {
+        endpoint: config.controllerEndpoint,
+        source: config.controllerEndpointSource,
+    }
+}
+
+/**
+ * Sets the controller endpoint in config file
+ */
+export function setConfiguredControllerEndpoint(
+    endpoint: string,
+    source: 'auto' | 'custom'
+): void {
+    const config = loadConfig()
+    config.controllerEndpoint = endpoint
+    config.controllerEndpointSource = source
+    saveConfig(config)
+}
+
+/**
+ * Clears the controller endpoint from config
+ */
+export function clearControllerEndpoint(): void {
+    const config = loadConfig()
+    delete config.controllerEndpoint
+    delete config.controllerEndpointSource
+    saveConfig(config)
 }
