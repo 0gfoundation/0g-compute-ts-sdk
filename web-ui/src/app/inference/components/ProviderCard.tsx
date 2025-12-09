@@ -176,7 +176,7 @@ export function ProviderCard({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 text-xs hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
+                                    className="flex-1 text-xs text-gray-600 border-gray-300 hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
                                     onClick={() => onChat(provider)}
                                 >
                                     <MessageCircle className="h-3 w-3 mr-1" />
@@ -187,7 +187,7 @@ export function ProviderCard({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 text-xs hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
+                                    className="flex-1 text-xs text-gray-600 border-gray-300 hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
                                     onClick={() => onBuild(provider)}
                                 >
                                     <Code className="h-3 w-3 mr-1" />
