@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useChainId } from "wagmi";
 import { MessageSquare, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
@@ -40,7 +39,8 @@ export function Sidebar() {
           {links.map(({ href, label, icon: Icon }) => (
             <Tooltip key={href}>
               <TooltipTrigger asChild>
-                <Link
+                {/* Use native <a> tag instead of Next.js Link to avoid RSC .txt navigation issues in static export */}
+                <a
                   href={href}
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:text-gray-900 md:h-8 md:w-8",
@@ -49,7 +49,7 @@ export function Sidebar() {
                 >
                   <Icon className="h-5 w-5" />
                   <span className="sr-only">{label}</span>
-                </Link>
+                </a>
               </TooltipTrigger>
               <TooltipContent side="right">{label}</TooltipContent>
             </Tooltip>

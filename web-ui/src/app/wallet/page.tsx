@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useAccount } from 'wagmi';
 import { use0GBroker } from '../../shared/hooks/use0GBroker';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StateDisplay } from '@/components/ui/state-display';
 import { BalanceCard, AddFundsForm, WithdrawDialog, FundDistribution } from './components';
@@ -12,7 +12,6 @@ import { Loader2 } from 'lucide-react';
 function LedgerContent() {
   const { isConnected } = useAccount();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const {
     broker,
     isInitializing,
@@ -259,7 +258,7 @@ function LedgerContent() {
         lockedBalance={displayLedgerInfo.locked}
         refund={(amount) => broker!.ledger.refund(amount)}
         onSuccess={refreshLedgerInfo}
-        onDeleteSuccess={() => router.push('/')}
+        onDeleteSuccess={() => window.location.href = '/'}
       />
     </div>
   );

@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { useRouter } from "next/navigation";
 import { use0GBroker } from "../../../../shared/hooks/use0GBroker";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
@@ -33,7 +32,6 @@ interface Message {
 export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
   const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
-  const router = useRouter();
   const { toast } = useToast();
 
   // Use toast for non-blocking errors
@@ -386,7 +384,7 @@ export function OptimizedChatPage() {
       <div className="mb-1 sm:mb-3">
         <div className="flex items-center space-x-2 sm:space-x-3 mb-1 sm:mb-2">
           <button
-            onClick={() => router.push('/inference')}
+            onClick={() => window.location.href = '/inference'}
             className="text-gray-600 hover:text-purple-600 transition-colors p-1 sm:p-1.5 border border-gray-300 rounded-lg hover:bg-purple-50 cursor-pointer"
           >
             <svg

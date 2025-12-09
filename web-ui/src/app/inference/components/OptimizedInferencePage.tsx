@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { useState, useCallback } from 'react'
 import { useAccount, useChainId } from 'wagmi'
-import { useRouter } from 'next/navigation'
 import { use0GBroker } from '@/shared/hooks/use0GBroker'
 import { useOptimizedDataFetching } from '@/shared/hooks/useOptimizedDataFetching'
 import type { Provider } from '@/shared/types/broker'
@@ -19,7 +18,6 @@ export function OptimizedInferencePage() {
     const { isConnected } = useAccount()
     const chainId = useChainId()
     const { broker, isInitializing } = use0GBroker()
-    const router = useRouter()
     const { setIsNavigating, setTargetRoute, setTargetPageType } = useNavigation()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [selectedProviderForBuild, setSelectedProviderForBuild] =
@@ -48,18 +46,18 @@ export function OptimizedInferencePage() {
         chainId,
     })
 
+    // Use native navigation instead of Next.js router to avoid RSC .txt navigation issues in static export
     const handleChatWithProvider = useCallback(
         (provider: Provider) => {
             const chatUrl = `/inference/chat?provider=${encodeURIComponent(provider.address)}`
-            router.prefetch(chatUrl)
             setIsNavigating(true)
             setTargetRoute('Chat')
             setTargetPageType('chat')
             setTimeout(() => {
-                router.push(chatUrl)
+                window.location.href = chatUrl
             }, 50)
         },
-        [router, setIsNavigating, setTargetRoute, setTargetPageType]
+        [setIsNavigating, setTargetRoute, setTargetPageType]
     )
 
     const handleBuildWithProvider = useCallback((provider: Provider) => {

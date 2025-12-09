@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
-
-
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 interface OptimizedLinkProps {
   href: string;
@@ -14,40 +11,29 @@ interface OptimizedLinkProps {
   onNavigationStart?: () => void;
 }
 
+// Use native <a> tag instead of Next.js Link/router to avoid RSC .txt navigation issues in static export
 export const OptimizedLink: React.FC<OptimizedLinkProps> = ({
   href,
   className,
   children,
-  preload = true,
   onNavigationStart,
 }) => {
-  const router = useRouter();
   const [isNavigating] = useState(false);
 
-  useEffect(() => {
-    if (preload && href !== "#") {
-      router.prefetch(href);
-    }
-  }, [href, preload, router]);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    
+  const handleClick = () => {
     if (isNavigating) return;
-    
     onNavigationStart?.();
-    
-    router.push(href);
+    // Let native browser navigation handle it
   };
 
   return (
-    <Link 
-      href={href} 
+    <a
+      href={href}
       className={className}
       onClick={handleClick}
     >
       {children}
-    </Link>
+    </a>
   );
 };
 
