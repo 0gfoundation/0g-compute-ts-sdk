@@ -1,5 +1,4 @@
-import Link from 'next/link';
-
+// Use native <a> tag instead of Next.js Link to avoid RSC .txt navigation issues in static export
 export default function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -12,12 +11,12 @@ export default function NotFound() {
       <p className="text-gray-600 mb-6">
         The page you&apos;re looking for doesn&apos;t exist or has been moved.
       </p>
-      <Link
+      <a
         href="/"
         className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
       >
         Go to Home
-      </Link>
+      </a>
     </div>
   );
 }

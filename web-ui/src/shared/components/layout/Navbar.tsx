@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Github, Globe } from "lucide-react";
 
@@ -42,14 +41,15 @@ const WebsiteLink = React.memo(() => (
 GitHubLink.displayName = 'GitHubLink';
 WebsiteLink.displayName = 'WebsiteLink';
 
+// Use native <a> tag instead of Next.js Link to avoid RSC .txt navigation issues in static export
 const NavbarLogo = React.memo(() => (
-  <Link href="/" className="flex items-center space-x-2">
+  <a href="/" className="flex items-center space-x-2">
     <img src="/favicon.svg" alt="0G" className="w-8 h-8" />
     <span className="hidden sm:inline text-xl font-bold text-gray-800">Compute Network</span>
     <span className="hidden md:inline ml-2 px-2 py-1 text-xs font-medium text-purple-600 bg-purple-100 rounded-full border border-purple-200">
       beta
     </span>
-  </Link>
+  </a>
 ));
 
 NavbarLogo.displayName = 'NavbarLogo';

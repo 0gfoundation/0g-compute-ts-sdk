@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cpu, Wrench, Wallet } from "lucide-react";
 
+// Use native <a> tag instead of Next.js Link to avoid RSC .txt navigation issues in static export
 export default function Home() {
   return (
     <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12">
@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0">
           <Button size="lg" className="bg-purple-600 hover:bg-purple-700 text-sm sm:text-base" asChild>
-            <Link href="/inference">Quick Start</Link>
+            <a href="/inference">Quick Start</a>
           </Button>
           <Button size="lg" variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 text-sm sm:text-base" asChild>
             <a href="https://docs.0g.ai/concepts/compute" target="_blank" rel="noopener noreferrer">
@@ -43,7 +43,7 @@ export default function Home() {
           </CardContent>
           <CardFooter className="p-4 sm:p-6 pt-2">
             <Button variant="secondary" className="w-full bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm" asChild>
-              <Link href="/wallet">Go to Account</Link>
+              <a href="/wallet">Go to Account</a>
             </Button>
           </CardFooter>
         </Card>
@@ -60,7 +60,7 @@ export default function Home() {
           </CardContent>
           <CardFooter className="p-4 sm:p-6 pt-2">
             <Button variant="secondary" className="w-full bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm" asChild>
-              <Link href="/inference">Go to Inference</Link>
+              <a href="/inference">Go to Inference</a>
             </Button>
           </CardFooter>
         </Card>
@@ -77,7 +77,7 @@ export default function Home() {
           </CardContent>
           <CardFooter className="p-4 sm:p-6 pt-2">
             <Button variant="secondary" className="w-full bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm" asChild>
-              <Link href="/fine-tuning">Go to Fine-tuning</Link>
+              <a href="/fine-tuning">Go to Fine-tuning</a>
             </Button>
           </CardFooter>
         </Card>
