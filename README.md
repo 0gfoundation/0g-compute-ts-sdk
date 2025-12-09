@@ -1,243 +1,245 @@
-# 0G Serving Broker Documentation
+# 0G Compute Network SDK
 
-## Overview
+Access decentralized AI computing through the 0G Compute Network - a GPU marketplace that connects developers with affordable AI inference and fine-tuning services.
 
-This document provides an overview of the 0G Serving Broker, including setup and usage instructions.
+## Features
+
+- **AI Inference**: Run LLMs, text-to-image, and speech-to-text models
+- **Fine-tuning**: Customize models with your own data
+- **OpenAI Compatible**: Works with existing OpenAI SDK clients
+- **Web UI**: Built-in interface for easy service discovery and testing
+- **CLI Tools**: Command-line interface for automation
 
 ## Requirements
 
-- Node.js >= 20.0.0
+- Node.js >= 22.0.0
+- A wallet with 0G tokens
 
-## Setup and Usage
-
-To integrate the 0G Serving Broker into your project, follow these steps
-
-### Step 1: Install the dependency
-
-To get started, you need to install the `@0glabs/0g-serving-broker` package:
+## Installation
 
 ```bash
+# Using pnpm (recommended)
+pnpm add @0glabs/0g-serving-broker
+
 # Using npm
-npm install @0glabs/0g-serving-broker @types/crypto-js@4.2.2 crypto-js@4.2.0
+npm install @0glabs/0g-serving-broker
 
-# Using yarn  
-yarn add @0glabs/0g-serving-broker @types/crypto-js@4.2.2 crypto-js@4.2.0
+# Using yarn
+yarn add @0glabs/0g-serving-broker
 
-# Using pnpm (recommended for development)
-pnpm add @0glabs/0g-serving-broker @types/crypto-js@4.2.2 crypto-js@4.2.0
+# Install globally for CLI access
+pnpm add @0glabs/0g-serving-broker -g
 ```
 
-**Note for Contributors**: This project uses pnpm@9.15.4 for development. If you're contributing to this project, please use pnpm. For regular users installing as a dependency, any package manager works.
+## Quick Start
 
-### Step 2: Initialize a Broker Instance
+### Web UI
 
-The broker instance is initialized with a `signer`. This signer is an instance that implements the `JsonRpcSigner` or `Wallet` interface from the ethers package and is used to sign transactions for a specific Ethereum account. You can create this instance using your private key via the ethers library or use a wallet framework tool like [wagmi](https://wagmi.sh/react/guides/ethers) to initialize the signer.
+The fastest way to get started:
+
+```bash
+# Launch the Web UI
+0g-compute-cli ui start-web
+```
+
+Open `http://localhost:3090` in your browser to:
+- Connect your wallet (MetaMask)
+- Browse available AI services
+- Chat with AI models directly
+- Get integration code examples
+
+### CLI
+
+```bash
+# Setup network
+0g-compute-cli setup-network
+
+# Login with your wallet
+0g-compute-cli login
+
+# Deposit funds
+0g-compute-cli deposit --amount 10
+
+# List available providers
+0g-compute-cli inference list-providers
+
+# Transfer funds to a provider
+0g-compute-cli transfer-fund --provider <PROVIDER_ADDRESS> --amount 5
+
+# Acknowledge provider before use
+0g-compute-cli inference acknowledge-provider --provider <PROVIDER_ADDRESS>
+
+# Get API secret for direct access
+0g-compute-cli inference get-secret --provider <PROVIDER_ADDRESS>
+```
+
+### SDK
 
 ```typescript
-import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
+import { ethers } from "ethers";
+import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
 
-/**
- * 'createZGComputeNetworkBroker' is used to initialize ZGServingUserBroker
- *
- * @param {JsonRpcSigner | Wallet} signer - A signer that implements the 'JsonRpcSigner' or 'Wallet' interface from the ethers package.
- * @param {string} contractAddress - 0G Serving contract address, use default address if not provided.
- *
- * @returns broker instance.
- *
- * @throws An error if the broker cannot be initialized.
- */
-const broker = await createZGComputeNetworkBroker(signer)
+// Initialize
+const provider = new ethers.JsonRpcProvider("https://evmrpc-testnet.0g.ai");
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+const broker = await createZGComputeNetworkBroker(wallet);
+
+// Discover services
+const services = await broker.inference.listService();
+
+// Fund your account
+await broker.ledger.depositFund(10);
+
+// Acknowledge provider
+await broker.inference.acknowledgeProviderSigner(providerAddress);
+
+// Get service metadata
+const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
+
+// Generate auth headers
+const headers = await broker.inference.getRequestHeaders(providerAddress);
+
+// Make request (OpenAI compatible)
+const response = await fetch(`${endpoint}/chat/completions`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...headers },
+  body: JSON.stringify({
+    model,
+    messages: [{ role: "user", content: "Hello!" }]
+  })
+});
 ```
 
-### Step 3: List Available Services
+## Direct API Access
+
+After obtaining a secret with `0g-compute-cli inference get-secret`, use any OpenAI-compatible client:
 
 ```typescript
-/**
- * 'listService' retrieves a list of services from the contract.
- *
- * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
- * @throws An error if the service list cannot be retrieved.
- *
- * type ServiceStructOutput = {
- *   provider: string;  // Address of the provider
- *   serviceType: string;
- *   url: string;
- *   inputPrice: bigint;
- *   outputPrice: bigint;
- *   updatedAt: bigint;
- *   model: string;
- *   verifiability: string; // Indicates how the service's outputs can be verified. 'TeeML' means it runs with verification in a Trusted Execution Environment. An empty value means no verification.
- *   additionalInfo: string // Provider-defined metadata, currently used to store the provider's encrypted key, but can be extended to include other custom information in future.
- * };
- */
-const services = await broker.listService()
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: `${serviceUrl}/v1/proxy`,
+  apiKey: 'app-sk-<YOUR_SECRET>'
+});
+
+const completion = await client.chat.completions.create({
+  model: 'model-name',
+  messages: [{ role: 'user', content: 'Hello!' }]
+});
 ```
 
-### Step 4: Manage Accounts
+## Account Management
 
-Before using the provider's services, you need to create an account specifically for the chosen provider. The provider checks the account balance before responding to requests. If the balance is insufficient, the request will be denied.
+The 0G Compute Network uses a two-tier account system:
 
-#### 4.1 Create an Account
+- **Main Account**: Where you deposit funds from your wallet
+- **Sub-Accounts**: Provider-specific accounts for service payments
 
-```typescript
-/**
- * 'addAccount' creates a new account in the contract.
- *
- * @param {number} balance - The initial balance to be assigned to the new account. The unit is 0G.
- *
- * @throws  An error if the account creation fails.
- */
-await broker.ledger.addLedger(balance)
+```bash
+# Check account balance
+0g-compute-cli get-account
+
+# Deposit to main account
+0g-compute-cli deposit --amount 10
+
+# Transfer to provider sub-account
+0g-compute-cli transfer-fund --provider <PROVIDER_ADDRESS> --amount 5
+
+# Request refund from sub-accounts (24-hour lock period)
+0g-compute-cli retrieve-fund
+
+# Withdraw to wallet
+0g-compute-cli refund --amount 5
 ```
 
-#### 4.2 Deposit Funds into the Account
+## Fine-tuning
 
-```typescript
-/**
- * 'depositFund' deposits a specified amount of funds into an existing account.
- *
- * @param {number} amount - The amount of funds to be deposited. The unit is 0G.
- *
- * @throws  An error if the deposit fails.
- */
-await broker.ledger.depositFund(amount)
+Customize AI models with your own data:
+
+```bash
+# List available providers
+0g-compute-cli fine-tuning list-providers
+
+# List available models
+0g-compute-cli fine-tuning list-models
+
+# Upload your dataset
+0g-compute-cli fine-tuning upload --data-path ./my-dataset
+
+# Create fine-tuning task
+0g-compute-cli fine-tuning create-task \
+  --provider <PROVIDER_ADDRESS> \
+  --model distilbert-base-uncased \
+  --dataset <DATASET_ROOT_HASH> \
+  --config-path ./config.json \
+  --data-size <SIZE>
+
+# Monitor progress
+0g-compute-cli fine-tuning get-task --provider <PROVIDER_ADDRESS> --task <TASK_ID>
+
+# Download and decrypt result
+0g-compute-cli fine-tuning acknowledge-model --provider <PROVIDER_ADDRESS> --task-id <TASK_ID> --data-path ./model
+0g-compute-cli fine-tuning decrypt-model --provider <PROVIDER_ADDRESS> --task-id <TASK_ID> --encrypted-model ./model --output ./model.zip
 ```
 
-### Step 5: Use the Provider's Services
+## Network Configuration
 
-#### 5.1 Get Service metadata
+| Network | RPC Endpoint |
+|---------|--------------|
+| Testnet | https://evmrpc-testnet.0g.ai |
+| Mainnet | https://evmrpc.0g.ai |
 
-```typescript
-/**
- * 'getServiceMetadata' returns metadata for the provider service.
- * Includes:
- * 1. Service endpoint of the provider service
- * 2. Model information for the provider service
- *
- * @param {string} providerAddress - The address of the provider.
- *
- * @returns { endpoint, model } - Object containing endpoint and model.
- *
- * @throws An error if errors occur during the processing of the request.
- */
-const { endpoint, model } = await broker.getServiceMetadata(providerAddress)
+## Browser Usage
+
+For browser environments, you'll need polyfills for Node.js built-in modules:
+
+```bash
+pnpm add -D vite-plugin-node-polyfills
 ```
 
-### 5.2 Acknowledge Provider
-Before using a service provided by a provider, you must first acknowledge the provider on-chain by following API:
+```javascript
+// vite.config.js
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-```typescript
-/**
- * Acknowledge the given provider address.
- *
- * @param {string} providerAddress - The address of the provider identifying the account.
- * 
- *  @throws Will throw an error if failed to acknowledge.
- */
-await broker.inference.acknowledgeProviderSigner(providerAddress)
+export default {
+  plugins: [
+    nodePolyfills({
+      include: ['crypto', 'stream', 'util', 'buffer', 'process'],
+      globals: { Buffer: true, global: true, process: true }
+    })
+  ]
+};
 ```
 
+## Troubleshooting
 
-#### 5.3 Get Request Headers
+### Insufficient Balance
+```bash
+# Check which account needs funds
+0g-compute-cli get-account
 
-```typescript
-/**
- * 'getRequestHeaders' generates billing-related headers for the request
- * when the user uses the provider service.
- *
- * In the 0G Serving system, a request with valid billing headers
- * is considered a settlement proof and will be used by the provider
- * for settlement in contract.
- *
- * @param {string} providerAddress - The address of the provider.
- * @param {string} content - The content being billed. For example, in a chatbot service, it is the text input by the user.
- *
- * @returns headers. Records information such as the request fee and user signature.
- *
- * @throws An error if errors occur during the processing of the request.
- */
-const headers = await broker.inference.getRequestHeaders(
-    providerAddress,
-    content
-)
+# Deposit to main account
+0g-compute-cli deposit --amount 10
+
+# Transfer to provider
+0g-compute-cli transfer-fund --provider <ADDRESS> --amount 5
 ```
 
-#### 5.4 Send Request
-
-After obtaining the `endpoint`, `model`, and `headers`, you can use client SDKs
-compatible with the OpenAI interface to make requests.
-
-**Note**: Fee settlement by the broker service occurs at scheduled intervals.
-
-**Note**: Generated `headers` are valid for a single use only and cannot be reused.
-
-```typescript
-/**
- * Any SDK request methods that follow the OpenAI interface specifications can also be used.
- *
- * Here is an example using the OpenAI TS SDK.
- */
-const openai = new OpenAI({
-    baseURL: endpoint,
-    apiKey: '',
-})
-const completion = await openai.chat.completions.create(
-    {
-        messages: [{ role: 'system', content }],
-        model: model,
-    },
-    {
-        headers: {
-            ...headers,
-        },
-    }
-)
-
-/**
- * Alternatively, you can also use `fetch` to make the request.
- */
-await fetch(`${endpoint}/chat/completions`, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-    },
-    body: JSON.stringify({
-        messages: [{ role: 'system', content }],
-        model: model,
-    }),
-})
+### Provider Not Acknowledged
+```bash
+0g-compute-cli inference acknowledge-provider --provider <PROVIDER_ADDRESS>
 ```
 
-#### 5.5 Process Responses
-
-```typescript
-/**
- * 'processResponse' is used after the user successfully obtains a response from the provider service.
- *
- * Additionally, if the service is verifiable,
- * input the chat ID from the response and 'processResponse' will determine the validity of the
- * returned content by checking the provider service's response and corresponding signature associated
- * with the chat ID.
- *
- * @param {string} providerAddress - The address of the provider.
- * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
- * it would be the response text.
- * @param {string} chatID - Only for verifiable services. You can provide the chat ID obtained from the response to
- * automatically download the response signature. The function will verify the reliability of the response
- * using the service's signing address.
- *
- * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
- *
- * @throws An error if any issues occur during the processing of the response.
- */
-const valid = await broker.inference.processResponse(
-    providerAddress,
-    content,
-    chatID
-)
+### Web UI Port Conflict
+```bash
+0g-compute-cli ui start-web --port 3091
 ```
 
-## Interface
+## Documentation
 
-Access the more details of interfaces via cloning the repo and opening [index.html](./docs/index.html) in browser.
+- [0G Compute Network Overview](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/overview)
+- [Inference Guide](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference)
+- [Fine-tuning Guide](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/fine-tuning)
+- [Account Management](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/account-management)
+
+
