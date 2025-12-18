@@ -88,7 +88,7 @@ function inference(program) {
                 // Only show input price for non text-to-image services
                 if (service.serviceType !== 'text-to-image') {
                     table.push([
-                        'Input Price Per Byte (0G)',
+                        'Input Price Per Token (0G)',
                         service.inputPrice
                             ? (0, util_1.neuronToA0gi)(BigInt(service.inputPrice)).toFixed(18)
                             : 'N/A',
@@ -97,7 +97,7 @@ function inference(program) {
                 // Change output price label for text-to-image services
                 const outputPriceLabel = service.serviceType === 'text-to-image'
                     ? 'Price Per Image (OG)'
-                    : 'Output Price Per Byte (0G)';
+                    : 'Output Price Per Token (0G)';
                 table.push([
                     outputPriceLabel,
                     service.outputPrice
