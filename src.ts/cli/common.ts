@@ -85,7 +85,7 @@ export default function (program: Command) {
                         ])
                         table.push(['Model', service.model || 'N/A'])
                         table.push([
-                            'Input Price Per Byte (0G)',
+                            'Input Price Per Token (0G)',
                             service.inputPrice
                                 ? neuronToA0gi(
                                       BigInt(service.inputPrice)
@@ -93,7 +93,7 @@ export default function (program: Command) {
                                 : 'N/A',
                         ])
                         table.push([
-                            'Output Price Per Byte (0G)',
+                            'Output Price Per Token (0G)',
                             service.outputPrice
                                 ? neuronToA0gi(
                                       BigInt(service.outputPrice)

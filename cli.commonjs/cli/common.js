@@ -68,13 +68,13 @@ function default_1(program) {
                     ]);
                     table.push(['Model', service.model || 'N/A']);
                     table.push([
-                        'Input Price Per Byte (0G)',
+                        'Input Price Per Token (0G)',
                         service.inputPrice
                             ? (0, util_1.neuronToA0gi)(BigInt(service.inputPrice)).toFixed(18)
                             : 'N/A',
                     ]);
                     table.push([
-                        'Output Price Per Byte (0G)',
+                        'Output Price Per Token (0G)',
                         service.outputPrice
                             ? (0, util_1.neuronToA0gi)(BigInt(service.outputPrice)).toFixed(18)
                             : 'N/A',
