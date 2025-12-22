@@ -15880,7 +15880,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-822b7794.js');
+    const { download } = await import('./index-d66253d2.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21190,6 +21190,11 @@ const CONTRACT_ADDRESSES = {
         inference: '0xa79F4c8311FF93C06b8CfB403690cc987c93F91E',
         fineTuning: '0xaC66eBd174435c04F1449BBa08157a707B6fa7b1',
     },
+    testnetDev: {
+        ledger: '0xf248Baaee6A4dC84bac4675906F8dBd2D761356B',
+        inference: '0x335c02f5F1A01b54Ae7a4974c5Dd2853C3300C95',
+        fineTuning: '0x0000000000000000000000000000000000000000',
+    },
     mainnet: {
         // TODO: Update with actual mainnet addresses when available
         ledger: '0x2dE54c845Cd948B72D2e32e39586fe89607074E3',
@@ -21202,6 +21207,52 @@ const CONTRACT_ADDRESSES = {
         fineTuning: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
     },
 };
+/**
+ * Check if dev mode is enabled
+ * Supports multiple ways to enable dev mode:
+ * - Node.js: ZG_DEV_MODE environment variable
+ * - Next.js: NEXT_PUBLIC_ZG_DEV_MODE environment variable (build-time)
+ * - Browser: localStorage 'ZG_DEV_MODE' = 'true'
+ * - Browser: URL parameter ?dev=true or ?ZG_DEV_MODE=true
+ */
+function isDevMode() {
+    // Check Node.js / Next.js environment variables
+    if (typeof process !== 'undefined' && process.env) {
+        if (process.env.ZG_DEV_MODE === 'true' ||
+            process.env.ZG_DEV_MODE === '1') {
+            return true;
+        }
+        if (process.env.NEXT_PUBLIC_ZG_DEV_MODE === 'true' ||
+            process.env.NEXT_PUBLIC_ZG_DEV_MODE === '1') {
+            return true;
+        }
+    }
+    // Check browser localStorage and URL parameters
+    if (typeof window !== 'undefined') {
+        // Check localStorage
+        try {
+            const localStorageValue = window.localStorage.getItem('ZG_DEV_MODE');
+            if (localStorageValue === 'true' || localStorageValue === '1') {
+                return true;
+            }
+        }
+        catch {
+            // localStorage not available
+        }
+        // Check URL parameters
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const devParam = urlParams.get('dev') || urlParams.get('ZG_DEV_MODE');
+            if (devParam === 'true' || devParam === '1') {
+                return true;
+            }
+        }
+        catch {
+            // URL parsing failed
+        }
+    }
+    return false;
+}
 /**
  * Helper function to determine network type from chain ID
  */
@@ -21257,8 +21308,14 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
                 console.log(`Detected mainnet (chain ID: ${chainId})`);
             }
             else if (chainId === TESTNET_CHAIN_ID) {
-                defaultAddresses = CONTRACT_ADDRESSES.testnet;
-                console.log(`Detected testnet (chain ID: ${chainId})`);
+                if (isDevMode()) {
+                    defaultAddresses = CONTRACT_ADDRESSES.testnetDev;
+                    console.log(`Detected testnet [DEV MODE] (chain ID: ${chainId})`);
+                }
+                else {
+                    defaultAddresses = CONTRACT_ADDRESSES.testnet;
+                    console.log(`Detected testnet (chain ID: ${chainId})`);
+                }
             }
             else if (chainId === HARDHAT_CHAIN_ID) {
                 defaultAddresses = CONTRACT_ADDRESSES.hardhat;
@@ -21289,5 +21346,5 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
     }
 }
 
-export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isBrowser as i, isNode as j, isWebWorker as k, hasWebCrypto as l, getCryptoAdapter as m, upload as u };
-//# sourceMappingURL=index-1e1abcff.js.map
+export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
+//# sourceMappingURL=index-e1e33abc.js.map
