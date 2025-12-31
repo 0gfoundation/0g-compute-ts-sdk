@@ -147,7 +147,11 @@ export type TEESettlementDataStructOutput = [
 };
 export interface InferenceServingInterface extends Interface {
     getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'isTokenRevoked' | 'ledgerAddress' | 'lockTime' | 'migrateRefunds' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeAllTokens' | 'revokeTEESignerAcknowledgement' | 'revokeToken' | 'revokeTokens' | 'serviceExists' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+<<<<<<< HEAD
     getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'RefundsMigrated' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
+=======
+    getEvent(nameOrSignatureOrTopic: 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
+>>>>>>> 553a496 (chore(inference): update for ca)
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
@@ -171,7 +175,11 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'isTokenRevoked', values: [AddressLike, AddressLike, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'ledgerAddress', values?: undefined): string;
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string;
+<<<<<<< HEAD
     encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike, BigNumberish, BigNumberish]): string;
+=======
+    encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike[], AddressLike]): string;
+>>>>>>> 553a496 (chore(inference): update for ca)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'previewSettlementResults', values: [TEESettlementDataStruct[]]): string;
     encodeFunctionData(functionFragment: 'processRefund', values: [AddressLike, AddressLike]): string;
@@ -720,6 +728,7 @@ export interface InferenceServing extends BaseContract {
     ledgerAddress: TypedContractMethod<[], [string], 'view'>;
     lockTime: TypedContractMethod<[], [bigint], 'view'>;
     migrateRefunds: TypedContractMethod<[
+<<<<<<< HEAD
         provider: AddressLike,
         startIndex: BigNumberish,
         batchSize: BigNumberish
@@ -728,6 +737,12 @@ export interface InferenceServing extends BaseContract {
             cleanedCount: bigint;
             nextIndex: bigint;
         }
+=======
+        users: AddressLike[],
+        provider: AddressLike
+    ], [
+        bigint
+>>>>>>> 553a496 (chore(inference): update for ca)
     ], 'nonpayable'>;
     owner: TypedContractMethod<[], [string], 'view'>;
     previewSettlementResults: TypedContractMethod<[
@@ -942,6 +957,7 @@ export interface InferenceServing extends BaseContract {
     getFunction(nameOrSignature: 'ledgerAddress'): TypedContractMethod<[], [string], 'view'>;
     getFunction(nameOrSignature: 'lockTime'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'migrateRefunds'): TypedContractMethod<[
+<<<<<<< HEAD
         provider: AddressLike,
         startIndex: BigNumberish,
         batchSize: BigNumberish
@@ -950,6 +966,12 @@ export interface InferenceServing extends BaseContract {
             cleanedCount: bigint;
             nextIndex: bigint;
         }
+=======
+        users: AddressLike[],
+        provider: AddressLike
+    ], [
+        bigint
+>>>>>>> 553a496 (chore(inference): update for ca)
     ], 'nonpayable'>;
     getFunction(nameOrSignature: 'owner'): TypedContractMethod<[], [string], 'view'>;
     getFunction(nameOrSignature: 'previewSettlementResults'): TypedContractMethod<[
