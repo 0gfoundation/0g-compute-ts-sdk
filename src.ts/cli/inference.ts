@@ -53,7 +53,9 @@ async function promptDurationSelection(): Promise<number> {
 
     if (durationChoice === 'custom') {
         console.log()
-        const customSeconds = await textInput('Enter duration in seconds (0 for never expires):')
+        const customSeconds = await textInput(
+            'Enter duration in seconds (0 for never expires):'
+        )
         const seconds = parseInt(customSeconds)
         if (isNaN(seconds) || seconds < 0) {
             throw new Error('Duration must be a non-negative number')
@@ -857,7 +859,9 @@ export default function inference(program: Command) {
 
     program
         .command('get-secret')
-        .description('Generate an authentication secret (API Key) for API access')
+        .description(
+            'Generate an authentication secret (API Key) for API access'
+        )
         .requiredOption('--provider <address>', 'Provider address')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -905,16 +909,16 @@ export default function inference(program: Command) {
                     if (apiKey.expiresAt > 0) {
                         console.log(
                             chalk.gray(
-                                `Expires: ${new Date(apiKey.expiresAt).toLocaleString()}`
+                                `Expires: ${new Date(
+                                    apiKey.expiresAt
+                                ).toLocaleString()}`
                             )
                         )
                     } else {
                         console.log(chalk.gray(`Expires: Never`))
                     }
                     console.log()
-                    console.log(
-                        chalk.blue('Use this Authorization header:')
-                    )
+                    console.log(chalk.blue('Use this Authorization header:'))
                     console.log()
                     console.log(
                         chalk.white('Authorization: Bearer ' + bearerToken)
@@ -970,18 +974,14 @@ export default function inference(program: Command) {
                     }
 
                     console.log()
-                    console.log(
-                        chalk.yellow('⚠️  IMPORTANT SECURITY NOTES:')
-                    )
+                    console.log(chalk.yellow('⚠️  IMPORTANT SECURITY NOTES:'))
                     console.log(
                         chalk.yellow(
                             `   • This API Key can be revoked using: 0g-compute-cli inference revoke-token --provider ${options.provider} --token-id ${apiKey.tokenId}`
                         )
                     )
                     console.log(
-                        chalk.yellow(
-                            '   • Keep it secure and do not share it'
-                        )
+                        chalk.yellow('   • Keep it secure and do not share it')
                     )
                     if (apiKey.expiresAt > 0) {
                         console.log(
@@ -1014,7 +1014,9 @@ export default function inference(program: Command) {
             const tokenId = parseInt(options.tokenId)
             if (isNaN(tokenId) || tokenId < 0 || tokenId > 254) {
                 console.error(
-                    chalk.red('Error: Token ID must be a number between 0 and 254')
+                    chalk.red(
+                        'Error: Token ID must be a number between 0 and 254'
+                    )
                 )
                 process.exit(1)
             }
@@ -1035,7 +1037,9 @@ export default function inference(program: Command) {
 
     program
         .command('revoke-all-tokens')
-        .description('Revoke all API Keys for a provider (increments generation)')
+        .description(
+            'Revoke all API Keys for a provider (increments generation)'
+        )
         .requiredOption('--provider <address>', 'Provider address')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')

@@ -232,15 +232,21 @@ function controller(program) {
     });
     program
         .command('get-config')
-        .description('[For provider] Get container configuration')
-        .requiredOption('--container <name>', 'Container name (broker/event or full name)')
+        .description('[For provider] Get configuration (core/ingress/prometheus)')
+        .requiredOption('--type <type>', 'Config type: core (broker+event YAML), ingress (env vars), prometheus (base64 YAML)')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .option('--output <path>', 'Output file path (optional)')
+        .option('--decode', 'Decode base64 content (for prometheus config)')
         .action(async (options) => {
         try {
+            const configType = options.type.toLowerCase();
+            if (!['core', 'ingress', 'prometheus'].includes(configType)) {
+                console.error(chalk_1.default.red('Error: --type must be one of: core, ingress, prometheus'));
+                process.exit(1);
+            }
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
             const privateKey = await (0, private_key_setup_1.ensurePrivateKeyConfiguration)();
             if (!privateKey) {
@@ -252,20 +258,38 @@ function controller(program) {
             const userAddress = await wallet.getAddress();
             const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
-            const response = await axios_1.default.get(`${endpoint}/v1/configs/${options.container}`, {
+            console.log(`${endpoint}/v1/config/${configType}`);
+            const response = await axios_1.default.get(`${endpoint}/v1/config/${configType}`, {
                 headers: {
                     Authorization: `Bearer ${rawToken}`,
                 },
             });
-            // config is YAML string content
-            const config = response.data.config;
+            let output;
+            if (configType === 'ingress') {
+                // ingress returns { env: { KEY: VALUE, ... } }
+                output = JSON.stringify(response.data.env, null, 2);
+            }
+            else if (configType === 'prometheus') {
+                // prometheus returns { config: "base64..." }
+                const base64Config = response.data.config;
+                if (options.decode && base64Config) {
+                    output = Buffer.from(base64Config, 'base64').toString('utf-8');
+                }
+                else {
+                    output = base64Config || '';
+                }
+            }
+            else {
+                // core returns { config: "yaml..." }
+                output = response.data.config;
+            }
             if (options.output) {
-                fs_1.default.writeFileSync(options.output, config);
+                fs_1.default.writeFileSync(options.output, output);
                 console.log(chalk_1.default.green(`Config saved to: ${options.output}`));
             }
             else {
-                console.log(chalk_1.default.blue(`\nConfiguration for ${options.container}:\n`));
-                console.log(config);
+                console.log(chalk_1.default.blue(`\nConfiguration (${configType}):\n`));
+                console.log(output);
             }
             process.exit(0);
         }
@@ -275,15 +299,20 @@ function controller(program) {
     });
     program
         .command('update-config')
-        .description('[For provider] Update container configuration')
-        .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .requiredOption('--config <path>', 'Path to new config file (YAML)')
+        .description('[For provider] Update configuration (core/ingress/prometheus)')
+        .requiredOption('--type <type>', 'Config type: core (YAML file), ingress (JSON env vars), prometheus (YAML file, will be base64 encoded)')
+        .requiredOption('--config <path>', 'Path to config file')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
         .action(async (options) => {
         try {
+            const configType = options.type.toLowerCase();
+            if (!['core', 'ingress', 'prometheus'].includes(configType)) {
+                console.error(chalk_1.default.red('Error: --type must be one of: core, ingress, prometheus'));
+                process.exit(1);
+            }
             const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
             const privateKey = await (0, private_key_setup_1.ensurePrivateKeyConfiguration)();
             if (!privateKey) {
@@ -295,55 +324,33 @@ function controller(program) {
             const userAddress = await wallet.getAddress();
             const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
             const rawToken = await generateControllerSessionToken(wallet);
-            // Read config file as raw YAML string to avoid parsing issues with hex addresses
             const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
-            console.log(chalk_1.default.blue(`Updating config for container: ${options.container}...`));
-            await axios_1.default.put(`${endpoint}/v1/configs/${options.container}`, { config: configContent }, {
+            console.log(chalk_1.default.blue(`Updating ${configType} config...`));
+            let requestBody;
+            if (configType === 'ingress') {
+                // ingress expects { env: { KEY: VALUE, ... } }
+                const envVars = JSON.parse(configContent);
+                requestBody = { env: envVars };
+            }
+            else if (configType === 'prometheus') {
+                // prometheus expects { config: "base64..." }
+                const base64Content = Buffer.from(configContent).toString('base64');
+                requestBody = { config: base64Content };
+            }
+            else {
+                // core expects { config: "yaml..." }
+                requestBody = { config: configContent };
+            }
+            await axios_1.default.put(`${endpoint}/v1/config/${configType}`, requestBody, {
                 headers: {
                     Authorization: `Bearer ${rawToken}`,
                     'Content-Type': 'application/json',
                 },
             });
             console.log(chalk_1.default.green('Config updated successfully!'));
-            console.log(chalk_1.default.yellow('Note: Use "apply-config" to update config and restart the container.'));
-            process.exit(0);
-        }
-        catch (error) {
-            handleAxiosError(error);
-        }
-    });
-    program
-        .command('apply-config')
-        .description('[For provider] Update configuration and restart container')
-        .requiredOption('--container <name>', 'Container name (broker/event or full name)')
-        .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--rpc <url>', '0G Chain RPC endpoint')
-        .option('--ledger-ca <address>', 'Account (ledger) contract address')
-        .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
-        .action(async (options) => {
-        try {
-            const rpcEndpoint = await (0, network_setup_1.getRpcEndpoint)(options);
-            const privateKey = await (0, private_key_setup_1.ensurePrivateKeyConfiguration)();
-            if (!privateKey) {
-                throw new Error('Private key is required');
+            if (configType === 'core') {
+                console.log(chalk_1.default.green('Broker and event containers restarted.'));
             }
-            const provider = new ethers_1.ethers.JsonRpcProvider(rpcEndpoint);
-            const wallet = new ethers_1.ethers.Wallet(privateKey, provider);
-            const broker = await (0, util_1.initBroker)(options);
-            const userAddress = await wallet.getAddress();
-            const endpoint = await (0, controller_endpoint_setup_1.getControllerEndpoint)(options, broker, userAddress);
-            const rawToken = await generateControllerSessionToken(wallet);
-            // Read config file as raw YAML string to avoid parsing issues with hex addresses
-            const configContent = fs_1.default.readFileSync(options.config, 'utf-8');
-            console.log(chalk_1.default.blue(`Applying config and restarting container: ${options.container}...`));
-            await axios_1.default.post(`${endpoint}/v1/configs/${options.container}/apply`, { config: configContent }, {
-                headers: {
-                    Authorization: `Bearer ${rawToken}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-            console.log(chalk_1.default.green('Config applied and container restarted!'));
             process.exit(0);
         }
         catch (error) {
@@ -645,12 +652,7 @@ function controller(program) {
                 if (result.updatedContainers &&
                     result.updatedContainers.length > 0) {
                     const table = new cli_table3_1.default({
-                        head: [
-                            'Container',
-                            'Old ID',
-                            'New ID',
-                            'Status',
-                        ],
+                        head: ['Container', 'Old ID', 'New ID', 'Status'],
                         colWidths: [40, 15, 15, 12],
                     });
                     result.updatedContainers.forEach((container) => {

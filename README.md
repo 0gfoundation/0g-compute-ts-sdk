@@ -182,6 +182,84 @@ Customize AI models with your own data:
 0g-compute-cli fine-tuning decrypt-model --provider <PROVIDER_ADDRESS> --task-id <TASK_ID> --encrypted-model ./model --output ./model.zip
 ```
 
+## Provider Controller (For Service Providers)
+
+Service providers can manage their deployed containers and configurations remotely using the controller CLI.
+
+### Setup
+
+```bash
+# Reset saved endpoint configuration
+0g-compute-cli controller reset-controller-endpoint
+```
+
+### Container Management
+
+```bash
+# View all container status
+0g-compute-cli controller status
+
+# Start/stop/restart specific containers
+0g-compute-cli controller start --container broker
+0g-compute-cli controller stop --container event
+0g-compute-cli controller restart --container ingress
+
+# Available containers: broker, event, ingress, prometheus-init, prometheus
+```
+
+### Configuration Management
+
+The controller manages three types of configurations:
+
+| Type | Description | Format |
+|------|-------------|--------|
+| `core` | Broker + Event shared config | YAML |
+| `ingress` | Nginx ingress environment variables | JSON |
+| `prometheus` | Prometheus monitoring config | YAML (auto base64 encoded) |
+
+```bash
+# Get configuration
+0g-compute-cli controller get-config --type core --output config.yaml
+0g-compute-cli controller get-config --type ingress
+0g-compute-cli controller get-config --type prometheus --decode  # decode base64
+
+# Update configuration
+# core: updates config AND restarts broker+event
+0g-compute-cli controller update-config --type core --config config.yaml
+
+# ingress: provide JSON file with env vars
+# Example env.json: {"DOMAIN": "example.com", "PORT": "443"}
+0g-compute-cli controller update-config --type ingress --config env.json
+
+# prometheus: provide YAML file (auto base64 encoded)
+0g-compute-cli controller update-config --type prometheus --config prometheus.yml
+```
+
+### Admin & Security Management
+
+```bash
+# Manage admin wallet whitelist
+0g-compute-cli controller list-admins
+0g-compute-cli controller add-admin --address 0x...
+0g-compute-cli controller remove-admin --address 0x...
+
+# Manage IP whitelist
+0g-compute-cli controller list-ips
+0g-compute-cli controller add-ip --ip 192.168.1.100
+0g-compute-cli controller add-ip --ip 10.0.0.0/8  # CIDR supported
+0g-compute-cli controller remove-ip --ip 192.168.1.100
+```
+
+### Image Management
+
+```bash
+# View current image info
+0g-compute-cli controller image-info
+
+# Pull latest image and recreate broker+event containers
+0g-compute-cli controller update-images
+```
+
 ## Network Configuration
 
 | Network | RPC Endpoint |

@@ -4,7 +4,10 @@ import type { Command } from 'commander'
 import { initBroker } from './util'
 import { getRpcEndpoint } from './network-setup'
 import { ensurePrivateKeyConfiguration } from './private-key-setup'
-import { getControllerEndpoint, resetControllerEndpoint } from './controller-endpoint-setup'
+import {
+    getControllerEndpoint,
+    resetControllerEndpoint,
+} from './controller-endpoint-setup'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import axios from 'axios'
@@ -108,7 +111,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -122,7 +128,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -192,7 +202,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -206,7 +219,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -245,7 +262,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -259,7 +279,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -298,7 +322,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -312,7 +339,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -343,18 +374,34 @@ export default function controller(program: Command) {
 
     program
         .command('get-config')
-        .description('[For provider] Get container configuration')
+        .description(
+            '[For provider] Get configuration (core/ingress/prometheus)'
+        )
         .requiredOption(
-            '--container <name>',
-            'Container name (broker/event or full name)'
+            '--type <type>',
+            'Config type: core (broker+event YAML), ingress (env vars), prometheus (base64 YAML)'
         )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .option('--output <path>', 'Output file path (optional)')
+        .option('--decode', 'Decode base64 content (for prometheus config)')
         .action(async (options) => {
             try {
+                const configType = options.type.toLowerCase()
+                if (!['core', 'ingress', 'prometheus'].includes(configType)) {
+                    console.error(
+                        chalk.red(
+                            'Error: --type must be one of: core, ingress, prometheus'
+                        )
+                    )
+                    process.exit(1)
+                }
+
                 const rpcEndpoint = await getRpcEndpoint(options)
                 const privateKey = await ensurePrivateKeyConfiguration()
                 if (!privateKey) {
@@ -366,12 +413,18 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
+                console.log(`${endpoint}/v1/config/${configType}`)
+
                 const response = await axios.get(
-                    `${endpoint}/v1/configs/${options.container}`,
+                    `${endpoint}/v1/config/${configType}`,
                     {
                         headers: {
                             Authorization: `Bearer ${rawToken}`,
@@ -379,21 +432,35 @@ export default function controller(program: Command) {
                     }
                 )
 
-                // config is YAML string content
-                const config = response.data.config as string
+                let output: string
+                if (configType === 'ingress') {
+                    // ingress returns { env: { KEY: VALUE, ... } }
+                    output = JSON.stringify(response.data.env, null, 2)
+                } else if (configType === 'prometheus') {
+                    // prometheus returns { config: "base64..." }
+                    const base64Config = response.data.config as string
+                    if (options.decode && base64Config) {
+                        output = Buffer.from(base64Config, 'base64').toString(
+                            'utf-8'
+                        )
+                    } else {
+                        output = base64Config || ''
+                    }
+                } else {
+                    // core returns { config: "yaml..." }
+                    output = response.data.config as string
+                }
 
                 if (options.output) {
-                    fs.writeFileSync(options.output, config)
+                    fs.writeFileSync(options.output, output)
                     console.log(
                         chalk.green(`Config saved to: ${options.output}`)
                     )
                 } else {
                     console.log(
-                        chalk.blue(
-                            `\nConfiguration for ${options.container}:\n`
-                        )
+                        chalk.blue(`\nConfiguration (${configType}):\n`)
                     )
-                    console.log(config)
+                    console.log(output)
                 }
                 process.exit(0)
             } catch (error) {
@@ -403,18 +470,33 @@ export default function controller(program: Command) {
 
     program
         .command('update-config')
-        .description('[For provider] Update container configuration')
-        .requiredOption(
-            '--container <name>',
-            'Container name (broker/event or full name)'
+        .description(
+            '[For provider] Update configuration (core/ingress/prometheus)'
         )
-        .requiredOption('--config <path>', 'Path to new config file (YAML)')
+        .requiredOption(
+            '--type <type>',
+            'Config type: core (YAML file), ingress (JSON env vars), prometheus (YAML file, will be base64 encoded)'
+        )
+        .requiredOption('--config <path>', 'Path to config file')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
+                const configType = options.type.toLowerCase()
+                if (!['core', 'ingress', 'prometheus'].includes(configType)) {
+                    console.error(
+                        chalk.red(
+                            'Error: --type must be one of: core, ingress, prometheus'
+                        )
+                    )
+                    process.exit(1)
+                }
+
                 const rpcEndpoint = await getRpcEndpoint(options)
                 const privateKey = await ensurePrivateKeyConfiguration()
                 if (!privateKey) {
@@ -426,22 +508,36 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
-                // Read config file as raw YAML string to avoid parsing issues with hex addresses
                 const configContent = fs.readFileSync(options.config, 'utf-8')
 
-                console.log(
-                    chalk.blue(
-                        `Updating config for container: ${options.container}...`
-                    )
-                )
+                console.log(chalk.blue(`Updating ${configType} config...`))
+
+                let requestBody: object
+                if (configType === 'ingress') {
+                    // ingress expects { env: { KEY: VALUE, ... } }
+                    const envVars = JSON.parse(configContent)
+                    requestBody = { env: envVars }
+                } else if (configType === 'prometheus') {
+                    // prometheus expects { config: "base64..." }
+                    const base64Content =
+                        Buffer.from(configContent).toString('base64')
+                    requestBody = { config: base64Content }
+                } else {
+                    // core expects { config: "yaml..." }
+                    requestBody = { config: configContent }
+                }
 
                 await axios.put(
-                    `${endpoint}/v1/configs/${options.container}`,
-                    { config: configContent },
+                    `${endpoint}/v1/config/${configType}`,
+                    requestBody,
                     {
                         headers: {
                             Authorization: `Bearer ${rawToken}`,
@@ -451,71 +547,11 @@ export default function controller(program: Command) {
                 )
 
                 console.log(chalk.green('Config updated successfully!'))
-                console.log(
-                    chalk.yellow(
-                        'Note: Use "apply-config" to update config and restart the container.'
+                if (configType === 'core') {
+                    console.log(
+                        chalk.green('Broker and event containers restarted.')
                     )
-                )
-                process.exit(0)
-            } catch (error) {
-                handleAxiosError(error)
-            }
-        })
-
-    program
-        .command('apply-config')
-        .description(
-            '[For provider] Update configuration and restart container'
-        )
-        .requiredOption(
-            '--container <name>',
-            'Container name (broker/event or full name)'
-        )
-        .requiredOption('--config <path>', 'Path to new config file (YAML)')
-        .option('--rpc <url>', '0G Chain RPC endpoint')
-        .option('--ledger-ca <address>', 'Account (ledger) contract address')
-        .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
-        .action(async (options) => {
-            try {
-                const rpcEndpoint = await getRpcEndpoint(options)
-                const privateKey = await ensurePrivateKeyConfiguration()
-                if (!privateKey) {
-                    throw new Error('Private key is required')
                 }
-
-                const provider = new ethers.JsonRpcProvider(rpcEndpoint)
-                const wallet = new ethers.Wallet(privateKey, provider)
-
-                const broker = await initBroker(options)
-                const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
-
-                const rawToken = await generateControllerSessionToken(wallet)
-
-                // Read config file as raw YAML string to avoid parsing issues with hex addresses
-                const configContent = fs.readFileSync(options.config, 'utf-8')
-
-                console.log(
-                    chalk.blue(
-                        `Applying config and restarting container: ${options.container}...`
-                    )
-                )
-
-                await axios.post(
-                    `${endpoint}/v1/configs/${options.container}/apply`,
-                    { config: configContent },
-                    {
-                        headers: {
-                            Authorization: `Bearer ${rawToken}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
-                )
-
-                console.log(
-                    chalk.green('Config applied and container restarted!')
-                )
                 process.exit(0)
             } catch (error) {
                 handleAxiosError(error)
@@ -529,7 +565,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -543,7 +582,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -579,7 +622,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -593,7 +639,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -624,7 +674,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -638,7 +691,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -669,7 +726,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -683,7 +743,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -721,7 +785,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -735,7 +802,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -764,7 +835,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -778,7 +852,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -809,7 +887,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -823,8 +904,14 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
-                logger.debug(`Fetching image info from: ${endpoint}/v1/images/info`)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
+                logger.debug(
+                    `Fetching image info from: ${endpoint}/v1/images/info`
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -858,7 +945,10 @@ export default function controller(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
-        .option('--controller-endpoint <url>', 'Controller endpoint URL (overrides saved config)')
+        .option(
+            '--controller-endpoint <url>',
+            'Controller endpoint URL (overrides saved config)'
+        )
         .action(async (options) => {
             try {
                 const rpcEndpoint = await getRpcEndpoint(options)
@@ -872,7 +962,11 @@ export default function controller(program: Command) {
 
                 const broker = await initBroker(options)
                 const userAddress = await wallet.getAddress()
-                const endpoint = await getControllerEndpoint(options, broker, userAddress)
+                const endpoint = await getControllerEndpoint(
+                    options,
+                    broker,
+                    userAddress
+                )
 
                 const rawToken = await generateControllerSessionToken(wallet)
 
@@ -911,12 +1005,7 @@ export default function controller(program: Command) {
                         result.updatedContainers.length > 0
                     ) {
                         const table = new Table({
-                            head: [
-                                'Container',
-                                'Old ID',
-                                'New ID',
-                                'Status',
-                            ],
+                            head: ['Container', 'Old ID', 'New ID', 'Status'],
                             colWidths: [40, 15, 15, 12],
                         })
 
@@ -960,10 +1049,16 @@ export default function controller(program: Command) {
     // Controller endpoint management command
     program
         .command('reset-controller-endpoint')
-        .description('[For provider] Reset saved controller endpoint configuration')
+        .description(
+            '[For provider] Reset saved controller endpoint configuration'
+        )
         .action(async () => {
             resetControllerEndpoint()
-            console.log(chalk.gray('Next command will prompt for endpoint configuration again.'))
+            console.log(
+                chalk.gray(
+                    'Next command will prompt for endpoint configuration again.'
+                )
+            )
             process.exit(0)
         })
 }
