@@ -330,7 +330,11 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string
     encodeFunctionData(
         functionFragment: 'migrateRefunds',
+<<<<<<< HEAD
         values: [AddressLike, BigNumberish, BigNumberish]
+=======
+        values: [AddressLike[], AddressLike]
+>>>>>>> 553a496 (chore(inference): update for ca)
     ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
@@ -1163,12 +1167,17 @@ export interface InferenceServing extends BaseContract {
     lockTime: TypedContractMethod<[], [bigint], 'view'>
 
     migrateRefunds: TypedContractMethod<
+<<<<<<< HEAD
         [
             provider: AddressLike,
             startIndex: BigNumberish,
             batchSize: BigNumberish
         ],
         [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+=======
+        [users: AddressLike[], provider: AddressLike],
+        [bigint],
+>>>>>>> 553a496 (chore(inference): update for ca)
         'nonpayable'
     >
 
@@ -1419,12 +1428,17 @@ export interface InferenceServing extends BaseContract {
     getFunction(
         nameOrSignature: 'migrateRefunds'
     ): TypedContractMethod<
+<<<<<<< HEAD
         [
             provider: AddressLike,
             startIndex: BigNumberish,
             batchSize: BigNumberish
         ],
         [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+=======
+        [users: AddressLike[], provider: AddressLike],
+        [bigint],
+>>>>>>> 553a496 (chore(inference): update for ca)
         'nonpayable'
     >
     getFunction(
