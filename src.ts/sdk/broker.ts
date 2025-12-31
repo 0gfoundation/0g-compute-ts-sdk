@@ -46,7 +46,6 @@ export const CONTRACT_ADDRESSES = {
  * - Browser: URL parameter ?dev=true or ?ZG_DEV_MODE=true
  */
 export function isDevMode(): boolean {
-
     // Check Node.js / Next.js environment variables
     if (typeof process !== 'undefined' && process.env) {
         if (

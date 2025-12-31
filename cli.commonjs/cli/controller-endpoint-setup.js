@@ -88,7 +88,9 @@ async function getControllerEndpoint(options, broker, userAddress) {
     console.log(chalk_1.default.yellow('⚠ No controller endpoint configured.'));
     const selection = await promptControllerEndpointSelection(broker, userAddress);
     console.log(chalk_1.default.green(`\n✓ Controller endpoint: ${selection.endpoint}`));
-    console.log(chalk_1.default.gray(`  Source: ${selection.source === 'auto' ? 'Auto-detected from on-chain data' : 'Custom'}`));
+    console.log(chalk_1.default.gray(`  Source: ${selection.source === 'auto'
+        ? 'Auto-detected from on-chain data'
+        : 'Custom'}`));
     // Save to config
     (0, config_1.setConfiguredControllerEndpoint)(selection.endpoint, selection.source);
     console.log(chalk_1.default.blue(`ℹ Settings saved to ~/.0g-compute-cli/config.json\n`));

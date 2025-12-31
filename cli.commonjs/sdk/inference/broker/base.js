@@ -211,9 +211,7 @@ class ZGServingUserBrokerBase {
             const account = await this.contract.getAccount(providerAddress);
             // Handle case where account exists but fields don't exist (pre-upgrade accounts)
             const info = {
-                generation: account.generation != null
-                    ? Number(account.generation)
-                    : 0,
+                generation: account.generation != null ? Number(account.generation) : 0,
                 revokedBitmap: account.revokedBitmap ?? BigInt(0),
             };
             // Cache for 5 minutes

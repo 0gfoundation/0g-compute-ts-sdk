@@ -131,7 +131,11 @@ export async function getControllerEndpoint(
     console.log(chalk.green(`\n✓ Controller endpoint: ${selection.endpoint}`))
     console.log(
         chalk.gray(
-            `  Source: ${selection.source === 'auto' ? 'Auto-detected from on-chain data' : 'Custom'}`
+            `  Source: ${
+                selection.source === 'auto'
+                    ? 'Auto-detected from on-chain data'
+                    : 'Custom'
+            }`
         )
     )
 
