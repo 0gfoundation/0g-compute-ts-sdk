@@ -260,6 +260,7 @@ export interface FineTuningServingInterface extends Interface {
     getEvent(
         nameOrSignatureOrTopic:
             | 'BalanceUpdated'
+            | 'Initialized'
             | 'OwnershipTransferred'
             | 'RefundRequested'
             | 'ServiceRemoved'
@@ -562,6 +563,22 @@ export namespace BalanceUpdatedEvent {
         provider: string
         amount: bigint
         pendingRefund: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace InitializedEvent {
+    export type InputTuple = [version: BigNumberish]
+    export type OutputTuple = [version: bigint]
+    export interface OutputObject {
+        version: bigint
     }
     export type Event = TypedContractEvent<
         InputTuple,
@@ -1155,6 +1172,13 @@ export interface FineTuningServing extends BaseContract {
         BalanceUpdatedEvent.OutputObject
     >
     getEvent(
+        key: 'Initialized'
+    ): TypedContractEvent<
+        InitializedEvent.InputTuple,
+        InitializedEvent.OutputTuple,
+        InitializedEvent.OutputObject
+    >
+    getEvent(
         key: 'OwnershipTransferred'
     ): TypedContractEvent<
         OwnershipTransferredEvent.InputTuple,
@@ -1193,6 +1217,17 @@ export interface FineTuningServing extends BaseContract {
             BalanceUpdatedEvent.InputTuple,
             BalanceUpdatedEvent.OutputTuple,
             BalanceUpdatedEvent.OutputObject
+        >
+
+        'Initialized(uint8)': TypedContractEvent<
+            InitializedEvent.InputTuple,
+            InitializedEvent.OutputTuple,
+            InitializedEvent.OutputObject
+        >
+        Initialized: TypedContractEvent<
+            InitializedEvent.InputTuple,
+            InitializedEvent.OutputTuple,
+            InitializedEvent.OutputObject
         >
 
         'OwnershipTransferred(address,address)': TypedContractEvent<

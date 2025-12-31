@@ -47,10 +47,11 @@ export type LedgerStructOutput = [
     additionalInfo: string;
 };
 export interface LedgerManagerInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership'): FunctionFragment;
-    getEvent(nameOrSignatureOrTopic: 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_PROVIDERS_PER_USER_PER_SERVICE' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'migrateUserServiceProvidersMapping' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership' | 'updateAdditionalInfo'): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_USER_PER_SERVICE', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_SERVICES', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_ACCOUNT_BALANCE', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_TRANSFER_AMOUNT', values?: undefined): string;
@@ -69,6 +70,7 @@ export interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'initialize', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'initialized', values?: undefined): string;
     encodeFunctionData(functionFragment: 'isRecommendedVersion', values: [string, string]): string;
+    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'refund', values: [BigNumberish]): string;
     encodeFunctionData(functionFragment: 'registerService', values: [string, string, AddressLike, string]): string;
@@ -78,8 +80,10 @@ export interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'spendFund', values: [AddressLike, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'transferFund', values: [AddressLike, string, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: 'updateAdditionalInfo', values: [string]): string;
     decodeFunctionResult(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_PROVIDERS_PER_BATCH', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MAX_PROVIDERS_PER_USER_PER_SERVICE', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MAX_SERVICES', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MIN_ACCOUNT_BALANCE', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MIN_TRANSFER_AMOUNT', data: BytesLike): Result;
@@ -98,6 +102,7 @@ export interface LedgerManagerInterface extends Interface {
     decodeFunctionResult(functionFragment: 'initialize', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'initialized', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'isRecommendedVersion', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'migrateUserServiceProvidersMapping', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'refund', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'registerService', data: BytesLike): Result;
@@ -107,6 +112,47 @@ export interface LedgerManagerInterface extends Interface {
     decodeFunctionResult(functionFragment: 'spendFund', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'transferFund', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'updateAdditionalInfo', data: BytesLike): Result;
+}
+export declare namespace FundSpentEvent {
+    type InputTuple = [
+        user: AddressLike,
+        service: AddressLike,
+        amount: BigNumberish
+    ];
+    type OutputTuple = [user: string, service: string, amount: bigint];
+    interface OutputObject {
+        user: string;
+        service: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace InitializedEvent {
+    type InputTuple = [version: BigNumberish];
+    type OutputTuple = [version: bigint];
+    interface OutputObject {
+        version: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace LedgerInfoUpdatedEvent {
+    type InputTuple = [user: AddressLike, additionalInfo: string];
+    type OutputTuple = [user: string, additionalInfo: string];
+    interface OutputObject {
+        user: string;
+        additionalInfo: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
 }
 export declare namespace OwnershipTransferredEvent {
     type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
@@ -153,6 +199,27 @@ export declare namespace ServiceRegisteredEvent {
     type Log = TypedEventLog<Event>;
     type LogDescription = TypedLogDescription<Event>;
 }
+export declare namespace UserServiceProvidersMigratedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        serviceAddress: AddressLike,
+        providerCount: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        serviceAddress: string,
+        providerCount: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        serviceAddress: string;
+        providerCount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
 export interface LedgerManager extends BaseContract {
     connect(runner?: ContractRunner | null): LedgerManager;
     waitForDeployment(): Promise<this>;
@@ -168,6 +235,10 @@ export interface LedgerManager extends BaseContract {
     removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
     MAX_ADDITIONAL_INFO_LENGTH: TypedContractMethod<[], [bigint], 'view'>;
     MAX_PROVIDERS_PER_BATCH: TypedContractMethod<[], [bigint], 'view'>;
+    MAX_PROVIDERS_PER_USER_PER_SERVICE: TypedContractMethod<[
+    ], [
+        bigint
+    ], 'view'>;
     MAX_SERVICES: TypedContractMethod<[], [bigint], 'view'>;
     MIN_ACCOUNT_BALANCE: TypedContractMethod<[], [bigint], 'view'>;
     MIN_TRANSFER_AMOUNT: TypedContractMethod<[], [bigint], 'view'>;
@@ -249,6 +320,15 @@ export interface LedgerManager extends BaseContract {
     ], [
         boolean
     ], 'view'>;
+    migrateUserServiceProvidersMapping: TypedContractMethod<[
+        startUserIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            migratedCount: bigint;
+            nextUserIndex: bigint;
+        }
+    ], 'nonpayable'>;
     owner: TypedContractMethod<[], [string], 'view'>;
     refund: TypedContractMethod<[amount: BigNumberish], [void], 'nonpayable'>;
     registerService: TypedContractMethod<[
@@ -290,9 +370,15 @@ export interface LedgerManager extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    updateAdditionalInfo: TypedContractMethod<[
+        additionalInfo: string
+    ], [
+        void
+    ], 'nonpayable'>;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
     getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_BATCH'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MAX_PROVIDERS_PER_USER_PER_SERVICE'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MAX_SERVICES'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MIN_ACCOUNT_BALANCE'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MIN_TRANSFER_AMOUNT'): TypedContractMethod<[], [bigint], 'view'>;
@@ -359,6 +445,15 @@ export interface LedgerManager extends BaseContract {
     ], [
         boolean
     ], 'view'>;
+    getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod<[
+        startUserIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            migratedCount: bigint;
+            nextUserIndex: bigint;
+        }
+    ], 'nonpayable'>;
     getFunction(nameOrSignature: 'owner'): TypedContractMethod<[], [string], 'view'>;
     getFunction(nameOrSignature: 'refund'): TypedContractMethod<[amount: BigNumberish], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'registerService'): TypedContractMethod<[
@@ -396,16 +491,29 @@ export interface LedgerManager extends BaseContract {
         void
     ], 'nonpayable'>;
     getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<[newOwner: AddressLike], [void], 'nonpayable'>;
+    getFunction(nameOrSignature: 'updateAdditionalInfo'): TypedContractMethod<[additionalInfo: string], [void], 'nonpayable'>;
+    getEvent(key: 'FundSpent'): TypedContractEvent<FundSpentEvent.InputTuple, FundSpentEvent.OutputTuple, FundSpentEvent.OutputObject>;
+    getEvent(key: 'Initialized'): TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
+    getEvent(key: 'LedgerInfoUpdated'): TypedContractEvent<LedgerInfoUpdatedEvent.InputTuple, LedgerInfoUpdatedEvent.OutputTuple, LedgerInfoUpdatedEvent.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
     getEvent(key: 'RecommendedServiceUpdated'): TypedContractEvent<RecommendedServiceUpdatedEvent.InputTuple, RecommendedServiceUpdatedEvent.OutputTuple, RecommendedServiceUpdatedEvent.OutputObject>;
     getEvent(key: 'ServiceRegistered'): TypedContractEvent<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
+    getEvent(key: 'UserServiceProvidersMigrated'): TypedContractEvent<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
     filters: {
+        'FundSpent(address,address,uint256)': TypedContractEvent<FundSpentEvent.InputTuple, FundSpentEvent.OutputTuple, FundSpentEvent.OutputObject>;
+        FundSpent: TypedContractEvent<FundSpentEvent.InputTuple, FundSpentEvent.OutputTuple, FundSpentEvent.OutputObject>;
+        'Initialized(uint8)': TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
+        Initialized: TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
+        'LedgerInfoUpdated(address,string)': TypedContractEvent<LedgerInfoUpdatedEvent.InputTuple, LedgerInfoUpdatedEvent.OutputTuple, LedgerInfoUpdatedEvent.OutputObject>;
+        LedgerInfoUpdated: TypedContractEvent<LedgerInfoUpdatedEvent.InputTuple, LedgerInfoUpdatedEvent.OutputTuple, LedgerInfoUpdatedEvent.OutputObject>;
         'OwnershipTransferred(address,address)': TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
         OwnershipTransferred: TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
         'RecommendedServiceUpdated(string,string,address)': TypedContractEvent<RecommendedServiceUpdatedEvent.InputTuple, RecommendedServiceUpdatedEvent.OutputTuple, RecommendedServiceUpdatedEvent.OutputObject>;
         RecommendedServiceUpdated: TypedContractEvent<RecommendedServiceUpdatedEvent.InputTuple, RecommendedServiceUpdatedEvent.OutputTuple, RecommendedServiceUpdatedEvent.OutputObject>;
         'ServiceRegistered(address,string)': TypedContractEvent<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
         ServiceRegistered: TypedContractEvent<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
+        'UserServiceProvidersMigrated(address,address,uint256)': TypedContractEvent<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
+        UserServiceProvidersMigrated: TypedContractEvent<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
     };
 }
 //# sourceMappingURL=LedgerManager.d.ts.map

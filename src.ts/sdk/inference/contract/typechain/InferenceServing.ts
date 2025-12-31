@@ -192,15 +192,14 @@ export interface InferenceServingInterface extends Interface {
             | 'getAllAccounts'
             | 'getAllServices'
             | 'getBatchAccountsByUsers'
-            | 'getGeneration'
             | 'getPendingRefund'
-            | 'getRevokedBitmap'
             | 'getService'
             | 'initialize'
             | 'initialized'
             | 'isTokenRevoked'
             | 'ledgerAddress'
             | 'lockTime'
+            | 'migrateRefunds'
             | 'owner'
             | 'previewSettlementResults'
             | 'processRefund'
@@ -211,6 +210,7 @@ export interface InferenceServingInterface extends Interface {
             | 'revokeTEESignerAcknowledgement'
             | 'revokeToken'
             | 'revokeTokens'
+            | 'serviceExists'
             | 'settleFeesWithTEE'
             | 'supportsInterface'
             | 'transferOwnership'
@@ -219,14 +219,19 @@ export interface InferenceServingInterface extends Interface {
 
     getEvent(
         nameOrSignatureOrTopic:
+            | 'AccountDeleted'
             | 'AllTokensRevoked'
             | 'BalanceUpdated'
             | 'BatchBalanceUpdated'
+            | 'ContractInitialized'
+            | 'Initialized'
+            | 'LockTimeUpdated'
             | 'OwnershipTransferred'
             | 'ProviderStakeReturned'
             | 'ProviderStaked'
             | 'ProviderTEESignerAcknowledged'
             | 'RefundRequested'
+            | 'RefundsMigrated'
             | 'ServiceRemoved'
             | 'ServiceUpdated'
             | 'TEESettlementResult'
@@ -299,15 +304,7 @@ export interface InferenceServingInterface extends Interface {
         values: [AddressLike[]]
     ): string
     encodeFunctionData(
-        functionFragment: 'getGeneration',
-        values: [AddressLike, AddressLike]
-    ): string
-    encodeFunctionData(
         functionFragment: 'getPendingRefund',
-        values: [AddressLike, AddressLike]
-    ): string
-    encodeFunctionData(
-        functionFragment: 'getRevokedBitmap',
         values: [AddressLike, AddressLike]
     ): string
     encodeFunctionData(
@@ -331,6 +328,10 @@ export interface InferenceServingInterface extends Interface {
         values?: undefined
     ): string
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string
+    encodeFunctionData(
+        functionFragment: 'migrateRefunds',
+        values: [AddressLike, BigNumberish, BigNumberish]
+    ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
         functionFragment: 'previewSettlementResults',
@@ -367,6 +368,10 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(
         functionFragment: 'revokeTokens',
         values: [AddressLike, BigNumberish[]]
+    ): string
+    encodeFunctionData(
+        functionFragment: 'serviceExists',
+        values: [AddressLike]
     ): string
     encodeFunctionData(
         functionFragment: 'settleFeesWithTEE',
@@ -450,15 +455,7 @@ export interface InferenceServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(
-        functionFragment: 'getGeneration',
-        data: BytesLike
-    ): Result
-    decodeFunctionResult(
         functionFragment: 'getPendingRefund',
-        data: BytesLike
-    ): Result
-    decodeFunctionResult(
-        functionFragment: 'getRevokedBitmap',
         data: BytesLike
     ): Result
     decodeFunctionResult(
@@ -482,6 +479,10 @@ export interface InferenceServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(functionFragment: 'lockTime', data: BytesLike): Result
+    decodeFunctionResult(
+        functionFragment: 'migrateRefunds',
+        data: BytesLike
+    ): Result
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result
     decodeFunctionResult(
         functionFragment: 'previewSettlementResults',
@@ -520,6 +521,10 @@ export interface InferenceServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(
+        functionFragment: 'serviceExists',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
         functionFragment: 'settleFeesWithTEE',
         data: BytesLike
     ): Result
@@ -535,6 +540,32 @@ export interface InferenceServingInterface extends Interface {
         functionFragment: 'updateLockTime',
         data: BytesLike
     ): Result
+}
+
+export namespace AccountDeletedEvent {
+    export type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        refundedAmount: BigNumberish
+    ]
+    export type OutputTuple = [
+        user: string,
+        provider: string,
+        refundedAmount: bigint
+    ]
+    export interface OutputObject {
+        user: string
+        provider: string
+        refundedAmount: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
 }
 
 export namespace AllTokensRevokedEvent {
@@ -607,6 +638,68 @@ export namespace BatchBalanceUpdatedEvent {
         users: string[]
         balances: bigint[]
         pendingRefunds: bigint[]
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace ContractInitializedEvent {
+    export type InputTuple = [
+        owner: AddressLike,
+        lockTime: BigNumberish,
+        ledgerAddress: AddressLike
+    ]
+    export type OutputTuple = [
+        owner: string,
+        lockTime: bigint,
+        ledgerAddress: string
+    ]
+    export interface OutputObject {
+        owner: string
+        lockTime: bigint
+        ledgerAddress: string
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace InitializedEvent {
+    export type InputTuple = [version: BigNumberish]
+    export type OutputTuple = [version: bigint]
+    export interface OutputObject {
+        version: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace LockTimeUpdatedEvent {
+    export type InputTuple = [
+        oldLockTime: BigNumberish,
+        newLockTime: BigNumberish
+    ]
+    export type OutputTuple = [oldLockTime: bigint, newLockTime: bigint]
+    export interface OutputObject {
+        oldLockTime: bigint
+        newLockTime: bigint
     }
     export type Event = TypedContractEvent<
         InputTuple,
@@ -713,6 +806,35 @@ export namespace RefundRequestedEvent {
         provider: string
         index: bigint
         timestamp: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace RefundsMigratedEvent {
+    export type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        migratedCount: BigNumberish,
+        newValidLength: BigNumberish
+    ]
+    export type OutputTuple = [
+        user: string,
+        provider: string,
+        migratedCount: bigint,
+        newValidLength: bigint
+    ]
+    export interface OutputObject {
+        user: string
+        provider: string
+        migratedCount: bigint
+        newValidLength: bigint
     }
     export type Event = TypedContractEvent<
         InputTuple,
@@ -1006,19 +1128,7 @@ export interface InferenceServing extends BaseContract {
         'view'
     >
 
-    getGeneration: TypedContractMethod<
-        [user: AddressLike, provider: AddressLike],
-        [bigint],
-        'view'
-    >
-
     getPendingRefund: TypedContractMethod<
-        [user: AddressLike, provider: AddressLike],
-        [bigint],
-        'view'
-    >
-
-    getRevokedBitmap: TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
         [bigint],
         'view'
@@ -1051,6 +1161,16 @@ export interface InferenceServing extends BaseContract {
     ledgerAddress: TypedContractMethod<[], [string], 'view'>
 
     lockTime: TypedContractMethod<[], [bigint], 'view'>
+
+    migrateRefunds: TypedContractMethod<
+        [
+            provider: AddressLike,
+            startIndex: BigNumberish,
+            batchSize: BigNumberish
+        ],
+        [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+        'nonpayable'
+    >
 
     owner: TypedContractMethod<[], [string], 'view'>
 
@@ -1113,16 +1233,15 @@ export interface InferenceServing extends BaseContract {
         'nonpayable'
     >
 
+    serviceExists: TypedContractMethod<
+        [provider: AddressLike],
+        [boolean],
+        'view'
+    >
+
     settleFeesWithTEE: TypedContractMethod<
         [settlements: TEESettlementDataStruct[]],
-        [
-            [string[], bigint[], string[], bigint[]] & {
-                failedUsers: string[]
-                failureReasons: bigint[]
-                partialUsers: string[]
-                partialAmounts: bigint[]
-            }
-        ],
+        [bigint[]],
         'nonpayable'
     >
 
@@ -1257,21 +1376,7 @@ export interface InferenceServing extends BaseContract {
         'view'
     >
     getFunction(
-        nameOrSignature: 'getGeneration'
-    ): TypedContractMethod<
-        [user: AddressLike, provider: AddressLike],
-        [bigint],
-        'view'
-    >
-    getFunction(
         nameOrSignature: 'getPendingRefund'
-    ): TypedContractMethod<
-        [user: AddressLike, provider: AddressLike],
-        [bigint],
-        'view'
-    >
-    getFunction(
-        nameOrSignature: 'getRevokedBitmap'
     ): TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
         [bigint],
@@ -1311,6 +1416,17 @@ export interface InferenceServing extends BaseContract {
     getFunction(
         nameOrSignature: 'lockTime'
     ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
+        nameOrSignature: 'migrateRefunds'
+    ): TypedContractMethod<
+        [
+            provider: AddressLike,
+            startIndex: BigNumberish,
+            batchSize: BigNumberish
+        ],
+        [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+        'nonpayable'
+    >
     getFunction(
         nameOrSignature: 'owner'
     ): TypedContractMethod<[], [string], 'view'>
@@ -1372,16 +1488,14 @@ export interface InferenceServing extends BaseContract {
         [void],
         'nonpayable'
     >
-    getFunction(nameOrSignature: 'settleFeesWithTEE'): TypedContractMethod<
+    getFunction(
+        nameOrSignature: 'serviceExists'
+    ): TypedContractMethod<[provider: AddressLike], [boolean], 'view'>
+    getFunction(
+        nameOrSignature: 'settleFeesWithTEE'
+    ): TypedContractMethod<
         [settlements: TEESettlementDataStruct[]],
-        [
-            [string[], bigint[], string[], bigint[]] & {
-                failedUsers: string[]
-                failureReasons: bigint[]
-                partialUsers: string[]
-                partialAmounts: bigint[]
-            }
-        ],
+        [bigint[]],
         'nonpayable'
     >
     getFunction(
@@ -1394,6 +1508,13 @@ export interface InferenceServing extends BaseContract {
         nameOrSignature: 'updateLockTime'
     ): TypedContractMethod<[_locktime: BigNumberish], [void], 'nonpayable'>
 
+    getEvent(
+        key: 'AccountDeleted'
+    ): TypedContractEvent<
+        AccountDeletedEvent.InputTuple,
+        AccountDeletedEvent.OutputTuple,
+        AccountDeletedEvent.OutputObject
+    >
     getEvent(
         key: 'AllTokensRevoked'
     ): TypedContractEvent<
@@ -1414,6 +1535,27 @@ export interface InferenceServing extends BaseContract {
         BatchBalanceUpdatedEvent.InputTuple,
         BatchBalanceUpdatedEvent.OutputTuple,
         BatchBalanceUpdatedEvent.OutputObject
+    >
+    getEvent(
+        key: 'ContractInitialized'
+    ): TypedContractEvent<
+        ContractInitializedEvent.InputTuple,
+        ContractInitializedEvent.OutputTuple,
+        ContractInitializedEvent.OutputObject
+    >
+    getEvent(
+        key: 'Initialized'
+    ): TypedContractEvent<
+        InitializedEvent.InputTuple,
+        InitializedEvent.OutputTuple,
+        InitializedEvent.OutputObject
+    >
+    getEvent(
+        key: 'LockTimeUpdated'
+    ): TypedContractEvent<
+        LockTimeUpdatedEvent.InputTuple,
+        LockTimeUpdatedEvent.OutputTuple,
+        LockTimeUpdatedEvent.OutputObject
     >
     getEvent(
         key: 'OwnershipTransferred'
@@ -1449,6 +1591,13 @@ export interface InferenceServing extends BaseContract {
         RefundRequestedEvent.InputTuple,
         RefundRequestedEvent.OutputTuple,
         RefundRequestedEvent.OutputObject
+    >
+    getEvent(
+        key: 'RefundsMigrated'
+    ): TypedContractEvent<
+        RefundsMigratedEvent.InputTuple,
+        RefundsMigratedEvent.OutputTuple,
+        RefundsMigratedEvent.OutputObject
     >
     getEvent(
         key: 'ServiceRemoved'
@@ -1487,6 +1636,17 @@ export interface InferenceServing extends BaseContract {
     >
 
     filters: {
+        'AccountDeleted(address,address,uint256)': TypedContractEvent<
+            AccountDeletedEvent.InputTuple,
+            AccountDeletedEvent.OutputTuple,
+            AccountDeletedEvent.OutputObject
+        >
+        AccountDeleted: TypedContractEvent<
+            AccountDeletedEvent.InputTuple,
+            AccountDeletedEvent.OutputTuple,
+            AccountDeletedEvent.OutputObject
+        >
+
         'AllTokensRevoked(address,address,uint256)': TypedContractEvent<
             AllTokensRevokedEvent.InputTuple,
             AllTokensRevokedEvent.OutputTuple,
@@ -1518,6 +1678,39 @@ export interface InferenceServing extends BaseContract {
             BatchBalanceUpdatedEvent.InputTuple,
             BatchBalanceUpdatedEvent.OutputTuple,
             BatchBalanceUpdatedEvent.OutputObject
+        >
+
+        'ContractInitialized(address,uint256,address)': TypedContractEvent<
+            ContractInitializedEvent.InputTuple,
+            ContractInitializedEvent.OutputTuple,
+            ContractInitializedEvent.OutputObject
+        >
+        ContractInitialized: TypedContractEvent<
+            ContractInitializedEvent.InputTuple,
+            ContractInitializedEvent.OutputTuple,
+            ContractInitializedEvent.OutputObject
+        >
+
+        'Initialized(uint8)': TypedContractEvent<
+            InitializedEvent.InputTuple,
+            InitializedEvent.OutputTuple,
+            InitializedEvent.OutputObject
+        >
+        Initialized: TypedContractEvent<
+            InitializedEvent.InputTuple,
+            InitializedEvent.OutputTuple,
+            InitializedEvent.OutputObject
+        >
+
+        'LockTimeUpdated(uint256,uint256)': TypedContractEvent<
+            LockTimeUpdatedEvent.InputTuple,
+            LockTimeUpdatedEvent.OutputTuple,
+            LockTimeUpdatedEvent.OutputObject
+        >
+        LockTimeUpdated: TypedContractEvent<
+            LockTimeUpdatedEvent.InputTuple,
+            LockTimeUpdatedEvent.OutputTuple,
+            LockTimeUpdatedEvent.OutputObject
         >
 
         'OwnershipTransferred(address,address)': TypedContractEvent<
@@ -1573,6 +1766,17 @@ export interface InferenceServing extends BaseContract {
             RefundRequestedEvent.InputTuple,
             RefundRequestedEvent.OutputTuple,
             RefundRequestedEvent.OutputObject
+        >
+
+        'RefundsMigrated(address,address,uint256,uint256)': TypedContractEvent<
+            RefundsMigratedEvent.InputTuple,
+            RefundsMigratedEvent.OutputTuple,
+            RefundsMigratedEvent.OutputObject
+        >
+        RefundsMigrated: TypedContractEvent<
+            RefundsMigratedEvent.InputTuple,
+            RefundsMigratedEvent.OutputTuple,
+            RefundsMigratedEvent.OutputObject
         >
 
         'ServiceRemoved(address)': TypedContractEvent<
