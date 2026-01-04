@@ -85,8 +85,9 @@ function inference(program) {
                     chalk_1.default.blue(service.provider),
                 ]);
                 table.push(['Model', service.model || 'N/A']);
-                // Only show input price for non text-to-image services
-                if (service.serviceType !== 'text-to-image') {
+                // Only show input price for non text-to-image and non image-editing services
+                if (service.serviceType !== 'text-to-image' &&
+                    service.serviceType !== 'image-editing') {
                     table.push([
                         'Input Price Per Token (0G)',
                         service.inputPrice
@@ -94,8 +95,9 @@ function inference(program) {
                             : 'N/A',
                     ]);
                 }
-                // Change output price label for text-to-image services
-                const outputPriceLabel = service.serviceType === 'text-to-image'
+                // Change output price label for text-to-image and image-editing services
+                const outputPriceLabel = service.serviceType === 'text-to-image' ||
+                    service.serviceType === 'image-editing'
                     ? 'Price Per Image (OG)'
                     : 'Output Price Per Token (0G)';
                 table.push([
@@ -681,6 +683,14 @@ function inference(program) {
     "size": "512x512",
     "response_format": "b64_json"
   }' | jq -r ".data[0].b64_json" | base64 -d > output.png && open output.png`));
+                }
+                else if (serviceType === 'image-editing') {
+                    console.log(chalk_1.default.white(`curl -s -X POST ${serviceUrl}/v1/proxy/images/edits \\
+  -H "Authorization: Bearer ${bearerToken}" \\
+  -F "prompt=Create a lovely gift basket with these items in it" \\
+  -F "response_format=b64_json" \\
+  -F "image=@image.png" \\
+  | jq -r '.data[0].b64_json' | base64 -d > result.png`));
                 }
                 else {
                     // Default to chatbot/text type

@@ -49,8 +49,11 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
   const serviceUrl = serviceObj.url || "";
 
   // Convert prices from neuron to 0G
-  // For text-to-image services, prices are per image, not per million tokens
-  const priceMultiplier = serviceObj.serviceType === 'text-to-image' ? BigInt(1) : BigInt(1000000);
+  // For text-to-image and image-editing services, prices are per image, not per million tokens
+  const priceMultiplier =
+    serviceObj.serviceType === 'text-to-image' || serviceObj.serviceType === 'image-editing'
+      ? BigInt(1)
+      : BigInt(1000000);
   const inputPrice = serviceObj.inputPrice
     ? neuronToA0gi(serviceObj.inputPrice * priceMultiplier)
     : undefined;

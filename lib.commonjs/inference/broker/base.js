@@ -10,6 +10,7 @@ const ethers_1 = require("ethers");
 const logger_1 = require("../../common/logger");
 const textToImage_1 = require("../extractor/textToImage");
 const speech_to_text_1 = require("../extractor/speech-to-text");
+const imageEditing_1 = require("../extractor/imageEditing");
 /**
  * Special token ID reserved for ephemeral tokens.
  * Ephemeral tokens (tokenId=255) are not checked against the revoked bitmap,
@@ -143,6 +144,8 @@ class ZGServingUserBrokerBase {
                 return new extractor_1.ChatBot(svc);
             case 'text-to-image':
                 return new textToImage_1.TextToImage(svc);
+            case 'image-editing':
+                return new imageEditing_1.ImageEditing(svc);
             case 'speech-to-text':
                 return new speech_to_text_1.SpeechToText(svc);
             default:

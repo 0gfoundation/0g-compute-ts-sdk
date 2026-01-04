@@ -16,6 +16,7 @@ import { keccak256, toUtf8Bytes } from 'ethers'
 import { logger } from '../../common/logger'
 import { TextToImage } from '../extractor/textToImage'
 import { SpeechToText } from '../extractor/speech-to-text'
+import { ImageEditing } from '../extractor/imageEditing'
 
 export interface TdxQuoteResponse {
     rawReport: string
@@ -232,6 +233,8 @@ export abstract class ZGServingUserBrokerBase {
                 return new ChatBot(svc)
             case 'text-to-image':
                 return new TextToImage(svc)
+            case 'image-editing':
+                return new ImageEditing(svc)
             case 'speech-to-text':
                 return new SpeechToText(svc)
             default:
