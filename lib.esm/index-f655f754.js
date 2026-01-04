@@ -13330,6 +13330,42 @@ class SpeechToText extends Extractor {
     }
 }
 
+class ImageEditing extends Extractor {
+    svcInfo;
+    constructor(svcInfo) {
+        super();
+        this.svcInfo = svcInfo;
+    }
+    getSvcInfo() {
+        return Promise.resolve(this.svcInfo);
+    }
+    async getInputCount(content) {
+        // For image-editing, parse the request payload to extract 'n' value
+        if (!content) {
+            return 1; // Default to 1 image if no content
+        }
+        try {
+            const payload = JSON.parse(content);
+            // Extract 'n' (number of images) from the payload
+            if (payload && payload.n !== undefined) {
+                const n = typeof payload.n === 'string'
+                    ? parseInt(payload.n, 10)
+                    : payload.n;
+                return typeof n === 'number' && !isNaN(n) ? n : 1;
+            }
+            return 1; // Default to 1 if 'n' is not specified
+        }
+        catch {
+            // If parsing fails, default to 1
+            return 1;
+        }
+    }
+    async getOutputCount(_content) {
+        // For image-editing, output should always be empty (0)
+        return 0;
+    }
+}
+
 /**
  * Special token ID reserved for ephemeral tokens.
  * Ephemeral tokens (tokenId=255) are not checked against the revoked bitmap,
@@ -13463,6 +13499,8 @@ class ZGServingUserBrokerBase {
                 return new ChatBot(svc);
             case 'text-to-image':
                 return new TextToImage(svc);
+            case 'image-editing':
+                return new ImageEditing(svc);
             case 'speech-to-text':
                 return new SpeechToText(svc);
             default:
@@ -15878,7 +15916,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-6409ffa1.js');
+    const { download } = await import('./index-c03b03d2.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21345,4 +21383,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-52d89007.js.map
+//# sourceMappingURL=index-f655f754.js.map

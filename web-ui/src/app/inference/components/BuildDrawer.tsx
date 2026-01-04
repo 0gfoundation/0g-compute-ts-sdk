@@ -36,6 +36,7 @@ export function BuildDrawer({ provider, isOpen, onClose }: BuildDrawerProps) {
 
     const showSDKExamples =
         provider?.serviceType === 'text-to-image' ||
+        provider?.serviceType === 'image-editing' ||
         provider?.serviceType === 'chatbot' ||
         provider?.serviceType === 'speech-to-text'
 

@@ -89,7 +89,8 @@ export function ProviderCard({
                                 provider.outputPrice !== undefined) && (
                                 <div className="flex items-center gap-2 text-xs">
                                     {provider.inputPrice !== undefined &&
-                                        provider.serviceType !== 'text-to-image' && (
+                                        provider.serviceType !== 'text-to-image' &&
+                                        provider.serviceType !== 'image-editing' && (
                                             <div className="flex items-center gap-1">
                                                 <span className="text-gray-600">In:</span>
                                                 <span className="font-semibold text-gray-900">
@@ -100,7 +101,8 @@ export function ProviderCard({
                                     {provider.outputPrice !== undefined && (
                                         <div className="flex items-center gap-1">
                                             <span className="text-gray-600">
-                                                {provider.serviceType === 'text-to-image'
+                                                {provider.serviceType === 'text-to-image' ||
+                                                provider.serviceType === 'image-editing'
                                                     ? 'Price/Image:'
                                                     : 'Out:'}
                                             </span>
