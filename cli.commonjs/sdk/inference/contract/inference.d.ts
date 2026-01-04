@@ -11,7 +11,7 @@ export declare class InferenceServingContract {
     constructor(signer: JsonRpcSigner | Wallet, contractAddress: string, userAddress: string, gasPrice?: number, maxGasPrice?: number, step?: number);
     sendTx(name: string, txArgs: ContractMethodArgs<any[]>, txOptions: any): Promise<void>;
     lockTime(): Promise<bigint>;
-    listService(offset?: number, limit?: number): Promise<ServiceStructOutput[]>;
+    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput[]>;
     listAccount(offset?: number, limit?: number): Promise<import("./typechain/InferenceServing").AccountStructOutput[]>;
     getAccount(provider: AddressLike): Promise<import("./typechain/InferenceServing").AccountStructOutput>;
     /**

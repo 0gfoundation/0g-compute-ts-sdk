@@ -14062,10 +14062,14 @@ class InferenceServingContract {
     lockTime() {
         return this.serving.lockTime();
     }
-    async listService(offset = 0, limit = 50) {
+    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
         try {
             const result = await this.serving.getAllServices(offset, limit);
-            return result.services;
+            // Filter out unacknowledged providers by default
+            if (includeUnacknowledged) {
+                return result.services;
+            }
+            return result.services.filter((service) => service.teeSignerAcknowledged);
         }
         catch (error) {
             throwFormattedError(error);
@@ -14500,9 +14504,9 @@ var VerifiabilityEnum;
     VerifiabilityEnum["ZKML"] = "ZKML";
 })(VerifiabilityEnum || (VerifiabilityEnum = {}));
 let ModelProcessor$1 = class ModelProcessor extends ZGServingUserBrokerBase {
-    async listService(offset = 0, limit = 50) {
+    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
         try {
-            const services = await this.contract.listService(offset, limit);
+            const services = await this.contract.listService(offset, limit, includeUnacknowledged);
             return services;
         }
         catch (error) {
@@ -15246,12 +15250,13 @@ class InferenceBroker {
      *
      * @param {number} offset - The offset for pagination (default: 0).
      * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    listService = async (offset = 0, limit = 50) => {
+    listService = async (offset = 0, limit = 50, includeUnacknowledged = false) => {
         try {
-            return await this.modelProcessor.listService(offset, limit);
+            return await this.modelProcessor.listService(offset, limit, includeUnacknowledged);
         }
         catch (error) {
             throwFormattedError(error);
@@ -15916,7 +15921,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-c03b03d2.js');
+    const { download } = await import('./index-aef5dd98.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21383,4 +21388,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-f655f754.js.map
+//# sourceMappingURL=index-2a2ea8fb.js.map

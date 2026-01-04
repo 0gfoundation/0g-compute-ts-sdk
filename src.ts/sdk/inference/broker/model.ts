@@ -16,10 +16,15 @@ export type Verifiability =
 export class ModelProcessor extends ZGServingUserBrokerBase {
     async listService(
         offset: number = 0,
-        limit: number = 50
+        limit: number = 50,
+        includeUnacknowledged: boolean = false
     ): Promise<ServiceStructOutput[]> {
         try {
-            const services = await this.contract.listService(offset, limit)
+            const services = await this.contract.listService(
+                offset,
+                limit,
+                includeUnacknowledged
+            )
             return services
         } catch (error) {
             throwFormattedError(error)

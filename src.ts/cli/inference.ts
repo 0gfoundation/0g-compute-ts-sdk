@@ -83,12 +83,11 @@ export default function inference(program: Command) {
             })
             withBroker(options, async (broker) => {
                 // TODO: Support pagination for listing services
-                let services = await broker.inference.listService()
-                if (!options.includeInvalid) {
-                    services = services.filter(
-                        (service) => service.teeSignerAcknowledged
-                    )
-                }
+                const services = await broker.inference.listService(
+                    0,
+                    50,
+                    options.includeInvalid
+                )
                 services.forEach((service, index) => {
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
@@ -886,7 +885,11 @@ export default function inference(program: Command) {
 
                     // Get service metadata to determine service type
                     // TODO: Support pagination for listing services
-                    const services = await broker.inference.listService()
+                    const services = await broker.inference.listService(
+                        0,
+                        50,
+                        true
+                    )
                     const service = services.find(
                         (s) =>
                             s.provider.toLowerCase() ===

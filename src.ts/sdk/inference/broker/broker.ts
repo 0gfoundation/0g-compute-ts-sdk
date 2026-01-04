@@ -78,12 +78,21 @@ export class InferenceBroker {
      *
      * @param {number} offset - The offset for pagination (default: 0).
      * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    public listService = async (offset: number = 0, limit: number = 50) => {
+    public listService = async (
+        offset: number = 0,
+        limit: number = 50,
+        includeUnacknowledged: boolean = false
+    ) => {
         try {
-            return await this.modelProcessor.listService(offset, limit)
+            return await this.modelProcessor.listService(
+                offset,
+                limit,
+                includeUnacknowledged
+            )
         } catch (error) {
             throwFormattedError(error)
         }

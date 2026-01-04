@@ -141,11 +141,18 @@ export class InferenceServingContract {
 
     async listService(
         offset: number = 0,
-        limit: number = 50
+        limit: number = 50,
+        includeUnacknowledged: boolean = false
     ): Promise<ServiceStructOutput[]> {
         try {
             const result = await this.serving.getAllServices(offset, limit)
-            return result.services
+            // Filter out unacknowledged providers by default
+            if (includeUnacknowledged) {
+                return result.services
+            }
+            return result.services.filter(
+                (service) => service.teeSignerAcknowledged
+            )
         } catch (error) {
             throwFormattedError(error)
         }

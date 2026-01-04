@@ -33,7 +33,12 @@ export function OptimizedInferencePage() {
             if (!broker) throw new Error('Broker not available')
 
             try {
-                const services = await broker.inference.listService()
+                // Include all providers (even unacknowledged ones) so UI can show them with warnings
+                const services = await broker.inference.listService(
+                    0,
+                    50,
+                    true
+                )
                 return transformBrokerServicesToProviders(services)
             } catch {
                 return []
