@@ -84,10 +84,14 @@ class InferenceServingContract {
     lockTime() {
         return this.serving.lockTime();
     }
-    async listService(offset = 0, limit = 50) {
+    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
         try {
             const result = await this.serving.getAllServices(offset, limit);
-            return result.services;
+            // Filter out unacknowledged providers by default
+            if (includeUnacknowledged) {
+                return result.services;
+            }
+            return result.services.filter((service) => service.teeSignerAcknowledged);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

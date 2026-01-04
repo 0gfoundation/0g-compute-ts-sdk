@@ -969,7 +969,7 @@ declare class InferenceServingContract {
     constructor(signer: JsonRpcSigner | Wallet, contractAddress: string, userAddress: string, gasPrice?: number, maxGasPrice?: number, step?: number);
     sendTx(name: string, txArgs: ContractMethodArgs$3<any[]>, txOptions: any): Promise<void>;
     lockTime(): Promise<bigint>;
-    listService(offset?: number, limit?: number): Promise<ServiceStructOutput$1[]>;
+    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput$1[]>;
     listAccount(offset?: number, limit?: number): Promise<AccountStructOutput[]>;
     getAccount(provider: AddressLike): Promise<AccountStructOutput>;
     /**
@@ -2793,7 +2793,7 @@ declare class Verifier extends ZGServingUserBrokerBase {
 }
 
 declare class ModelProcessor extends ZGServingUserBrokerBase {
-    listService(offset?: number, limit?: number): Promise<ServiceStructOutput$1[]>;
+    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput$1[]>;
     /**
      * Remove service (Provider owner only)
      *
@@ -2842,10 +2842,11 @@ declare class InferenceBroker {
      *
      * @param {number} offset - The offset for pagination (default: 0).
      * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
      * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
      * @throws An error if the service list cannot be retrieved.
      */
-    listService: (offset?: number, limit?: number) => Promise<ServiceStructOutput$1[]>;
+    listService: (offset?: number, limit?: number, includeUnacknowledged?: boolean) => Promise<ServiceStructOutput$1[]>;
     /**
      * Retrieves the account information for a given provider address.
      *

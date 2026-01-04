@@ -75,10 +75,7 @@ function inference(program) {
         });
         (0, util_1.withBroker)(options, async (broker) => {
             // TODO: Support pagination for listing services
-            let services = await broker.inference.listService();
-            if (!options.includeInvalid) {
-                services = services.filter((service) => service.teeSignerAcknowledged);
-            }
+            const services = await broker.inference.listService(0, 50, options.includeInvalid);
             services.forEach((service, index) => {
                 table.push([
                     chalk_1.default.blue(`Provider ${index + 1}`),
@@ -636,7 +633,7 @@ function inference(program) {
                 const bearerToken = apiKey.rawToken;
                 // Get service metadata to determine service type
                 // TODO: Support pagination for listing services
-                const services = await broker.inference.listService();
+                const services = await broker.inference.listService(0, 50, true);
                 const service = services.find((s) => s.provider.toLowerCase() ===
                     options.provider.toLowerCase());
                 if (!service) {

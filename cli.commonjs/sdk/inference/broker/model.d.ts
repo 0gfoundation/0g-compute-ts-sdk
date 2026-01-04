@@ -7,7 +7,7 @@ export declare enum VerifiabilityEnum {
 }
 export type Verifiability = VerifiabilityEnum.OpML | VerifiabilityEnum.TeeML | VerifiabilityEnum.ZKML;
 export declare class ModelProcessor extends ZGServingUserBrokerBase {
-    listService(offset?: number, limit?: number): Promise<ServiceStructOutput[]>;
+    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput[]>;
     /**
      * Remove service (Provider owner only)
      *

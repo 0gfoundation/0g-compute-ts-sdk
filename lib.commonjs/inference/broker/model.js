@@ -11,9 +11,9 @@ var VerifiabilityEnum;
     VerifiabilityEnum["ZKML"] = "ZKML";
 })(VerifiabilityEnum || (exports.VerifiabilityEnum = VerifiabilityEnum = {}));
 class ModelProcessor extends base_1.ZGServingUserBrokerBase {
-    async listService(offset = 0, limit = 50) {
+    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
         try {
-            const services = await this.contract.listService(offset, limit);
+            const services = await this.contract.listService(offset, limit, includeUnacknowledged);
             return services;
         }
         catch (error) {
