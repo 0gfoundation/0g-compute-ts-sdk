@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander'
-import updateNotifier from 'update-notifier'
 import fineTuning from './fine-tuning'
 import ledger from './ledger'
 import inference from './inference'
@@ -86,6 +85,9 @@ function showUpdateNotification(updateInfo: {
 // Check for updates (non-blocking on first run)
 ;(async () => {
     try {
+        // Dynamic import to handle environments where update-notifier is not compatible (e.g., Yarn PnP)
+        const { default: updateNotifier } = await import('update-notifier')
+
         const notifier = updateNotifier({
             pkg: packageJson,
             updateCheckInterval: 1000 * 60 * 60 * 24, // Check once per day
@@ -107,7 +109,7 @@ function showUpdateNotification(updateInfo: {
             showUpdateNotification(updateInfo)
         }
     } catch {
-        // Silently fail - don't block CLI usage
+        // Silently fail - don't block CLI usage (e.g., in Yarn PnP environments)
     }
 
     program.parse(process.argv)

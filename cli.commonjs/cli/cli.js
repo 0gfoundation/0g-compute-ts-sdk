@@ -4,7 +4,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.program = void 0;
 const tslib_1 = require("tslib");
 const commander_1 = require("commander");
-const update_notifier_1 = tslib_1.__importDefault(require("update-notifier"));
 const fine_tuning_1 = tslib_1.__importDefault(require("./fine-tuning"));
 const ledger_1 = tslib_1.__importDefault(require("./ledger"));
 const inference_1 = tslib_1.__importDefault(require("./inference"));
@@ -73,7 +72,9 @@ function showUpdateNotification(updateInfo) {
 ;
 (async () => {
     try {
-        const notifier = (0, update_notifier_1.default)({
+        // Dynamic import to handle environments where update-notifier is not compatible (e.g., Yarn PnP)
+        const { default: updateNotifier } = await Promise.resolve().then(() => tslib_1.__importStar(require('update-notifier')));
+        const notifier = updateNotifier({
             pkg: package_json_1.default,
             updateCheckInterval: 1000 * 60 * 60 * 24, // Check once per day
         });
@@ -90,7 +91,7 @@ function showUpdateNotification(updateInfo) {
         }
     }
     catch {
-        // Silently fail - don't block CLI usage
+        // Silently fail - don't block CLI usage (e.g., in Yarn PnP environments)
     }
     exports.program.parse(process.argv);
 })();
