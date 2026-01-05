@@ -8,6 +8,7 @@ import webUIEmbedded from './web-ui-embedded'
 import network from './network'
 import auth from './auth'
 import controller from './controller'
+import packageJson from '../../package.json'
 
 export const program = new Command()
 
@@ -51,4 +52,65 @@ network(program)
 // Register auth commands at the root level
 auth(program)
 
-program.parse(process.argv)
+// Detect package manager
+function getPackageManager(): string {
+    const userAgent = process.env.npm_config_user_agent || ''
+    if (userAgent.includes('pnpm')) return 'pnpm'
+    if (userAgent.includes('yarn')) return 'yarn'
+    if (userAgent.includes('bun')) return 'bun'
+    return 'npm'
+}
+
+// Display update notification
+function showUpdateNotification(updateInfo: {
+    current: string
+    latest: string
+    name: string
+}) {
+    const { current, latest, name } = updateInfo
+    const pm = getPackageManager()
+    const installCmd =
+        pm === 'yarn' ? `yarn global add ${name}` : `${pm} add -g ${name}`
+
+    const line1 = `Update available: ${current} → ${latest}`
+    const line2 = `Run: ${installCmd}`
+    const width = Math.max(line1.length, line2.length) + 4
+
+    console.log('\n' + '╭' + '─'.repeat(width) + '╮')
+    console.log('│ ' + line1.padEnd(width - 1) + '│')
+    console.log('│ ' + line2.padEnd(width - 1) + '│')
+    console.log('╰' + '─'.repeat(width) + '╯\n')
+}
+
+// Check for updates (non-blocking on first run)
+;(async () => {
+    try {
+        // Dynamic import to handle environments where update-notifier is not compatible (e.g., Yarn PnP)
+        const { default: updateNotifier } = await import('update-notifier')
+
+        const notifier = updateNotifier({
+            pkg: packageJson,
+            updateCheckInterval: 1000 * 60 * 60 * 24, // Check once per day
+        })
+
+        // Strategy: Use cache first (instant), fallback to fetch with timeout
+        let updateInfo = notifier.update
+
+        if (!updateInfo) {
+            // No cache, fetch with timeout to avoid blocking too long
+            const fetchPromise = notifier.fetchInfo()
+            const timeoutPromise = new Promise<undefined>((resolve) =>
+                setTimeout(() => resolve(undefined), 2000),
+            )
+            updateInfo = await Promise.race([fetchPromise, timeoutPromise])
+        }
+
+        if (updateInfo?.type && updateInfo.type !== 'latest') {
+            showUpdateNotification(updateInfo)
+        }
+    } catch {
+        // Silently fail - don't block CLI usage (e.g., in Yarn PnP environments)
+    }
+
+    program.parse(process.argv)
+})()
