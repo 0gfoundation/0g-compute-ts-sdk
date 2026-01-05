@@ -12798,11 +12798,22 @@ function decodeCustomError(error) {
                             LedgerExists: 'Account already exists. Use "deposit" to add funds or "get-account" to view details.',
                             InsufficientBalance: 'Insufficient balance in the account.',
                             ServiceNotExist: 'Service provider does not exist. Please check the provider address.',
-                            AccountNotExist: 'Sub-account does not exist for this provider.',
-                            AccountExist: 'Sub-account already exists for this provider.',
+                            AccountNotExists: 'Sub-account not found. Initialize it by transferring funds via "transfer-fund"',
+                            AccountExists: 'Sub-account already exists for this provider.',
                             InvalidVerifierInput: 'Invalid verification input provided.',
                             Unauthorized: 'Unauthorized. You do not have permission to perform this action.',
                             InvalidInput: 'Invalid input parameters provided.',
+                            RefundInvalid: 'Refund request is invalid. Please check the refund parameters.',
+                            RefundProcessed: 'This refund has already been processed.',
+                            RefundLocked: 'Refund is still locked. Please wait for the lock time to expire.',
+                            TooManyRefunds: 'Too many pending refunds. Please process existing refunds first.',
+                            AdditionalInfoTooLong: 'Additional information provided is too long.',
+                            InvalidTEESignature: 'Invalid TEE signature provided.',
+                            TooManyProviders: 'Too many providers specified. Please reduce the number of providers.',
+                            InvalidServiceType: 'Invalid service type specified.',
+                            ServiceNotRegistered: 'Service is not registered in the ledger.',
+                            ServiceNameExists: 'A service with this name already exists.',
+                            InvalidServiceAddress: 'Invalid service address provided.',
                         };
                         let message = errorMessages[decodedError.name] ||
                             `Error: ${decodedError.name}`;
@@ -15921,7 +15932,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-aef5dd98.js');
+    const { download } = await import('./index-032748e9.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21388,4 +21399,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-2a2ea8fb.js.map
+//# sourceMappingURL=index-d3cf82b5.js.map
