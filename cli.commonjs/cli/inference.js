@@ -12,6 +12,7 @@ const chalk_1 = tslib_1.__importDefault(require("chalk"));
 const axios_1 = tslib_1.__importDefault(require("axios"));
 const fs_1 = tslib_1.__importDefault(require("fs"));
 const ethers_1 = require("ethers");
+const error_handler_1 = require("../sdk/common/utils/error-handler");
 async function promptDurationSelection() {
     console.log(chalk_1.default.blue('\n⏱️  API Key Duration Selection'));
     console.log();
@@ -628,6 +629,23 @@ function inference(program) {
         try {
             const duration = await promptDurationSelection();
             (0, util_1.withBroker)(options, async (broker) => {
+                // First check if ledger (main account) exists
+                try {
+                    await broker.ledger.getLedger();
+                }
+                catch (error) {
+                    const errorMessage = (0, error_handler_1.formatError)(error);
+                    throw new Error(errorMessage);
+                }
+                // Then check if subaccount exists for the provider
+                try {
+                    await broker.inference.getAccount(options.provider);
+                }
+                catch (error) {
+                    // Parse the error to get a proper error message
+                    const errorMessage = (0, error_handler_1.formatError)(error);
+                    throw new Error(errorMessage);
+                }
                 // Use createApiKey to generate a persistent token
                 const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, { expiresIn: duration });
                 const bearerToken = apiKey.rawToken;

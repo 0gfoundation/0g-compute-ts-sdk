@@ -51,15 +51,37 @@ export function decodeCustomError(error: unknown): string | null {
                                 'Insufficient balance in the account.',
                             ServiceNotExist:
                                 'Service provider does not exist. Please check the provider address.',
-                            AccountNotExist:
-                                'Sub-account does not exist for this provider.',
-                            AccountExist:
+                            AccountNotExists:
+                                'Sub-account not found. Initialize it by transferring funds via "transfer-fund"',
+                            AccountExists:
                                 'Sub-account already exists for this provider.',
                             InvalidVerifierInput:
                                 'Invalid verification input provided.',
                             Unauthorized:
                                 'Unauthorized. You do not have permission to perform this action.',
                             InvalidInput: 'Invalid input parameters provided.',
+                            RefundInvalid:
+                                'Refund request is invalid. Please check the refund parameters.',
+                            RefundProcessed:
+                                'This refund has already been processed.',
+                            RefundLocked:
+                                'Refund is still locked. Please wait for the lock time to expire.',
+                            TooManyRefunds:
+                                'Too many pending refunds. Please process existing refunds first.',
+                            AdditionalInfoTooLong:
+                                'Additional information provided is too long.',
+                            InvalidTEESignature:
+                                'Invalid TEE signature provided.',
+                            TooManyProviders:
+                                'Too many providers specified. Please reduce the number of providers.',
+                            InvalidServiceType:
+                                'Invalid service type specified.',
+                            ServiceNotRegistered:
+                                'Service is not registered in the ledger.',
+                            ServiceNameExists:
+                                'A service with this name already exists.',
+                            InvalidServiceAddress:
+                                'Invalid service address provided.',
                         }
 
                         let message =

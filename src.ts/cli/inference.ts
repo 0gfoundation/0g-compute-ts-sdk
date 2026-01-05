@@ -10,6 +10,7 @@ import chalk from 'chalk'
 import axios from 'axios'
 import fs from 'fs'
 import { ethers } from 'ethers'
+import { formatError } from '../sdk/common/utils/error-handler'
 
 async function promptDurationSelection(): Promise<number> {
     console.log(chalk.blue('\n⏱️  API Key Duration Selection'))
@@ -874,6 +875,23 @@ export default function inference(program: Command) {
                 const duration = await promptDurationSelection()
 
                 withBroker(options, async (broker) => {
+                    // First check if ledger (main account) exists
+                    try {
+                        await broker.ledger.getLedger()
+                    } catch (error) {
+                        const errorMessage = formatError(error)
+                        throw new Error(errorMessage)
+                    }
+
+                    // Then check if subaccount exists for the provider
+                    try {
+                        await broker.inference.getAccount(options.provider)
+                    } catch (error) {
+                        // Parse the error to get a proper error message
+                        const errorMessage = formatError(error)
+                        throw new Error(errorMessage)
+                    }
+
                     // Use createApiKey to generate a persistent token
                     const apiKey =
                         await broker.inference.requestProcessor.createApiKey(
