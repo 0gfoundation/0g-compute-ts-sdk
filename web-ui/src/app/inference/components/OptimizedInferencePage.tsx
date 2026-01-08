@@ -51,21 +51,8 @@ export function OptimizedInferencePage() {
         chainId,
     })
 
-    // Use native navigation instead of Next.js router to avoid RSC .txt navigation issues in static export
-    const handleChatWithProvider = useCallback(
-        (provider: Provider) => {
-            const chatUrl = `/inference/chat?provider=${encodeURIComponent(provider.address)}`
-            setIsNavigating(true)
-            setTargetRoute('Chat')
-            setTargetPageType('chat')
-            setTimeout(() => {
-                window.location.href = chatUrl
-            }, 50)
-        },
-        [setIsNavigating, setTargetRoute, setTargetPageType]
-    )
-
-    const handleBuildWithProvider = useCallback((provider: Provider) => {
+    // Handle provider card click - open BuildDrawer
+    const handleProviderClick = useCallback((provider: Provider) => {
         setSelectedProviderForBuild(provider)
         setIsDrawerOpen(true)
     }, [])
@@ -130,8 +117,7 @@ export function OptimizedInferencePage() {
                                         provider={provider}
                                         isOfficial={isOfficial}
                                         isLoading={providersLoading}
-                                        onChat={handleChatWithProvider}
-                                        onBuild={handleBuildWithProvider}
+                                        onClick={handleProviderClick}
                                     />
                                 )
                             })}

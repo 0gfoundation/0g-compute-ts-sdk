@@ -112,6 +112,7 @@ export function OptimizedChatPage() {
     setErrorWithTimeout,
     isUserScrollingRef,
     messagesEndRef,
+    userAddress: address, // Pass wallet address for API key lookup
   });
 
   // Close dropdown when clicking outside
