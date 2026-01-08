@@ -64,6 +64,8 @@ export interface SessionTokenOptions {
     mode?: SessionMode;
     /** Duration in milliseconds. 0 = never expires. Default: 24 hours for ephemeral */
     duration?: number;
+    /** Specific tokenId to use for persistent mode (0-254). If not provided, will find available one from bitmap */
+    tokenId?: number;
 }
 export declare abstract class ZGServingUserBrokerBase {
     protected contract: InferenceServingContract;
@@ -127,6 +129,7 @@ export declare abstract class ZGServingUserBrokerBase {
      */
     createApiKey(providerAddress: string, options?: {
         expiresIn?: number;
+        tokenId?: number;
     }): Promise<ApiKeyInfo>;
     /**
      * Revoke an API Key by its tokenId.

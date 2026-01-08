@@ -2603,6 +2603,8 @@ interface SessionTokenOptions {
     mode?: SessionMode;
     /** Duration in milliseconds. 0 = never expires. Default: 24 hours for ephemeral */
     duration?: number;
+    /** Specific tokenId to use for persistent mode (0-254). If not provided, will find available one from bitmap */
+    tokenId?: number;
 }
 declare abstract class ZGServingUserBrokerBase {
     protected contract: InferenceServingContract;
@@ -2666,6 +2668,7 @@ declare abstract class ZGServingUserBrokerBase {
      */
     createApiKey(providerAddress: string, options?: {
         expiresIn?: number;
+        tokenId?: number;
     }): Promise<ApiKeyInfo>;
     /**
      * Revoke an API Key by its tokenId.
@@ -2749,6 +2752,24 @@ interface VerificationResult {
     verifierURL?: string;
     reportsGenerated: string[];
     outputDirectory: string;
+    reportsData?: {
+        broker?: AttestationReport;
+        llm?: AttestationReport;
+        combined?: AttestationReport;
+    };
+}
+interface AttestationReport {
+    tcb_info?: Record<string, unknown>;
+    info?: {
+        tcb_info?: Record<string, unknown>;
+    };
+    event_log?: EventLogEntry[];
+    [key: string]: unknown;
+}
+interface EventLogEntry {
+    event: string;
+    event_payload?: string;
+    [key: string]: unknown;
 }
 /**
  * The Verifier class contains methods for verifying service reliability.
@@ -2781,7 +2802,12 @@ declare class Verifier extends ZGServingUserBrokerBase {
      */
     private extractAllImagesFromTcbInfo;
     /**
-     * Save report to file
+     * Check if running in browser environment
+     */
+    private isBrowser;
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
      */
     private saveReportToFile;
     getSignerRaDownloadLink(providerAddress: string): Promise<string>;
@@ -3073,6 +3099,51 @@ declare class InferenceBroker {
         outputPrice?: bigint;
         gasPrice?: number;
     }) => Promise<void>;
+    /**
+     * Revoke a specific API key (persistent token) by its tokenId.
+     *
+     * Sets the corresponding bit in the revokedBitmap for this tokenId.
+     * The API key will be immediately invalid, but the tokenId slot remains occupied
+     * until revokeAllTokens() is called.
+     *
+     * Note: Ephemeral tokens (tokenId=255) cannot be individually revoked.
+     * Use revokeAllTokens() to revoke ephemeral tokens.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} tokenId - Token ID to revoke (0-254)
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if tokenId is 255 (ephemeral token) or if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke token ID 5 for a provider
+     * await broker.inference.revokeApiKey('0x123...', 5)
+     * // Token ID 5 is now revoked and the API key is invalid
+     * ```
+     */
+    revokeApiKey: (providerAddress: string, tokenId: number, gasPrice?: number) => Promise<void>;
+    /**
+     * Revoke all API keys (both ephemeral and persistent tokens) for a provider.
+     *
+     * Increments the generation counter and resets the revokedBitmap.
+     * All existing API keys (including ephemeral tokens) will be immediately invalid.
+     * Reclaims all 255 tokenId slots for reuse.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke all tokens for a provider
+     * await broker.inference.revokeAllTokens('0x123...')
+     * // All API keys for this provider are now invalid
+     * // All 255 tokenId slots are now available for reuse
+     * ```
+     */
+    revokeAllTokens: (providerAddress: string, gasPrice?: number) => Promise<void>;
 }
 /**
  * createInferenceBroker is used to initialize ZGServingUserBroker

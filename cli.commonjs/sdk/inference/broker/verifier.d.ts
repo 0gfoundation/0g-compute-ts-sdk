@@ -25,6 +25,11 @@ export interface VerificationResult {
     verifierURL?: string;
     reportsGenerated: string[];
     outputDirectory: string;
+    reportsData?: {
+        broker?: AttestationReport;
+        llm?: AttestationReport;
+        combined?: AttestationReport;
+    };
 }
 export interface AdditionalInfo {
     VerifierURL?: string;
@@ -92,7 +97,12 @@ export declare class Verifier extends ZGServingUserBrokerBase {
      */
     private extractAllImagesFromTcbInfo;
     /**
-     * Save report to file
+     * Check if running in browser environment
+     */
+    private isBrowser;
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
      */
     private saveReportToFile;
     getSignerRaDownloadLink(providerAddress: string): Promise<string>;
