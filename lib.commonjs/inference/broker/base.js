@@ -273,11 +273,27 @@ class ZGServingUserBrokerBase {
             generation = accountInfo.generation;
         }
         else {
-            // Persistent tokens: find available tokenId from bitmap
-            // CLI usage is single-instance, so cache is fine
+            // Persistent tokens: use provided tokenId or find available one from bitmap
             const accountInfo = await this.getAccountInfo(providerAddress);
             generation = accountInfo.generation;
-            tokenId = this.findAvailableTokenId(accountInfo.revokedBitmap);
+            if (options?.tokenId !== undefined) {
+                // Use the specified tokenId
+                tokenId = options.tokenId;
+                if (tokenId < 0 || tokenId >= exports.EPHEMERAL_TOKEN_ID) {
+                    throw new Error(`Invalid tokenId: ${tokenId}. Must be between 0 and ${exports.EPHEMERAL_TOKEN_ID - 1}`);
+                }
+                // Check if this tokenId is already revoked
+                const bit = BigInt(1) << BigInt(tokenId);
+                if ((accountInfo.revokedBitmap & bit) !== BigInt(0)) {
+                    throw new Error(`TokenId ${tokenId} is already revoked. Use a different tokenId or call revokeAllTokens() to reset.`);
+                }
+            }
+            else {
+                // Find available tokenId from bitmap (only checks revoked, not occupied)
+                // Note: This may return a tokenId that's already in use but not revoked yet.
+                // UI layer should track occupied tokenIds and provide a specific tokenId.
+                tokenId = this.findAvailableTokenId(accountInfo.revokedBitmap);
+            }
         }
         const token = {
             address: userAddress,
@@ -378,6 +394,7 @@ class ZGServingUserBrokerBase {
         const session = await this.generateSessionToken(providerAddress, {
             mode: SessionMode.Persistent,
             duration: options?.expiresIn ?? 0, // Default: never expires
+            tokenId: options?.tokenId,
         });
         const rawToken = `app-sk-${Buffer.from(session.rawMessage + '|' + session.signature).toString('base64')}`;
         return {
@@ -412,6 +429,11 @@ class ZGServingUserBrokerBase {
         await this.contract.revokeAllTokens(providerAddress, gasPrice);
         // Clear ephemeral session cache
         await this.clearEphemeralSession(providerAddress);
+        // Also clear account info cache to ensure fresh generation number is fetched
+        // When generation increments, cached account info with old generation becomes stale
+        const userAddress = this.contract.getUserAddress();
+        const accountInfoKey = `account_info_${userAddress}_${providerAddress}`;
+        this.cache.setItem(accountInfoKey, null, 1, storage_1.CacheValueTypeEnum.Other);
     }
     /**
      * Clear ephemeral session cache

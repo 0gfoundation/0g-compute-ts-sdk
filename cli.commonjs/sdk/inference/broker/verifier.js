@@ -152,6 +152,7 @@ class Verifier extends base_1.ZGServingUserBrokerBase {
                     verifierURL,
                     reportsGenerated: Object.keys(reports),
                     outputDirectory: outputDir,
+                    reportsData: reports, // Include report data for browser environment
                 };
             }
             // Step 4: TEE Signer Address Verification
@@ -332,6 +333,7 @@ class Verifier extends base_1.ZGServingUserBrokerBase {
                 verifierURL,
                 reportsGenerated: Object.keys(reports),
                 outputDirectory: outputDir,
+                reportsData: reports, // Include report data for browser environment
             };
         }
         catch (error) {
@@ -514,9 +516,20 @@ class Verifier extends base_1.ZGServingUserBrokerBase {
         }
     }
     /**
-     * Save report to file
+     * Check if running in browser environment
+     */
+    isBrowser() {
+        return typeof window !== 'undefined' && typeof document !== 'undefined';
+    }
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
      */
     async saveReportToFile(reportContent, filePath) {
+        // Skip file saving in browser environment
+        if (this.isBrowser()) {
+            return;
+        }
         const fs = await Promise.resolve().then(() => __importStar(require('fs/promises')));
         await fs.writeFile(filePath, reportContent, 'utf8');
     }

@@ -31,6 +31,12 @@ export interface VerificationResult {
     verifierURL?: string
     reportsGenerated: string[]
     outputDirectory: string
+    // For browser environment: actual report contents
+    reportsData?: {
+        broker?: AttestationReport
+        llm?: AttestationReport
+        combined?: AttestationReport
+    }
 }
 
 export interface AdditionalInfo {
@@ -242,6 +248,7 @@ export class Verifier extends ZGServingUserBrokerBase {
                     verifierURL,
                     reportsGenerated: Object.keys(reports),
                     outputDirectory: outputDir,
+                    reportsData: reports, // Include report data for browser environment
                 }
             }
 
@@ -522,6 +529,7 @@ export class Verifier extends ZGServingUserBrokerBase {
                 verifierURL,
                 reportsGenerated: Object.keys(reports),
                 outputDirectory: outputDir,
+                reportsData: reports, // Include report data for browser environment
             }
         } catch (error) {
             console.error('❌ TEE verification failed:', error)
@@ -752,12 +760,25 @@ export class Verifier extends ZGServingUserBrokerBase {
     }
 
     /**
-     * Save report to file
+     * Check if running in browser environment
+     */
+    private isBrowser(): boolean {
+        return typeof window !== 'undefined' && typeof document !== 'undefined'
+    }
+
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
      */
     private async saveReportToFile(
         reportContent: string,
         filePath: string
     ): Promise<void> {
+        // Skip file saving in browser environment
+        if (this.isBrowser()) {
+            return
+        }
+
         const fs = await import('fs/promises')
         await fs.writeFile(filePath, reportContent, 'utf8')
     }

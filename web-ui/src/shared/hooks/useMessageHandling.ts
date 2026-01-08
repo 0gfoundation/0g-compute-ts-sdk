@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import { getChatApiKey } from '@/shared/utils/apiKeyStorage';
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -43,6 +44,7 @@ interface MessageHandlingConfig {
   setErrorWithTimeout: (error: string | null) => void;
   isUserScrollingRef: React.RefObject<boolean>;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  userAddress?: string; // User's wallet address for API key lookup
 }
 
 export function useMessageHandling(config: MessageHandlingConfig) {
@@ -60,6 +62,7 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     setErrorWithTimeout,
     isUserScrollingRef,
     messagesEndRef,
+    userAddress,
   } = config;
 
   // AbortController for stopping generation
@@ -89,7 +92,7 @@ export function useMessageHandling(config: MessageHandlingConfig) {
 
     // Add user message to UI immediately
     setMessages((prev) => [...prev, userMessage]);
-    
+
     // Save user message to database and get session ID
     let currentSessionForAssistant: string | null = null;
     try {
@@ -101,7 +104,8 @@ export function useMessageHandling(config: MessageHandlingConfig) {
         is_verifying: false,
       });
     } catch (err) {
-      // Silent fail for database operations
+      // FIXED: Add error logging for debugging (still fail silently to user)
+      console.warn('[ChatHistory] Failed to save user message to database:', err);
     }
     
     // Reset input and start loading
@@ -145,14 +149,29 @@ export function useMessageHandling(config: MessageHandlingConfig) {
       ];
       
       // Get request headers
-      let headers;
-      try {
-        headers = await broker.inference.getRequestHeaders(
-          selectedProvider.address,
-          JSON.stringify(messagesToSend)
-        );
-      } catch (headerError) {
-        throw headerError;
+      let headers: HeadersInit;
+
+      // Try to use stored API key first (方案 D: 使用选中的 chat key)
+      const chatKey = userAddress ? getChatApiKey(selectedProvider.address, userAddress) : null;
+
+      if (chatKey) {
+        // Use stored chat API key
+        console.log('[Chat] Using stored API key:', chatKey.label || chatKey.id);
+        headers = {
+          'Authorization': `Bearer ${chatKey.apiKey}`,
+          'Content-Type': 'application/json',
+        };
+      } else {
+        // Fallback: Use SDK auto-generated key
+        console.log('[Chat] No stored API key found, using SDK auto-generated key');
+        try {
+          headers = await broker.inference.getRequestHeaders(
+            selectedProvider.address,
+            JSON.stringify(messagesToSend)
+          );
+        } catch (headerError) {
+          throw headerError;
+        }
       }
       // Send request to service
       const { endpoint, model } = currentMetadata;
@@ -307,7 +326,8 @@ export function useMessageHandling(config: MessageHandlingConfig) {
             provider_address: selectedProvider?.address || '',
           });
         } catch (err) {
-          // Silent fail for database operations
+          // FIXED: Add error logging for debugging (still fail silently to user)
+          console.warn('[ChatHistory] Failed to save assistant message to database:', err);
         }
       }
 

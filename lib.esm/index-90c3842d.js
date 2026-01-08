@@ -13639,11 +13639,27 @@ class ZGServingUserBrokerBase {
             generation = accountInfo.generation;
         }
         else {
-            // Persistent tokens: find available tokenId from bitmap
-            // CLI usage is single-instance, so cache is fine
+            // Persistent tokens: use provided tokenId or find available one from bitmap
             const accountInfo = await this.getAccountInfo(providerAddress);
             generation = accountInfo.generation;
-            tokenId = this.findAvailableTokenId(accountInfo.revokedBitmap);
+            if (options?.tokenId !== undefined) {
+                // Use the specified tokenId
+                tokenId = options.tokenId;
+                if (tokenId < 0 || tokenId >= EPHEMERAL_TOKEN_ID) {
+                    throw new Error(`Invalid tokenId: ${tokenId}. Must be between 0 and ${EPHEMERAL_TOKEN_ID - 1}`);
+                }
+                // Check if this tokenId is already revoked
+                const bit = BigInt(1) << BigInt(tokenId);
+                if ((accountInfo.revokedBitmap & bit) !== BigInt(0)) {
+                    throw new Error(`TokenId ${tokenId} is already revoked. Use a different tokenId or call revokeAllTokens() to reset.`);
+                }
+            }
+            else {
+                // Find available tokenId from bitmap (only checks revoked, not occupied)
+                // Note: This may return a tokenId that's already in use but not revoked yet.
+                // UI layer should track occupied tokenIds and provide a specific tokenId.
+                tokenId = this.findAvailableTokenId(accountInfo.revokedBitmap);
+            }
         }
         const token = {
             address: userAddress,
@@ -13744,6 +13760,7 @@ class ZGServingUserBrokerBase {
         const session = await this.generateSessionToken(providerAddress, {
             mode: SessionMode.Persistent,
             duration: options?.expiresIn ?? 0, // Default: never expires
+            tokenId: options?.tokenId,
         });
         const rawToken = `app-sk-${Buffer.from(session.rawMessage + '|' + session.signature).toString('base64')}`;
         return {
@@ -13778,6 +13795,11 @@ class ZGServingUserBrokerBase {
         await this.contract.revokeAllTokens(providerAddress, gasPrice);
         // Clear ephemeral session cache
         await this.clearEphemeralSession(providerAddress);
+        // Also clear account info cache to ensure fresh generation number is fetched
+        // When generation increments, cached account info with old generation becomes stale
+        const userAddress = this.contract.getUserAddress();
+        const accountInfoKey = `account_info_${userAddress}_${providerAddress}`;
+        this.cache.setItem(accountInfoKey, null, 1, CacheValueTypeEnum.Other);
     }
     /**
      * Clear ephemeral session cache
@@ -14706,6 +14728,7 @@ class Verifier extends ZGServingUserBrokerBase {
                     verifierURL,
                     reportsGenerated: Object.keys(reports),
                     outputDirectory: outputDir,
+                    reportsData: reports, // Include report data for browser environment
                 };
             }
             // Step 4: TEE Signer Address Verification
@@ -14886,6 +14909,7 @@ class Verifier extends ZGServingUserBrokerBase {
                 verifierURL,
                 reportsGenerated: Object.keys(reports),
                 outputDirectory: outputDir,
+                reportsData: reports, // Include report data for browser environment
             };
         }
         catch (error) {
@@ -15068,9 +15092,20 @@ class Verifier extends ZGServingUserBrokerBase {
         }
     }
     /**
-     * Save report to file
+     * Check if running in browser environment
+     */
+    isBrowser() {
+        return typeof window !== 'undefined' && typeof document !== 'undefined';
+    }
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
      */
     async saveReportToFile(reportContent, filePath) {
+        // Skip file saving in browser environment
+        if (this.isBrowser()) {
+            return;
+        }
         const fs = await import('fs/promises');
         await fs.writeFile(filePath, reportContent, 'utf8');
     }
@@ -15596,6 +15631,65 @@ class InferenceBroker {
             throwFormattedError(error);
         }
     };
+    /**
+     * Revoke a specific API key (persistent token) by its tokenId.
+     *
+     * Sets the corresponding bit in the revokedBitmap for this tokenId.
+     * The API key will be immediately invalid, but the tokenId slot remains occupied
+     * until revokeAllTokens() is called.
+     *
+     * Note: Ephemeral tokens (tokenId=255) cannot be individually revoked.
+     * Use revokeAllTokens() to revoke ephemeral tokens.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} tokenId - Token ID to revoke (0-254)
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if tokenId is 255 (ephemeral token) or if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke token ID 5 for a provider
+     * await broker.inference.revokeApiKey('0x123...', 5)
+     * // Token ID 5 is now revoked and the API key is invalid
+     * ```
+     */
+    revokeApiKey = async (providerAddress, tokenId, gasPrice) => {
+        try {
+            return await this.requestProcessor.revokeApiKey(providerAddress, tokenId, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Revoke all API keys (both ephemeral and persistent tokens) for a provider.
+     *
+     * Increments the generation counter and resets the revokedBitmap.
+     * All existing API keys (including ephemeral tokens) will be immediately invalid.
+     * Reclaims all 255 tokenId slots for reuse.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke all tokens for a provider
+     * await broker.inference.revokeAllTokens('0x123...')
+     * // All API keys for this provider are now invalid
+     * // All 255 tokenId slots are now available for reuse
+     * ```
+     */
+    revokeAllTokens = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.revokeAllTokens(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
 }
 /**
  * createInferenceBroker is used to initialize ZGServingUserBroker
@@ -15932,7 +16026,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-032748e9.js');
+    const { download } = await import('./index-c389d8b1.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21399,4 +21493,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-d3cf82b5.js.map
+//# sourceMappingURL=index-90c3842d.js.map

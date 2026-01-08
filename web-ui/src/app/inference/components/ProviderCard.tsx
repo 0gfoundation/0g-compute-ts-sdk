@@ -10,47 +10,93 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
-    MessageCircle,
-    Code,
     Copy,
     AlertCircle,
     Loader2,
+    MessageSquare,
+    Image as ImageIcon,
+    Mic,
+    Check,
 } from 'lucide-react'
 import { cn, copyToClipboard } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import type { Provider } from '@/shared/types/broker'
 
 interface ProviderCardProps {
     provider: Provider
     isOfficial: boolean
     isLoading?: boolean
-    onChat?: (provider: Provider) => void
-    onBuild?: (provider: Provider) => void
+    onClick?: (provider: Provider) => void // Changed: single click handler for the entire card
 }
 
 export function ProviderCard({
     provider,
     isOfficial,
     isLoading = false,
-    onChat,
-    onBuild,
+    onClick,
 }: ProviderCardProps) {
+    const { toast } = useToast()
+    const [isCopied, setIsCopied] = React.useState(false)
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
 
-    const copyAddress = async () => {
-        await copyToClipboard(provider.address)
+    const copyAddress = async (e: React.MouseEvent) => {
+        e.stopPropagation() // Prevent card click when copying address
+        const success = await copyToClipboard(provider.address)
+        if (success) {
+            setIsCopied(true)
+            toast({
+                title: 'Address copied',
+                description: 'Provider address copied to clipboard',
+                duration: 2000,
+            })
+            setTimeout(() => setIsCopied(false), 2000)
+        }
     }
 
     const truncatedAddress = `${provider.address.slice(0, 8)}...${provider.address.slice(-6)}`
 
+    const handleCardClick = () => {
+        if (!isDisabled && onClick) {
+            onClick(provider)
+        }
+    }
+
+    // Determine model type icon based on service type
+    const getModelTypeIcon = () => {
+        const serviceType = provider.serviceType
+        if (serviceType === 'text-to-image' || serviceType === 'image-editing') {
+            return <ImageIcon className="h-4 w-4 text-purple-600" />
+        }
+        if (serviceType === 'speech-to-text' || serviceType === 'audio') {
+            return <Mic className="h-4 w-4 text-purple-600" />
+        }
+        // Default to text/LLM
+        return <MessageSquare className="h-4 w-4 text-purple-600" />
+    }
+
+    // Get pricing unit based on service type
+    const getPricingUnit = () => {
+        const serviceType = provider.serviceType
+        if (serviceType === 'text-to-image' || serviceType === 'image-editing') {
+            return '0G/Image'
+        }
+        if (serviceType === 'speech-to-text' || serviceType === 'audio') {
+            return '0G/1M Tok'
+        }
+        // Default to text tokens
+        return '0G/1M Tok'
+    }
+
     return (
         <Card
             className={cn(
-                'relative transition-shadow',
+                'relative transition-all',
                 isDisabled
                     ? 'opacity-60 cursor-not-allowed'
-                    : 'hover:shadow-lg cursor-pointer'
+                    : 'hover:shadow-lg cursor-pointer hover:scale-[1.02]'
             )}
+            onClick={handleCardClick}
         >
             <CardContent className="p-5">
                 {/* Loading indicator */}
@@ -64,6 +110,10 @@ export function ProviderCard({
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {/* Model type icon */}
+                            <div className="flex-shrink-0">
+                                {getModelTypeIcon()}
+                            </div>
                             <h3 className="text-base font-semibold text-gray-900 truncate">
                                 {provider.name}
                             </h3>
@@ -111,7 +161,7 @@ export function ProviderCard({
                                             </span>
                                         </div>
                                     )}
-                                    <span className="text-gray-500">0G</span>
+                                    <span className="text-gray-500 font-medium">{getPricingUnit()}</span>
                                 </div>
                             )}
 
@@ -119,12 +169,12 @@ export function ProviderCard({
                             <div className="flex items-center gap-1">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <code className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded cursor-default">
+                                        <code className="text-[10px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded cursor-default">
                                             {truncatedAddress}
                                         </code>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{provider.address}</p>
+                                        <p className="text-xs">{provider.address}</p>
                                     </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
@@ -132,72 +182,23 @@ export function ProviderCard({
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-6 w-6 text-gray-400 hover:text-gray-600"
+                                            className="h-5 w-5 text-gray-400 hover:text-gray-600"
                                             onClick={copyAddress}
                                         >
-                                            <Copy className="h-3 w-3" />
+                                            {isCopied ? (
+                                                <Check className="h-2.5 w-2.5 text-green-600" />
+                                            ) : (
+                                                <Copy className="h-2.5 w-2.5" />
+                                            )}
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Copy address</p>
+                                        <p className="text-xs">{isCopied ? 'Copied!' : 'Copy address'}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-1 mt-1">
-                    {isDisabled ? (
-                        <>
-                            {provider.serviceType === 'chatbot' && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex-1 text-xs cursor-not-allowed"
-                                    disabled
-                                >
-                                    <MessageCircle className="h-3 w-3 mr-1" />
-                                    Chat
-                                </Button>
-                            )}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 text-xs cursor-not-allowed"
-                                disabled
-                            >
-                                <Code className="h-3 w-3 mr-1" />
-                                Build
-                            </Button>
-                        </>
-                    ) : (
-                        <>
-                            {provider.serviceType === 'chatbot' && onChat && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex-1 text-xs text-gray-600 border-gray-300 hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
-                                    onClick={() => onChat(provider)}
-                                >
-                                    <MessageCircle className="h-3 w-3 mr-1" />
-                                    Chat
-                                </Button>
-                            )}
-                            {onBuild && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex-1 text-xs text-gray-600 border-gray-300 hover:text-purple-600 hover:bg-purple-50 hover:border-purple-200"
-                                    onClick={() => onBuild(provider)}
-                                >
-                                    <Code className="h-3 w-3 mr-1" />
-                                    Build
-                                </Button>
-                            )}
-                        </>
-                    )}
                 </div>
 
                 {/* Unverified notice */}
@@ -206,8 +207,7 @@ export function ProviderCard({
                         <div className="flex items-start">
                             <AlertCircle className="h-3 w-3 text-red-500 mr-1 mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-red-700">
-                                This provider has not been verified and cannot be used
-                                until verification is complete.
+                                This provider is awaiting verification by the 0G team.
                             </p>
                         </div>
                     </div>
