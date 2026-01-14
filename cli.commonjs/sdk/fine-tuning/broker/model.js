@@ -72,8 +72,8 @@ class ModelProcessor extends base_1.BrokerBase {
     }
     async decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath) {
         try {
-            const [account, deliverable] = await Promise.all([
-                this.contract.getAccount(providerAddress),
+            const [service, deliverable] = await Promise.all([
+                this.contract.getService(providerAddress),
                 this.contract.getDeliverable(providerAddress, taskId),
             ]);
             if (!deliverable) {
@@ -86,7 +86,7 @@ class ModelProcessor extends base_1.BrokerBase {
                 throw new Error('EncryptedSecret not found');
             }
             const secret = await (0, utils_1.eciesDecrypt)(this.contract.signer, deliverable.encryptedSecret);
-            await (0, utils_1.aesGCMDecryptToFile)(secret, encryptedModelPath, decryptedModelPath, account.providerSigner);
+            await (0, utils_1.aesGCMDecryptToFile)(secret, encryptedModelPath, decryptedModelPath, service.teeSignerAddress);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

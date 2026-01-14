@@ -89,11 +89,11 @@ export type AccountDetailsStruct = {
     pendingRefund: BigNumberish
     refunds: RefundStruct[]
     additionalInfo: string
-    providerSigner: AddressLike
     deliverables: DeliverableStruct[]
     validRefundsLength: BigNumberish
     deliverablesHead: BigNumberish
     deliverablesCount: BigNumberish
+    acknowledged: boolean
 }
 
 export type AccountDetailsStructOutput = [
@@ -104,11 +104,11 @@ export type AccountDetailsStructOutput = [
     pendingRefund: bigint,
     refunds: RefundStructOutput[],
     additionalInfo: string,
-    providerSigner: string,
     deliverables: DeliverableStructOutput[],
     validRefundsLength: bigint,
     deliverablesHead: bigint,
-    deliverablesCount: bigint
+    deliverablesCount: bigint,
+    acknowledged: boolean
 ] & {
     user: string
     provider: string
@@ -117,11 +117,11 @@ export type AccountDetailsStructOutput = [
     pendingRefund: bigint
     refunds: RefundStructOutput[]
     additionalInfo: string
-    providerSigner: string
     deliverables: DeliverableStructOutput[]
     validRefundsLength: bigint
     deliverablesHead: bigint
     deliverablesCount: bigint
+    acknowledged: boolean
 }
 
 export type AccountSummaryStruct = {
@@ -131,9 +131,9 @@ export type AccountSummaryStruct = {
     balance: BigNumberish
     pendingRefund: BigNumberish
     additionalInfo: string
-    providerSigner: AddressLike
     validRefundsLength: BigNumberish
     deliverablesCount: BigNumberish
+    acknowledged: boolean
 }
 
 export type AccountSummaryStructOutput = [
@@ -143,9 +143,9 @@ export type AccountSummaryStructOutput = [
     balance: bigint,
     pendingRefund: bigint,
     additionalInfo: string,
-    providerSigner: string,
     validRefundsLength: bigint,
-    deliverablesCount: bigint
+    deliverablesCount: bigint,
+    acknowledged: boolean
 ] & {
     user: string
     provider: string
@@ -153,9 +153,9 @@ export type AccountSummaryStructOutput = [
     balance: bigint
     pendingRefund: bigint
     additionalInfo: string
-    providerSigner: string
     validRefundsLength: bigint
     deliverablesCount: bigint
+    acknowledged: boolean
 }
 
 export type ServiceStruct = {
@@ -163,9 +163,10 @@ export type ServiceStruct = {
     url: string
     quota: QuotaStruct
     pricePerToken: BigNumberish
-    providerSigner: AddressLike
     occupied: boolean
     models: string[]
+    teeSignerAddress: AddressLike
+    teeSignerAcknowledged: boolean
 }
 
 export type ServiceStructOutput = [
@@ -173,17 +174,19 @@ export type ServiceStructOutput = [
     url: string,
     quota: QuotaStructOutput,
     pricePerToken: bigint,
-    providerSigner: string,
     occupied: boolean,
-    models: string[]
+    models: string[],
+    teeSignerAddress: string,
+    teeSignerAcknowledged: boolean
 ] & {
     provider: string
     url: string
     quota: QuotaStructOutput
     pricePerToken: bigint
-    providerSigner: string
     occupied: boolean
     models: string[]
+    teeSignerAddress: string
+    teeSignerAcknowledged: boolean
 }
 
 export type VerifierInputStruct = {
@@ -191,7 +194,6 @@ export type VerifierInputStruct = {
     encryptedSecret: BytesLike
     modelRootHash: BytesLike
     nonce: BigNumberish
-    providerSigner: AddressLike
     signature: BytesLike
     taskFee: BigNumberish
     user: AddressLike
@@ -202,7 +204,6 @@ export type VerifierInputStructOutput = [
     encryptedSecret: string,
     modelRootHash: string,
     nonce: bigint,
-    providerSigner: string,
     signature: string,
     taskFee: bigint,
     user: string
@@ -211,7 +212,6 @@ export type VerifierInputStructOutput = [
     encryptedSecret: string
     modelRootHash: string
     nonce: bigint
-    providerSigner: string
     signature: string
     taskFee: bigint
     user: string
@@ -222,9 +222,11 @@ export interface FineTuningServingInterface extends Interface {
         nameOrSignature:
             | 'MAX_LOCKTIME'
             | 'MIN_LOCKTIME'
+            | 'MIN_PROVIDER_STAKE'
             | 'accountExists'
             | 'acknowledgeDeliverable'
-            | 'acknowledgeProviderSigner'
+            | 'acknowledgeTEESigner'
+            | 'acknowledgeTEESignerByOwner'
             | 'addAccount'
             | 'addDeliverable'
             | 'addOrUpdateService'
@@ -250,6 +252,7 @@ export interface FineTuningServingInterface extends Interface {
             | 'removeService'
             | 'renounceOwnership'
             | 'requestRefundAll'
+            | 'revokeTEESignerAcknowledgement'
             | 'settleFees'
             | 'supportsInterface'
             | 'transferOwnership'
@@ -264,6 +267,9 @@ export interface FineTuningServingInterface extends Interface {
             | 'Initialized'
             | 'LockTimeUpdated'
             | 'OwnershipTransferred'
+            | 'ProviderStakeReturned'
+            | 'ProviderStaked'
+            | 'ProviderTEESignerAcknowledged'
             | 'RefundRequested'
             | 'ServiceRemoved'
             | 'ServiceUpdated'
@@ -278,6 +284,10 @@ export interface FineTuningServingInterface extends Interface {
         values?: undefined
     ): string
     encodeFunctionData(
+        functionFragment: 'MIN_PROVIDER_STAKE',
+        values?: undefined
+    ): string
+    encodeFunctionData(
         functionFragment: 'accountExists',
         values: [AddressLike, AddressLike]
     ): string
@@ -286,8 +296,12 @@ export interface FineTuningServingInterface extends Interface {
         values: [AddressLike, string]
     ): string
     encodeFunctionData(
-        functionFragment: 'acknowledgeProviderSigner',
-        values: [AddressLike, AddressLike]
+        functionFragment: 'acknowledgeTEESigner',
+        values: [AddressLike, boolean]
+    ): string
+    encodeFunctionData(
+        functionFragment: 'acknowledgeTEESignerByOwner',
+        values: [AddressLike]
     ): string
     encodeFunctionData(
         functionFragment: 'addAccount',
@@ -303,9 +317,9 @@ export interface FineTuningServingInterface extends Interface {
             string,
             QuotaStruct,
             BigNumberish,
-            AddressLike,
             boolean,
-            string[]
+            string[],
+            AddressLike
         ]
     ): string
     encodeFunctionData(
@@ -391,6 +405,10 @@ export interface FineTuningServingInterface extends Interface {
         values: [AddressLike, AddressLike]
     ): string
     encodeFunctionData(
+        functionFragment: 'revokeTEESignerAcknowledgement',
+        values: [AddressLike]
+    ): string
+    encodeFunctionData(
         functionFragment: 'settleFees',
         values: [VerifierInputStruct]
     ): string
@@ -420,6 +438,10 @@ export interface FineTuningServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(
+        functionFragment: 'MIN_PROVIDER_STAKE',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
         functionFragment: 'accountExists',
         data: BytesLike
     ): Result
@@ -428,7 +450,11 @@ export interface FineTuningServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(
-        functionFragment: 'acknowledgeProviderSigner',
+        functionFragment: 'acknowledgeTEESigner',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'acknowledgeTEESignerByOwner',
         data: BytesLike
     ): Result
     decodeFunctionResult(
@@ -523,6 +549,10 @@ export interface FineTuningServingInterface extends Interface {
     ): Result
     decodeFunctionResult(
         functionFragment: 'requestRefundAll',
+        data: BytesLike
+    ): Result
+    decodeFunctionResult(
+        functionFragment: 'revokeTEESignerAcknowledgement',
         data: BytesLike
     ): Result
     decodeFunctionResult(
@@ -655,6 +685,66 @@ export namespace OwnershipTransferredEvent {
     export type LogDescription = TypedLogDescription<Event>
 }
 
+export namespace ProviderStakeReturnedEvent {
+    export type InputTuple = [provider: AddressLike, amount: BigNumberish]
+    export type OutputTuple = [provider: string, amount: bigint]
+    export interface OutputObject {
+        provider: string
+        amount: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace ProviderStakedEvent {
+    export type InputTuple = [provider: AddressLike, amount: BigNumberish]
+    export type OutputTuple = [provider: string, amount: bigint]
+    export interface OutputObject {
+        provider: string
+        amount: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace ProviderTEESignerAcknowledgedEvent {
+    export type InputTuple = [
+        provider: AddressLike,
+        teeSignerAddress: AddressLike,
+        acknowledged: boolean
+    ]
+    export type OutputTuple = [
+        provider: string,
+        teeSignerAddress: string,
+        acknowledged: boolean
+    ]
+    export interface OutputObject {
+        provider: string
+        teeSignerAddress: string
+        acknowledged: boolean
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
 export namespace RefundRequestedEvent {
     export type InputTuple = [
         user: AddressLike,
@@ -706,7 +796,7 @@ export namespace ServiceUpdatedEvent {
         url: string,
         quota: QuotaStruct,
         pricePerToken: BigNumberish,
-        providerSigner: AddressLike,
+        teeSignerAddress: AddressLike,
         occupied: boolean
     ]
     export type OutputTuple = [
@@ -714,7 +804,7 @@ export namespace ServiceUpdatedEvent {
         url: string,
         quota: QuotaStructOutput,
         pricePerToken: bigint,
-        providerSigner: string,
+        teeSignerAddress: string,
         occupied: boolean
     ]
     export interface OutputObject {
@@ -722,7 +812,7 @@ export namespace ServiceUpdatedEvent {
         url: string
         quota: QuotaStructOutput
         pricePerToken: bigint
-        providerSigner: string
+        teeSignerAddress: string
         occupied: boolean
     }
     export type Event = TypedContractEvent<
@@ -782,6 +872,8 @@ export interface FineTuningServing extends BaseContract {
 
     MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>
 
+    MIN_PROVIDER_STAKE: TypedContractMethod<[], [bigint], 'view'>
+
     accountExists: TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
         [boolean],
@@ -794,8 +886,14 @@ export interface FineTuningServing extends BaseContract {
         'nonpayable'
     >
 
-    acknowledgeProviderSigner: TypedContractMethod<
-        [provider: AddressLike, providerSigner: AddressLike],
+    acknowledgeTEESigner: TypedContractMethod<
+        [provider: AddressLike, acknowledged: boolean],
+        [void],
+        'nonpayable'
+    >
+
+    acknowledgeTEESignerByOwner: TypedContractMethod<
+        [provider: AddressLike],
         [void],
         'nonpayable'
     >
@@ -817,12 +915,12 @@ export interface FineTuningServing extends BaseContract {
             url: string,
             quota: QuotaStruct,
             pricePerToken: BigNumberish,
-            providerSigner: AddressLike,
             occupied: boolean,
-            models: string[]
+            models: string[],
+            teeSignerAddress: AddressLike
         ],
         [void],
-        'nonpayable'
+        'payable'
     >
 
     deleteAccount: TypedContractMethod<
@@ -955,6 +1053,12 @@ export interface FineTuningServing extends BaseContract {
         'nonpayable'
     >
 
+    revokeTEESignerAcknowledgement: TypedContractMethod<
+        [provider: AddressLike],
+        [void],
+        'nonpayable'
+    >
+
     settleFees: TypedContractMethod<
         [verifierInput: VerifierInputStruct],
         [void],
@@ -996,6 +1100,9 @@ export interface FineTuningServing extends BaseContract {
         nameOrSignature: 'MIN_LOCKTIME'
     ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
+        nameOrSignature: 'MIN_PROVIDER_STAKE'
+    ): TypedContractMethod<[], [bigint], 'view'>
+    getFunction(
         nameOrSignature: 'accountExists'
     ): TypedContractMethod<
         [user: AddressLike, provider: AddressLike],
@@ -1010,12 +1117,15 @@ export interface FineTuningServing extends BaseContract {
         'nonpayable'
     >
     getFunction(
-        nameOrSignature: 'acknowledgeProviderSigner'
+        nameOrSignature: 'acknowledgeTEESigner'
     ): TypedContractMethod<
-        [provider: AddressLike, providerSigner: AddressLike],
+        [provider: AddressLike, acknowledged: boolean],
         [void],
         'nonpayable'
     >
+    getFunction(
+        nameOrSignature: 'acknowledgeTEESignerByOwner'
+    ): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>
     getFunction(
         nameOrSignature: 'addAccount'
     ): TypedContractMethod<
@@ -1037,12 +1147,12 @@ export interface FineTuningServing extends BaseContract {
             url: string,
             quota: QuotaStruct,
             pricePerToken: BigNumberish,
-            providerSigner: AddressLike,
             occupied: boolean,
-            models: string[]
+            models: string[],
+            teeSignerAddress: AddressLike
         ],
         [void],
-        'nonpayable'
+        'payable'
     >
     getFunction(
         nameOrSignature: 'deleteAccount'
@@ -1189,6 +1299,9 @@ export interface FineTuningServing extends BaseContract {
         'nonpayable'
     >
     getFunction(
+        nameOrSignature: 'revokeTEESignerAcknowledgement'
+    ): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>
+    getFunction(
         nameOrSignature: 'settleFees'
     ): TypedContractMethod<
         [verifierInput: VerifierInputStruct],
@@ -1246,6 +1359,27 @@ export interface FineTuningServing extends BaseContract {
         OwnershipTransferredEvent.InputTuple,
         OwnershipTransferredEvent.OutputTuple,
         OwnershipTransferredEvent.OutputObject
+    >
+    getEvent(
+        key: 'ProviderStakeReturned'
+    ): TypedContractEvent<
+        ProviderStakeReturnedEvent.InputTuple,
+        ProviderStakeReturnedEvent.OutputTuple,
+        ProviderStakeReturnedEvent.OutputObject
+    >
+    getEvent(
+        key: 'ProviderStaked'
+    ): TypedContractEvent<
+        ProviderStakedEvent.InputTuple,
+        ProviderStakedEvent.OutputTuple,
+        ProviderStakedEvent.OutputObject
+    >
+    getEvent(
+        key: 'ProviderTEESignerAcknowledged'
+    ): TypedContractEvent<
+        ProviderTEESignerAcknowledgedEvent.InputTuple,
+        ProviderTEESignerAcknowledgedEvent.OutputTuple,
+        ProviderTEESignerAcknowledgedEvent.OutputObject
     >
     getEvent(
         key: 'RefundRequested'
@@ -1323,6 +1457,39 @@ export interface FineTuningServing extends BaseContract {
             OwnershipTransferredEvent.InputTuple,
             OwnershipTransferredEvent.OutputTuple,
             OwnershipTransferredEvent.OutputObject
+        >
+
+        'ProviderStakeReturned(address,uint256)': TypedContractEvent<
+            ProviderStakeReturnedEvent.InputTuple,
+            ProviderStakeReturnedEvent.OutputTuple,
+            ProviderStakeReturnedEvent.OutputObject
+        >
+        ProviderStakeReturned: TypedContractEvent<
+            ProviderStakeReturnedEvent.InputTuple,
+            ProviderStakeReturnedEvent.OutputTuple,
+            ProviderStakeReturnedEvent.OutputObject
+        >
+
+        'ProviderStaked(address,uint256)': TypedContractEvent<
+            ProviderStakedEvent.InputTuple,
+            ProviderStakedEvent.OutputTuple,
+            ProviderStakedEvent.OutputObject
+        >
+        ProviderStaked: TypedContractEvent<
+            ProviderStakedEvent.InputTuple,
+            ProviderStakedEvent.OutputTuple,
+            ProviderStakedEvent.OutputObject
+        >
+
+        'ProviderTEESignerAcknowledged(address,address,bool)': TypedContractEvent<
+            ProviderTEESignerAcknowledgedEvent.InputTuple,
+            ProviderTEESignerAcknowledgedEvent.OutputTuple,
+            ProviderTEESignerAcknowledgedEvent.OutputObject
+        >
+        ProviderTEESignerAcknowledged: TypedContractEvent<
+            ProviderTEESignerAcknowledgedEvent.InputTuple,
+            ProviderTEESignerAcknowledgedEvent.OutputTuple,
+            ProviderTEESignerAcknowledgedEvent.OutputObject
         >
 
         'RefundRequested(address,address,uint256,uint256)': TypedContractEvent<

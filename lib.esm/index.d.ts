@@ -126,10 +126,14 @@ type TEESettlementDataStruct = {
 interface InferenceServingInterface extends Interface {
     getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'isTokenRevoked' | 'ledgerAddress' | 'lockTime' | 'migrateRefunds' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeAllTokens' | 'revokeTEESignerAcknowledgement' | 'revokeToken' | 'revokeTokens' | 'serviceExists' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
 <<<<<<< HEAD
+<<<<<<< HEAD
     getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'RefundsMigrated' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
 =======
     getEvent(nameOrSignatureOrTopic: 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'RefundsMigrated' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
@@ -154,10 +158,14 @@ interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'ledgerAddress', values?: undefined): string;
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string;
 <<<<<<< HEAD
+<<<<<<< HEAD
     encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike, BigNumberish, BigNumberish]): string;
 =======
     encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike[], AddressLike]): string;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike, BigNumberish, BigNumberish]): string;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'previewSettlementResults', values: [TEESettlementDataStruct[]]): string;
     encodeFunctionData(functionFragment: 'processRefund', values: [AddressLike, AddressLike]): string;
@@ -213,7 +221,11 @@ interface InferenceServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'updateLockTime', data: BytesLike): Result;
 }
+<<<<<<< HEAD
 declare namespace AccountDeletedEvent {
+=======
+declare namespace AccountDeletedEvent$1 {
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     type InputTuple = [
         user: AddressLike,
         provider: AddressLike,
@@ -332,7 +344,7 @@ declare namespace InitializedEvent$2 {
     type Log = TypedEventLog$2<Event>;
     type LogDescription = TypedLogDescription$2<Event>;
 }
-declare namespace LockTimeUpdatedEvent {
+declare namespace LockTimeUpdatedEvent$1 {
     type InputTuple = [
         oldLockTime: BigNumberish,
         newLockTime: BigNumberish
@@ -359,7 +371,7 @@ declare namespace OwnershipTransferredEvent$2 {
     type Log = TypedEventLog$2<Event>;
     type LogDescription = TypedLogDescription$2<Event>;
 }
-declare namespace ProviderStakeReturnedEvent {
+declare namespace ProviderStakeReturnedEvent$1 {
     type InputTuple = [provider: AddressLike, amount: BigNumberish];
     type OutputTuple = [provider: string, amount: bigint];
     interface OutputObject {
@@ -371,7 +383,7 @@ declare namespace ProviderStakeReturnedEvent {
     type Log = TypedEventLog$2<Event>;
     type LogDescription = TypedLogDescription$2<Event>;
 }
-declare namespace ProviderStakedEvent {
+declare namespace ProviderStakedEvent$1 {
     type InputTuple = [provider: AddressLike, amount: BigNumberish];
     type OutputTuple = [provider: string, amount: bigint];
     interface OutputObject {
@@ -383,7 +395,7 @@ declare namespace ProviderStakedEvent {
     type Log = TypedEventLog$2<Event>;
     type LogDescription = TypedLogDescription$2<Event>;
 }
-declare namespace ProviderTEESignerAcknowledgedEvent {
+declare namespace ProviderTEESignerAcknowledgedEvent$1 {
     type InputTuple = [
         provider: AddressLike,
         teeSignerAddress: AddressLike,
@@ -707,6 +719,7 @@ interface InferenceServing extends BaseContract {
     lockTime: TypedContractMethod$2<[], [bigint], 'view'>;
     migrateRefunds: TypedContractMethod$2<[
 <<<<<<< HEAD
+<<<<<<< HEAD
         provider: AddressLike,
         startIndex: BigNumberish,
         batchSize: BigNumberish
@@ -721,6 +734,16 @@ interface InferenceServing extends BaseContract {
     ], [
         bigint
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        provider: AddressLike,
+        startIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            cleanedCount: bigint;
+            nextIndex: bigint;
+        }
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     ], 'nonpayable'>;
     owner: TypedContractMethod$2<[], [string], 'view'>;
     previewSettlementResults: TypedContractMethod$2<[
@@ -936,6 +959,7 @@ interface InferenceServing extends BaseContract {
     getFunction(nameOrSignature: 'lockTime'): TypedContractMethod$2<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'migrateRefunds'): TypedContractMethod$2<[
 <<<<<<< HEAD
+<<<<<<< HEAD
         provider: AddressLike,
         startIndex: BigNumberish,
         batchSize: BigNumberish
@@ -950,6 +974,16 @@ interface InferenceServing extends BaseContract {
     ], [
         bigint
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        provider: AddressLike,
+        startIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            cleanedCount: bigint;
+            nextIndex: bigint;
+        }
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     ], 'nonpayable'>;
     getFunction(nameOrSignature: 'owner'): TypedContractMethod$2<[], [string], 'view'>;
     getFunction(nameOrSignature: 'previewSettlementResults'): TypedContractMethod$2<[
@@ -1012,17 +1046,21 @@ interface InferenceServing extends BaseContract {
     getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod$2<[interfaceId: BytesLike], [boolean], 'view'>;
     getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod$2<[newOwner: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'updateLockTime'): TypedContractMethod$2<[_locktime: BigNumberish], [void], 'nonpayable'>;
+<<<<<<< HEAD
     getEvent(key: 'AccountDeleted'): TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
+=======
+    getEvent(key: 'AccountDeleted'): TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getEvent(key: 'AllTokensRevoked'): TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
     getEvent(key: 'BalanceUpdated'): TypedContractEvent$2<BalanceUpdatedEvent$1.InputTuple, BalanceUpdatedEvent$1.OutputTuple, BalanceUpdatedEvent$1.OutputObject>;
     getEvent(key: 'BatchBalanceUpdated'): TypedContractEvent$2<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
     getEvent(key: 'ContractInitialized'): TypedContractEvent$2<ContractInitializedEvent.InputTuple, ContractInitializedEvent.OutputTuple, ContractInitializedEvent.OutputObject>;
     getEvent(key: 'Initialized'): TypedContractEvent$2<InitializedEvent$2.InputTuple, InitializedEvent$2.OutputTuple, InitializedEvent$2.OutputObject>;
-    getEvent(key: 'LockTimeUpdated'): TypedContractEvent$2<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
+    getEvent(key: 'LockTimeUpdated'): TypedContractEvent$2<LockTimeUpdatedEvent$1.InputTuple, LockTimeUpdatedEvent$1.OutputTuple, LockTimeUpdatedEvent$1.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
-    getEvent(key: 'ProviderStakeReturned'): TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
-    getEvent(key: 'ProviderStaked'): TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
-    getEvent(key: 'ProviderTEESignerAcknowledged'): TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
+    getEvent(key: 'ProviderStakeReturned'): TypedContractEvent$2<ProviderStakeReturnedEvent$1.InputTuple, ProviderStakeReturnedEvent$1.OutputTuple, ProviderStakeReturnedEvent$1.OutputObject>;
+    getEvent(key: 'ProviderStaked'): TypedContractEvent$2<ProviderStakedEvent$1.InputTuple, ProviderStakedEvent$1.OutputTuple, ProviderStakedEvent$1.OutputObject>;
+    getEvent(key: 'ProviderTEESignerAcknowledged'): TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent$1.InputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputObject>;
     getEvent(key: 'RefundRequested'): TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
     getEvent(key: 'RefundsMigrated'): TypedContractEvent$2<RefundsMigratedEvent.InputTuple, RefundsMigratedEvent.OutputTuple, RefundsMigratedEvent.OutputObject>;
     getEvent(key: 'ServiceRemoved'): TypedContractEvent$2<ServiceRemovedEvent$1.InputTuple, ServiceRemovedEvent$1.OutputTuple, ServiceRemovedEvent$1.OutputObject>;
@@ -1031,8 +1069,13 @@ interface InferenceServing extends BaseContract {
     getEvent(key: 'TokenRevoked'): TypedContractEvent$2<TokenRevokedEvent.InputTuple, TokenRevokedEvent.OutputTuple, TokenRevokedEvent.OutputObject>;
     getEvent(key: 'TokensRevoked'): TypedContractEvent$2<TokensRevokedEvent.InputTuple, TokensRevokedEvent.OutputTuple, TokensRevokedEvent.OutputObject>;
     filters: {
+<<<<<<< HEAD
         'AccountDeleted(address,address,uint256)': TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
         AccountDeleted: TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
+=======
+        'AccountDeleted(address,address,uint256)': TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
+        AccountDeleted: TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
         'AllTokensRevoked(address,address,uint256)': TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
         AllTokensRevoked: TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent$2<BalanceUpdatedEvent$1.InputTuple, BalanceUpdatedEvent$1.OutputTuple, BalanceUpdatedEvent$1.OutputObject>;
@@ -1043,16 +1086,16 @@ interface InferenceServing extends BaseContract {
         ContractInitialized: TypedContractEvent$2<ContractInitializedEvent.InputTuple, ContractInitializedEvent.OutputTuple, ContractInitializedEvent.OutputObject>;
         'Initialized(uint8)': TypedContractEvent$2<InitializedEvent$2.InputTuple, InitializedEvent$2.OutputTuple, InitializedEvent$2.OutputObject>;
         Initialized: TypedContractEvent$2<InitializedEvent$2.InputTuple, InitializedEvent$2.OutputTuple, InitializedEvent$2.OutputObject>;
-        'LockTimeUpdated(uint256,uint256)': TypedContractEvent$2<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
-        LockTimeUpdated: TypedContractEvent$2<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
+        'LockTimeUpdated(uint256,uint256)': TypedContractEvent$2<LockTimeUpdatedEvent$1.InputTuple, LockTimeUpdatedEvent$1.OutputTuple, LockTimeUpdatedEvent$1.OutputObject>;
+        LockTimeUpdated: TypedContractEvent$2<LockTimeUpdatedEvent$1.InputTuple, LockTimeUpdatedEvent$1.OutputTuple, LockTimeUpdatedEvent$1.OutputObject>;
         'OwnershipTransferred(address,address)': TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
         OwnershipTransferred: TypedContractEvent$2<OwnershipTransferredEvent$2.InputTuple, OwnershipTransferredEvent$2.OutputTuple, OwnershipTransferredEvent$2.OutputObject>;
-        'ProviderStakeReturned(address,uint256)': TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
-        ProviderStakeReturned: TypedContractEvent$2<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
-        'ProviderStaked(address,uint256)': TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
-        ProviderStaked: TypedContractEvent$2<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
-        'ProviderTEESignerAcknowledged(address,address,bool)': TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
-        ProviderTEESignerAcknowledged: TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
+        'ProviderStakeReturned(address,uint256)': TypedContractEvent$2<ProviderStakeReturnedEvent$1.InputTuple, ProviderStakeReturnedEvent$1.OutputTuple, ProviderStakeReturnedEvent$1.OutputObject>;
+        ProviderStakeReturned: TypedContractEvent$2<ProviderStakeReturnedEvent$1.InputTuple, ProviderStakeReturnedEvent$1.OutputTuple, ProviderStakeReturnedEvent$1.OutputObject>;
+        'ProviderStaked(address,uint256)': TypedContractEvent$2<ProviderStakedEvent$1.InputTuple, ProviderStakedEvent$1.OutputTuple, ProviderStakedEvent$1.OutputObject>;
+        ProviderStaked: TypedContractEvent$2<ProviderStakedEvent$1.InputTuple, ProviderStakedEvent$1.OutputTuple, ProviderStakedEvent$1.OutputObject>;
+        'ProviderTEESignerAcknowledged(address,address,bool)': TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent$1.InputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputObject>;
+        ProviderTEESignerAcknowledged: TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent$1.InputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputObject>;
         'RefundRequested(address,address,uint256,uint256)': TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
         RefundRequested: TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
         'RefundsMigrated(address,address,uint256,uint256)': TypedContractEvent$2<RefundsMigratedEvent.InputTuple, RefundsMigratedEvent.OutputTuple, RefundsMigratedEvent.OutputObject>;
@@ -1263,10 +1306,14 @@ type LedgerStructOutput = [
 interface LedgerManagerInterface extends Interface {
     getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_PROVIDERS_PER_USER_PER_SERVICE' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'migrateUserServiceProvidersMapping' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership' | 'updateAdditionalInfo'): FunctionFragment;
 <<<<<<< HEAD
+<<<<<<< HEAD
     getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
 =======
     getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_USER_PER_SERVICE', values?: undefined): string;
@@ -1289,10 +1336,14 @@ interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'initialized', values?: undefined): string;
     encodeFunctionData(functionFragment: 'isRecommendedVersion', values: [string, string]): string;
 <<<<<<< HEAD
+<<<<<<< HEAD
     encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
 =======
     encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values?: undefined): string;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'refund', values: [BigNumberish]): string;
     encodeFunctionData(functionFragment: 'registerService', values: [string, string, AddressLike, string]): string;
@@ -1544,6 +1595,7 @@ interface LedgerManager extends BaseContract {
     ], 'view'>;
     migrateUserServiceProvidersMapping: TypedContractMethod$1<[
 <<<<<<< HEAD
+<<<<<<< HEAD
         startUserIndex: BigNumberish,
         batchSize: BigNumberish
     ], [
@@ -1555,6 +1607,15 @@ interface LedgerManager extends BaseContract {
     ], [
         void
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        startUserIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            migratedCount: bigint;
+            nextUserIndex: bigint;
+        }
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     ], 'nonpayable'>;
     owner: TypedContractMethod$1<[], [string], 'view'>;
     refund: TypedContractMethod$1<[amount: BigNumberish], [void], 'nonpayable'>;
@@ -1673,6 +1734,9 @@ interface LedgerManager extends BaseContract {
         boolean
     ], 'view'>;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod$1<[
         startUserIndex: BigNumberish,
         batchSize: BigNumberish
@@ -1682,9 +1746,12 @@ interface LedgerManager extends BaseContract {
             nextUserIndex: bigint;
         }
     ], 'nonpayable'>;
+<<<<<<< HEAD
 =======
     getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod$1<[], [void], 'nonpayable'>;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getFunction(nameOrSignature: 'owner'): TypedContractMethod$1<[], [string], 'view'>;
     getFunction(nameOrSignature: 'refund'): TypedContractMethod$1<[amount: BigNumberish], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'registerService'): TypedContractMethod$1<[
@@ -1868,11 +1935,11 @@ type AccountDetailsStructOutput = [
     pendingRefund: bigint,
     refunds: RefundStructOutput[],
     additionalInfo: string,
-    providerSigner: string,
     deliverables: DeliverableStructOutput[],
     validRefundsLength: bigint,
     deliverablesHead: bigint,
-    deliverablesCount: bigint
+    deliverablesCount: bigint,
+    acknowledged: boolean
 ] & {
     user: string;
     provider: string;
@@ -1881,11 +1948,11 @@ type AccountDetailsStructOutput = [
     pendingRefund: bigint;
     refunds: RefundStructOutput[];
     additionalInfo: string;
-    providerSigner: string;
     deliverables: DeliverableStructOutput[];
     validRefundsLength: bigint;
     deliverablesHead: bigint;
     deliverablesCount: bigint;
+    acknowledged: boolean;
 };
 type AccountSummaryStructOutput = [
     user: string,
@@ -1894,9 +1961,9 @@ type AccountSummaryStructOutput = [
     balance: bigint,
     pendingRefund: bigint,
     additionalInfo: string,
-    providerSigner: string,
     validRefundsLength: bigint,
-    deliverablesCount: bigint
+    deliverablesCount: bigint,
+    acknowledged: boolean
 ] & {
     user: string;
     provider: string;
@@ -1904,54 +1971,57 @@ type AccountSummaryStructOutput = [
     balance: bigint;
     pendingRefund: bigint;
     additionalInfo: string;
-    providerSigner: string;
     validRefundsLength: bigint;
     deliverablesCount: bigint;
+    acknowledged: boolean;
 };
 type ServiceStructOutput = [
     provider: string,
     url: string,
     quota: QuotaStructOutput,
     pricePerToken: bigint,
-    providerSigner: string,
     occupied: boolean,
-    models: string[]
+    models: string[],
+    teeSignerAddress: string,
+    teeSignerAcknowledged: boolean
 ] & {
     provider: string;
     url: string;
     quota: QuotaStructOutput;
     pricePerToken: bigint;
-    providerSigner: string;
     occupied: boolean;
     models: string[];
+    teeSignerAddress: string;
+    teeSignerAcknowledged: boolean;
 };
 type VerifierInputStruct = {
     id: string;
     encryptedSecret: BytesLike;
     modelRootHash: BytesLike;
     nonce: BigNumberish;
-    providerSigner: AddressLike;
     signature: BytesLike;
     taskFee: BigNumberish;
     user: AddressLike;
 };
 interface FineTuningServingInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'accountExists' | 'acknowledgeDeliverable' | 'acknowledgeProviderSigner' | 'addAccount' | 'addDeliverable' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getDeliverable' | 'getDeliverables' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'penaltyPercentage' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'settleFees' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime' | 'updatePenaltyPercentage'): FunctionFragment;
-    getEvent(nameOrSignatureOrTopic: 'BalanceUpdated' | 'Initialized' | 'OwnershipTransferred' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated'): EventFragment;
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeDeliverable' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addDeliverable' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getDeliverable' | 'getDeliverables' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'penaltyPercentage' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFees' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime' | 'updatePenaltyPercentage'): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'BalanceUpdated' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
     encodeFunctionData(functionFragment: 'accountExists', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'acknowledgeDeliverable', values: [AddressLike, string]): string;
-    encodeFunctionData(functionFragment: 'acknowledgeProviderSigner', values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: 'acknowledgeTEESigner', values: [AddressLike, boolean]): string;
+    encodeFunctionData(functionFragment: 'acknowledgeTEESignerByOwner', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'addAccount', values: [AddressLike, AddressLike, string]): string;
     encodeFunctionData(functionFragment: 'addDeliverable', values: [AddressLike, string, BytesLike]): string;
     encodeFunctionData(functionFragment: 'addOrUpdateService', values: [
         string,
         QuotaStruct,
         BigNumberish,
-        AddressLike,
         boolean,
-        string[]
+        string[],
+        AddressLike
     ]): string;
     encodeFunctionData(functionFragment: 'deleteAccount', values: [AddressLike, AddressLike]): string;
     encodeFunctionData(functionFragment: 'depositFund', values: [AddressLike, AddressLike, BigNumberish]): string;
@@ -1975,6 +2045,7 @@ interface FineTuningServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'removeService', values?: undefined): string;
     encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
     encodeFunctionData(functionFragment: 'requestRefundAll', values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: 'revokeTEESignerAcknowledgement', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'settleFees', values: [VerifierInputStruct]): string;
     encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
     encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
@@ -1982,9 +2053,11 @@ interface FineTuningServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'updatePenaltyPercentage', values: [BigNumberish]): string;
     decodeFunctionResult(functionFragment: 'MAX_LOCKTIME', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'MIN_LOCKTIME', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'MIN_PROVIDER_STAKE', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'accountExists', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'acknowledgeDeliverable', data: BytesLike): Result;
-    decodeFunctionResult(functionFragment: 'acknowledgeProviderSigner', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'acknowledgeTEESigner', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'acknowledgeTEESignerByOwner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addAccount', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addDeliverable', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'addOrUpdateService', data: BytesLike): Result;
@@ -2010,11 +2083,33 @@ interface FineTuningServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'removeService', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'requestRefundAll', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'revokeTEESignerAcknowledgement', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'settleFees', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'updateLockTime', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'updatePenaltyPercentage', data: BytesLike): Result;
+}
+declare namespace AccountDeletedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        refundedAmount: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        refundedAmount: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        refundedAmount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
 }
 declare namespace BalanceUpdatedEvent {
     type InputTuple = [
@@ -2051,12 +2146,72 @@ declare namespace InitializedEvent {
     type Log = TypedEventLog<Event>;
     type LogDescription = TypedLogDescription<Event>;
 }
+declare namespace LockTimeUpdatedEvent {
+    type InputTuple = [
+        oldLockTime: BigNumberish,
+        newLockTime: BigNumberish
+    ];
+    type OutputTuple = [oldLockTime: bigint, newLockTime: bigint];
+    interface OutputObject {
+        oldLockTime: bigint;
+        newLockTime: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
 declare namespace OwnershipTransferredEvent {
     type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
     type OutputTuple = [previousOwner: string, newOwner: string];
     interface OutputObject {
         previousOwner: string;
         newOwner: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace ProviderStakeReturnedEvent {
+    type InputTuple = [provider: AddressLike, amount: BigNumberish];
+    type OutputTuple = [provider: string, amount: bigint];
+    interface OutputObject {
+        provider: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace ProviderStakedEvent {
+    type InputTuple = [provider: AddressLike, amount: BigNumberish];
+    type OutputTuple = [provider: string, amount: bigint];
+    interface OutputObject {
+        provider: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace ProviderTEESignerAcknowledgedEvent {
+    type InputTuple = [
+        provider: AddressLike,
+        teeSignerAddress: AddressLike,
+        acknowledged: boolean
+    ];
+    type OutputTuple = [
+        provider: string,
+        teeSignerAddress: string,
+        acknowledged: boolean
+    ];
+    interface OutputObject {
+        provider: string;
+        teeSignerAddress: string;
+        acknowledged: boolean;
     }
     type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
     type Filter = TypedDeferredTopicFilter<Event>;
@@ -2104,7 +2259,7 @@ declare namespace ServiceUpdatedEvent {
         url: string,
         quota: QuotaStruct,
         pricePerToken: BigNumberish,
-        providerSigner: AddressLike,
+        teeSignerAddress: AddressLike,
         occupied: boolean
     ];
     type OutputTuple = [
@@ -2112,7 +2267,7 @@ declare namespace ServiceUpdatedEvent {
         url: string,
         quota: QuotaStructOutput,
         pricePerToken: bigint,
-        providerSigner: string,
+        teeSignerAddress: string,
         occupied: boolean
     ];
     interface OutputObject {
@@ -2120,7 +2275,7 @@ declare namespace ServiceUpdatedEvent {
         url: string;
         quota: QuotaStructOutput;
         pricePerToken: bigint;
-        providerSigner: string;
+        teeSignerAddress: string;
         occupied: boolean;
     }
     type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -2143,6 +2298,7 @@ interface FineTuningServing extends BaseContract {
     removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
     MAX_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
     MIN_LOCKTIME: TypedContractMethod<[], [bigint], 'view'>;
+    MIN_PROVIDER_STAKE: TypedContractMethod<[], [bigint], 'view'>;
     accountExists: TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -2155,9 +2311,14 @@ interface FineTuningServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
-    acknowledgeProviderSigner: TypedContractMethod<[
+    acknowledgeTEESigner: TypedContractMethod<[
         provider: AddressLike,
-        providerSigner: AddressLike
+        acknowledged: boolean
+    ], [
+        void
+    ], 'nonpayable'>;
+    acknowledgeTEESignerByOwner: TypedContractMethod<[
+        provider: AddressLike
     ], [
         void
     ], 'nonpayable'>;
@@ -2179,12 +2340,12 @@ interface FineTuningServing extends BaseContract {
         url: string,
         quota: QuotaStruct,
         pricePerToken: BigNumberish,
-        providerSigner: AddressLike,
         occupied: boolean,
-        models: string[]
+        models: string[],
+        teeSignerAddress: AddressLike
     ], [
         void
-    ], 'nonpayable'>;
+    ], 'payable'>;
     deleteAccount: TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -2307,6 +2468,11 @@ interface FineTuningServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    revokeTEESignerAcknowledgement: TypedContractMethod<[
+        provider: AddressLike
+    ], [
+        void
+    ], 'nonpayable'>;
     settleFees: TypedContractMethod<[
         verifierInput: VerifierInputStruct
     ], [
@@ -2335,6 +2501,7 @@ interface FineTuningServing extends BaseContract {
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
     getFunction(nameOrSignature: 'MAX_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'MIN_LOCKTIME'): TypedContractMethod<[], [bigint], 'view'>;
+    getFunction(nameOrSignature: 'MIN_PROVIDER_STAKE'): TypedContractMethod<[], [bigint], 'view'>;
     getFunction(nameOrSignature: 'accountExists'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -2347,12 +2514,13 @@ interface FineTuningServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
-    getFunction(nameOrSignature: 'acknowledgeProviderSigner'): TypedContractMethod<[
+    getFunction(nameOrSignature: 'acknowledgeTEESigner'): TypedContractMethod<[
         provider: AddressLike,
-        providerSigner: AddressLike
+        acknowledged: boolean
     ], [
         void
     ], 'nonpayable'>;
+    getFunction(nameOrSignature: 'acknowledgeTEESignerByOwner'): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'addAccount'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike,
@@ -2371,12 +2539,12 @@ interface FineTuningServing extends BaseContract {
         url: string,
         quota: QuotaStruct,
         pricePerToken: BigNumberish,
-        providerSigner: AddressLike,
         occupied: boolean,
-        models: string[]
+        models: string[],
+        teeSignerAddress: AddressLike
     ], [
         void
-    ], 'nonpayable'>;
+    ], 'payable'>;
     getFunction(nameOrSignature: 'deleteAccount'): TypedContractMethod<[
         user: AddressLike,
         provider: AddressLike
@@ -2499,6 +2667,7 @@ interface FineTuningServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    getFunction(nameOrSignature: 'revokeTEESignerAcknowledgement'): TypedContractMethod<[provider: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'settleFees'): TypedContractMethod<[
         verifierInput: VerifierInputStruct
     ], [
@@ -2512,19 +2681,34 @@ interface FineTuningServing extends BaseContract {
     ], [
         void
     ], 'nonpayable'>;
+    getEvent(key: 'AccountDeleted'): TypedContractEvent<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
     getEvent(key: 'BalanceUpdated'): TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
     getEvent(key: 'Initialized'): TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
+    getEvent(key: 'LockTimeUpdated'): TypedContractEvent<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
+    getEvent(key: 'ProviderStakeReturned'): TypedContractEvent<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+    getEvent(key: 'ProviderStaked'): TypedContractEvent<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
+    getEvent(key: 'ProviderTEESignerAcknowledged'): TypedContractEvent<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
     getEvent(key: 'RefundRequested'): TypedContractEvent<RefundRequestedEvent.InputTuple, RefundRequestedEvent.OutputTuple, RefundRequestedEvent.OutputObject>;
     getEvent(key: 'ServiceRemoved'): TypedContractEvent<ServiceRemovedEvent.InputTuple, ServiceRemovedEvent.OutputTuple, ServiceRemovedEvent.OutputObject>;
     getEvent(key: 'ServiceUpdated'): TypedContractEvent<ServiceUpdatedEvent.InputTuple, ServiceUpdatedEvent.OutputTuple, ServiceUpdatedEvent.OutputObject>;
     filters: {
+        'AccountDeleted(address,address,uint256)': TypedContractEvent<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
+        AccountDeleted: TypedContractEvent<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
         BalanceUpdated: TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
         'Initialized(uint8)': TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
         Initialized: TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
+        'LockTimeUpdated(uint256,uint256)': TypedContractEvent<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
+        LockTimeUpdated: TypedContractEvent<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
         'OwnershipTransferred(address,address)': TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
         OwnershipTransferred: TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
+        'ProviderStakeReturned(address,uint256)': TypedContractEvent<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+        ProviderStakeReturned: TypedContractEvent<ProviderStakeReturnedEvent.InputTuple, ProviderStakeReturnedEvent.OutputTuple, ProviderStakeReturnedEvent.OutputObject>;
+        'ProviderStaked(address,uint256)': TypedContractEvent<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
+        ProviderStaked: TypedContractEvent<ProviderStakedEvent.InputTuple, ProviderStakedEvent.OutputTuple, ProviderStakedEvent.OutputObject>;
+        'ProviderTEESignerAcknowledged(address,address,bool)': TypedContractEvent<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
+        ProviderTEESignerAcknowledged: TypedContractEvent<ProviderTEESignerAcknowledgedEvent.InputTuple, ProviderTEESignerAcknowledgedEvent.OutputTuple, ProviderTEESignerAcknowledgedEvent.OutputObject>;
         'RefundRequested(address,address,uint256,uint256)': TypedContractEvent<RefundRequestedEvent.InputTuple, RefundRequestedEvent.OutputTuple, RefundRequestedEvent.OutputObject>;
         RefundRequested: TypedContractEvent<RefundRequestedEvent.InputTuple, RefundRequestedEvent.OutputTuple, RefundRequestedEvent.OutputObject>;
         'ServiceRemoved(address)': TypedContractEvent<ServiceRemovedEvent.InputTuple, ServiceRemovedEvent.OutputTuple, ServiceRemovedEvent.OutputObject>;
@@ -2547,7 +2731,10 @@ declare class FineTuningServingContract {
     listService(): Promise<ServiceStructOutput[]>;
     listAccount(offset?: number, limit?: number): Promise<AccountSummaryStructOutput[]>;
     getAccount(provider: AddressLike): Promise<AccountDetailsStructOutput>;
-    acknowledgeProviderSigner(providerAddress: AddressLike, providerSigner: AddressLike, gasPrice?: number): Promise<void>;
+    acknowledgeTEESigner(providerAddress: AddressLike, acknowledged: boolean, gasPrice?: number): Promise<void>;
+    acknowledgeTEESignerByOwner(providerAddress: AddressLike, gasPrice?: number): Promise<void>;
+    revokeTEESignerAcknowledgement(providerAddress: AddressLike, gasPrice?: number): Promise<void>;
+    removeService(gasPrice?: number): Promise<void>;
     acknowledgeDeliverable(providerAddress: AddressLike, id: string, gasPrice?: number): Promise<void>;
     getService(providerAddress: string): Promise<ServiceStructOutput>;
     getDeliverable(providerAddress: AddressLike, id: string): Promise<DeliverableStructOutput>;
@@ -3448,6 +3635,9 @@ declare class FineTuningBroker {
     getAccount: (providerAddress: string) => Promise<AccountDetailsStructOutput>;
     getAccountWithDetail: (providerAddress: string) => Promise<FineTuningAccountDetail>;
     acknowledgeProviderSigner: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    acknowledgeTEESignerByOwner: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    revokeTEESignerAcknowledgement: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    removeService: (gasPrice?: number) => Promise<void>;
     listModel: () => Promise<[string, {
         [key: string]: string;
     }][][]>;

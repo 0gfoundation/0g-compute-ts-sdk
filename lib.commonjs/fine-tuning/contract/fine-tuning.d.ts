@@ -13,7 +13,10 @@ export declare class FineTuningServingContract {
     listService(): Promise<ServiceStructOutput[]>;
     listAccount(offset?: number, limit?: number): Promise<import("./typechain/FineTuningServing").AccountSummaryStructOutput[]>;
     getAccount(provider: AddressLike): Promise<import("./typechain/FineTuningServing").AccountDetailsStructOutput>;
-    acknowledgeProviderSigner(providerAddress: AddressLike, providerSigner: AddressLike, gasPrice?: number): Promise<void>;
+    acknowledgeTEESigner(providerAddress: AddressLike, acknowledged: boolean, gasPrice?: number): Promise<void>;
+    acknowledgeTEESignerByOwner(providerAddress: AddressLike, gasPrice?: number): Promise<void>;
+    revokeTEESignerAcknowledgement(providerAddress: AddressLike, gasPrice?: number): Promise<void>;
+    removeService(gasPrice?: number): Promise<void>;
     acknowledgeDeliverable(providerAddress: AddressLike, id: string, gasPrice?: number): Promise<void>;
     getService(providerAddress: string): Promise<ServiceStructOutput>;
     getDeliverable(providerAddress: AddressLike, id: string): Promise<DeliverableStructOutput>;
