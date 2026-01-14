@@ -115,6 +115,42 @@ export class FineTuningBroker {
         }
     }
 
+    public acknowledgeTEESignerByOwner = async (
+        providerAddress: string,
+        gasPrice?: number
+    ) => {
+        try {
+            return await this.serviceProcessor.acknowledgeTEESignerByOwner(
+                providerAddress,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    public revokeTEESignerAcknowledgement = async (
+        providerAddress: string,
+        gasPrice?: number
+    ) => {
+        try {
+            return await this.serviceProcessor.revokeTEESignerAcknowledgement(
+                providerAddress,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    public removeService = async (gasPrice?: number) => {
+        try {
+            return await this.serviceProcessor.removeService(gasPrice)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
     public listModel = () => {
         try {
             return this.modelProcessor.listModel()

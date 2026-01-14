@@ -304,5 +304,46 @@ function fineTuning(program) {
             console.log(table.toString());
         });
     });
+    program
+        .command('ack-provider', { hidden: true })
+        .description('Acknowledge TEE Signer (Contract owner only)')
+        .requiredOption('--provider <address>', 'Provider address')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        (0, util_1.withFineTuningBroker)(options, async (broker) => {
+            await broker.fineTuning.acknowledgeTEESignerByOwner(options.provider, options.gasPrice);
+            console.log('Provider acknowledged successfully!');
+        });
+    });
+    program
+        .command('revoke', { hidden: true })
+        .description('Revoke TEE signer acknowledgement (Contract owner only)')
+        .requiredOption('--provider <address>', 'Provider address')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        (0, util_1.withFineTuningBroker)(options, async (broker) => {
+            await broker.fineTuning.revokeTEESignerAcknowledgement(options.provider, options.gasPrice);
+            console.log('Provider TEE signer acknowledgement revoked successfully!');
+        });
+    });
+    program
+        .command('remove-service')
+        .description('[For provider] Remove your service from the contract')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .action((options) => {
+        (0, util_1.withFineTuningBroker)(options, async (broker) => {
+            await broker.fineTuning.removeService(options.gasPrice);
+            console.log('Service removed successfully!');
+        });
+    });
 }
 //# sourceMappingURL=fine-tuning.js.map

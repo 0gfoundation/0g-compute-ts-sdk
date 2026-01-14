@@ -149,11 +149,35 @@ class ServiceProcessor extends base_1.BrokerBase {
             //     }
             // }
             const account = await this.contract.getAccount(providerAddress);
-            if (account.providerSigner === signingAddress) {
+            if (account.acknowledged) {
                 console.log('Provider signer already acknowledged');
                 return;
             }
-            await this.contract.acknowledgeProviderSigner(providerAddress, signingAddress, gasPrice);
+            await this.contract.acknowledgeTEESigner(providerAddress, true, gasPrice);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
+        try {
+            await this.contract.acknowledgeTEESignerByOwner(providerAddress, gasPrice);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
+        try {
+            await this.contract.revokeTEESignerAcknowledgement(providerAddress, gasPrice);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async removeService(gasPrice) {
+        try {
+            await this.contract.removeService(gasPrice);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

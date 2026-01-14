@@ -49,10 +49,14 @@ export type LedgerStructOutput = [
 export interface LedgerManagerInterface extends Interface {
     getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_PROVIDERS_PER_USER_PER_SERVICE' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'migrateUserServiceProvidersMapping' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership' | 'updateAdditionalInfo'): FunctionFragment;
 <<<<<<< HEAD
+<<<<<<< HEAD
     getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
 =======
     getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_USER_PER_SERVICE', values?: undefined): string;
@@ -75,10 +79,14 @@ export interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'initialized', values?: undefined): string;
     encodeFunctionData(functionFragment: 'isRecommendedVersion', values: [string, string]): string;
 <<<<<<< HEAD
+<<<<<<< HEAD
     encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
 =======
     encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values?: undefined): string;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'refund', values: [BigNumberish]): string;
     encodeFunctionData(functionFragment: 'registerService', values: [string, string, AddressLike, string]): string;
@@ -330,6 +338,7 @@ export interface LedgerManager extends BaseContract {
     ], 'view'>;
     migrateUserServiceProvidersMapping: TypedContractMethod<[
 <<<<<<< HEAD
+<<<<<<< HEAD
         startUserIndex: BigNumberish,
         batchSize: BigNumberish
     ], [
@@ -341,6 +350,15 @@ export interface LedgerManager extends BaseContract {
     ], [
         void
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        startUserIndex: BigNumberish,
+        batchSize: BigNumberish
+    ], [
+        [bigint, bigint] & {
+            migratedCount: bigint;
+            nextUserIndex: bigint;
+        }
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     ], 'nonpayable'>;
     owner: TypedContractMethod<[], [string], 'view'>;
     refund: TypedContractMethod<[amount: BigNumberish], [void], 'nonpayable'>;
@@ -459,6 +477,9 @@ export interface LedgerManager extends BaseContract {
         boolean
     ], 'view'>;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod<[
         startUserIndex: BigNumberish,
         batchSize: BigNumberish
@@ -468,9 +489,12 @@ export interface LedgerManager extends BaseContract {
             nextUserIndex: bigint;
         }
     ], 'nonpayable'>;
+<<<<<<< HEAD
 =======
     getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod<[], [void], 'nonpayable'>;
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+>>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getFunction(nameOrSignature: 'owner'): TypedContractMethod<[], [string], 'view'>;
     getFunction(nameOrSignature: 'refund'): TypedContractMethod<[amount: BigNumberish], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'registerService'): TypedContractMethod<[

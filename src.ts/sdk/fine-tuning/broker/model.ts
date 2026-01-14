@@ -134,8 +134,8 @@ export class ModelProcessor extends BrokerBase {
         decryptedModelPath: string
     ): Promise<void> {
         try {
-            const [account, deliverable] = await Promise.all([
-                this.contract.getAccount(providerAddress),
+            const [service, deliverable] = await Promise.all([
+                this.contract.getService(providerAddress),
                 this.contract.getDeliverable(providerAddress, taskId),
             ])
 
@@ -160,7 +160,7 @@ export class ModelProcessor extends BrokerBase {
                 secret,
                 encryptedModelPath,
                 decryptedModelPath,
-                account.providerSigner
+                service.teeSignerAddress
             )
         } catch (error) {
             throwFormattedError(error)

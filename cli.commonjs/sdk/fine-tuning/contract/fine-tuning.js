@@ -114,13 +114,49 @@ class FineTuningServingContract {
             (0, utils_1.throwFormattedError)(error);
         }
     }
-    async acknowledgeProviderSigner(providerAddress, providerSigner, gasPrice) {
+    async acknowledgeTEESigner(providerAddress, acknowledged, gasPrice) {
         try {
             const txOptions = {};
             if (gasPrice || this._gasPrice) {
                 txOptions.gasPrice = gasPrice || this._gasPrice;
             }
-            await this.sendTx('acknowledgeProviderSigner', [providerAddress, providerSigner], txOptions);
+            await this.sendTx('acknowledgeTEESigner', [providerAddress, acknowledged], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('acknowledgeTEESignerByOwner', [providerAddress], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('revokeTEESignerAcknowledgement', [providerAddress], txOptions);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    async removeService(gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('removeService', [], txOptions);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

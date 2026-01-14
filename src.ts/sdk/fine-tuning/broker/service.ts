@@ -163,16 +163,52 @@ export class ServiceProcessor extends BrokerBase {
             // }
 
             const account = await this.contract.getAccount(providerAddress)
-            if (account.providerSigner === signingAddress) {
+            if (account.acknowledged) {
                 console.log('Provider signer already acknowledged')
                 return
             }
 
-            await this.contract.acknowledgeProviderSigner(
+            await this.contract.acknowledgeTEESigner(
                 providerAddress,
-                signingAddress,
+                true,
                 gasPrice
             )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async acknowledgeTEESignerByOwner(
+        providerAddress: string,
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            await this.contract.acknowledgeTEESignerByOwner(
+                providerAddress,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async revokeTEESignerAcknowledgement(
+        providerAddress: string,
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            await this.contract.revokeTEESignerAcknowledgement(
+                providerAddress,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async removeService(gasPrice?: number): Promise<void> {
+        try {
+            await this.contract.removeService(gasPrice)
         } catch (error) {
             throwFormattedError(error)
         }

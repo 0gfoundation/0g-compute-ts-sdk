@@ -19,6 +19,9 @@ export declare class FineTuningBroker {
     getAccount: (providerAddress: string) => Promise<import("../contract").AccountDetailsStructOutput>;
     getAccountWithDetail: (providerAddress: string) => Promise<FineTuningAccountDetail>;
     acknowledgeProviderSigner: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    acknowledgeTEESignerByOwner: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    revokeTEESignerAcknowledgement: (providerAddress: string, gasPrice?: number) => Promise<void>;
+    removeService: (gasPrice?: number) => Promise<void>;
     listModel: () => Promise<[string, {
         [key: string]: string;
     }][][]>;

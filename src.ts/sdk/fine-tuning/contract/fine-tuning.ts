@@ -176,9 +176,9 @@ export class FineTuningServingContract {
         }
     }
 
-    async acknowledgeProviderSigner(
+    async acknowledgeTEESigner(
         providerAddress: AddressLike,
-        providerSigner: AddressLike,
+        acknowledged: boolean,
         gasPrice?: number
     ) {
         try {
@@ -187,10 +187,60 @@ export class FineTuningServingContract {
                 txOptions.gasPrice = gasPrice || this._gasPrice
             }
             await this.sendTx(
-                'acknowledgeProviderSigner',
-                [providerAddress, providerSigner],
+                'acknowledgeTEESigner',
+                [providerAddress, acknowledged],
                 txOptions
             )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async acknowledgeTEESignerByOwner(
+        providerAddress: AddressLike,
+        gasPrice?: number
+    ) {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+            await this.sendTx(
+                'acknowledgeTEESignerByOwner',
+                [providerAddress],
+                txOptions
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async revokeTEESignerAcknowledgement(
+        providerAddress: AddressLike,
+        gasPrice?: number
+    ) {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+            await this.sendTx(
+                'revokeTEESignerAcknowledgement',
+                [providerAddress],
+                txOptions
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    async removeService(gasPrice?: number) {
+        try {
+            const txOptions: any = {}
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice
+            }
+            await this.sendTx('removeService', [], txOptions)
         } catch (error) {
             throwFormattedError(error)
         }
