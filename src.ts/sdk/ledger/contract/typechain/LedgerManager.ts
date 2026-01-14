@@ -205,10 +205,14 @@ export interface LedgerManagerInterface extends Interface {
     encodeFunctionData(
         functionFragment: 'migrateUserServiceProvidersMapping',
 <<<<<<< HEAD
+<<<<<<< HEAD
         values: [BigNumberish, BigNumberish]
 =======
         values?: undefined
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        values: [BigNumberish, BigNumberish]
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
     ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
@@ -650,12 +654,17 @@ export interface LedgerManager extends BaseContract {
 
     migrateUserServiceProvidersMapping: TypedContractMethod<
 <<<<<<< HEAD
+<<<<<<< HEAD
         [startUserIndex: BigNumberish, batchSize: BigNumberish],
         [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
 =======
         [],
         [void],
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        [startUserIndex: BigNumberish, batchSize: BigNumberish],
+        [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
         'nonpayable'
     >
 
@@ -817,14 +826,20 @@ export interface LedgerManager extends BaseContract {
     getFunction(
         nameOrSignature: 'migrateUserServiceProvidersMapping'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
     ): TypedContractMethod<
         [startUserIndex: BigNumberish, batchSize: BigNumberish],
         [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
         'nonpayable'
     >
+<<<<<<< HEAD
 =======
     ): TypedContractMethod<[], [void], 'nonpayable'>
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
     getFunction(
         nameOrSignature: 'owner'
     ): TypedContractMethod<[], [string], 'view'>
