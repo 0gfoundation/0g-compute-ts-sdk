@@ -259,8 +259,10 @@ export interface FineTuningServingInterface extends Interface {
 
     getEvent(
         nameOrSignatureOrTopic:
+            | 'AccountDeleted'
             | 'BalanceUpdated'
             | 'Initialized'
+            | 'LockTimeUpdated'
             | 'OwnershipTransferred'
             | 'RefundRequested'
             | 'ServiceRemoved'
@@ -545,6 +547,32 @@ export interface FineTuningServingInterface extends Interface {
     ): Result
 }
 
+export namespace AccountDeletedEvent {
+    export type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        refundedAmount: BigNumberish
+    ]
+    export type OutputTuple = [
+        user: string,
+        provider: string,
+        refundedAmount: bigint
+    ]
+    export interface OutputObject {
+        user: string
+        provider: string
+        refundedAmount: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
 export namespace BalanceUpdatedEvent {
     export type InputTuple = [
         user: AddressLike,
@@ -579,6 +607,26 @@ export namespace InitializedEvent {
     export type OutputTuple = [version: bigint]
     export interface OutputObject {
         version: bigint
+    }
+    export type Event = TypedContractEvent<
+        InputTuple,
+        OutputTuple,
+        OutputObject
+    >
+    export type Filter = TypedDeferredTopicFilter<Event>
+    export type Log = TypedEventLog<Event>
+    export type LogDescription = TypedLogDescription<Event>
+}
+
+export namespace LockTimeUpdatedEvent {
+    export type InputTuple = [
+        oldLockTime: BigNumberish,
+        newLockTime: BigNumberish
+    ]
+    export type OutputTuple = [oldLockTime: bigint, newLockTime: bigint]
+    export interface OutputObject {
+        oldLockTime: bigint
+        newLockTime: bigint
     }
     export type Event = TypedContractEvent<
         InputTuple,
@@ -1165,6 +1213,13 @@ export interface FineTuningServing extends BaseContract {
     >
 
     getEvent(
+        key: 'AccountDeleted'
+    ): TypedContractEvent<
+        AccountDeletedEvent.InputTuple,
+        AccountDeletedEvent.OutputTuple,
+        AccountDeletedEvent.OutputObject
+    >
+    getEvent(
         key: 'BalanceUpdated'
     ): TypedContractEvent<
         BalanceUpdatedEvent.InputTuple,
@@ -1177,6 +1232,13 @@ export interface FineTuningServing extends BaseContract {
         InitializedEvent.InputTuple,
         InitializedEvent.OutputTuple,
         InitializedEvent.OutputObject
+    >
+    getEvent(
+        key: 'LockTimeUpdated'
+    ): TypedContractEvent<
+        LockTimeUpdatedEvent.InputTuple,
+        LockTimeUpdatedEvent.OutputTuple,
+        LockTimeUpdatedEvent.OutputObject
     >
     getEvent(
         key: 'OwnershipTransferred'
@@ -1208,6 +1270,17 @@ export interface FineTuningServing extends BaseContract {
     >
 
     filters: {
+        'AccountDeleted(address,address,uint256)': TypedContractEvent<
+            AccountDeletedEvent.InputTuple,
+            AccountDeletedEvent.OutputTuple,
+            AccountDeletedEvent.OutputObject
+        >
+        AccountDeleted: TypedContractEvent<
+            AccountDeletedEvent.InputTuple,
+            AccountDeletedEvent.OutputTuple,
+            AccountDeletedEvent.OutputObject
+        >
+
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent<
             BalanceUpdatedEvent.InputTuple,
             BalanceUpdatedEvent.OutputTuple,
@@ -1228,6 +1301,17 @@ export interface FineTuningServing extends BaseContract {
             InitializedEvent.InputTuple,
             InitializedEvent.OutputTuple,
             InitializedEvent.OutputObject
+        >
+
+        'LockTimeUpdated(uint256,uint256)': TypedContractEvent<
+            LockTimeUpdatedEvent.InputTuple,
+            LockTimeUpdatedEvent.OutputTuple,
+            LockTimeUpdatedEvent.OutputObject
+        >
+        LockTimeUpdated: TypedContractEvent<
+            LockTimeUpdatedEvent.InputTuple,
+            LockTimeUpdatedEvent.OutputTuple,
+            LockTimeUpdatedEvent.OutputObject
         >
 
         'OwnershipTransferred(address,address)': TypedContractEvent<

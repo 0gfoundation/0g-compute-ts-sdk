@@ -331,10 +331,14 @@ export interface InferenceServingInterface extends Interface {
     encodeFunctionData(
         functionFragment: 'migrateRefunds',
 <<<<<<< HEAD
+<<<<<<< HEAD
         values: [AddressLike, BigNumberish, BigNumberish]
 =======
         values: [AddressLike[], AddressLike]
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+        values: [AddressLike, BigNumberish, BigNumberish]
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
     ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
@@ -1168,16 +1172,22 @@ export interface InferenceServing extends BaseContract {
 
     migrateRefunds: TypedContractMethod<
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
         [
             provider: AddressLike,
             startIndex: BigNumberish,
             batchSize: BigNumberish
         ],
         [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+<<<<<<< HEAD
 =======
         [users: AddressLike[], provider: AddressLike],
         [bigint],
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
         'nonpayable'
     >
 
@@ -1429,16 +1439,22 @@ export interface InferenceServing extends BaseContract {
         nameOrSignature: 'migrateRefunds'
     ): TypedContractMethod<
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
         [
             provider: AddressLike,
             startIndex: BigNumberish,
             batchSize: BigNumberish
         ],
         [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
+<<<<<<< HEAD
 =======
         [users: AddressLike[], provider: AddressLike],
         [bigint],
 >>>>>>> 553a496 (chore(inference): update for ca)
+=======
+>>>>>>> 3a1890f (chore(fine-tuning): update contract client)
         'nonpayable'
     >
     getFunction(
