@@ -459,12 +459,13 @@ function renderDeliverables(deliverables: DeliverableStructOutput[]) {
     }
 
     const table = new Table({
-        head: [chalk.blue('Root Hash'), chalk.blue('Access Confirmed')],
-        colWidths: [75, 25],
+        head: [chalk.blue('ID'), chalk.blue('Root Hash'), chalk.blue('Access Confirmed')],
+        colWidths: [43, 65, 25],
     })
 
     deliverables.forEach((d) => {
         table.push([
+            d.id,
             splitIntoChunks(hexToRoots(d.modelRootHash), 60),
             d.acknowledged ? chalk.greenBright.bold('\u2713') : '',
         ])
