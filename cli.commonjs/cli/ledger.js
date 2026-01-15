@@ -328,11 +328,16 @@ function renderDeliverables(deliverables) {
         return;
     }
     const table = new cli_table3_1.default({
-        head: [chalk_1.default.blue('Root Hash'), chalk_1.default.blue('Access Confirmed')],
-        colWidths: [75, 25],
+        head: [
+            chalk_1.default.blue('ID'),
+            chalk_1.default.blue('Root Hash'),
+            chalk_1.default.blue('Access Confirmed'),
+        ],
+        colWidths: [43, 65, 25],
     });
     deliverables.forEach((d) => {
         table.push([
+            d.id,
             (0, util_1.splitIntoChunks)((0, utils_1.hexToRoots)(d.modelRootHash), 60),
             d.acknowledged ? chalk_1.default.greenBright.bold('\u2713') : '',
         ]);

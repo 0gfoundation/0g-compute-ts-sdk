@@ -459,7 +459,11 @@ function renderDeliverables(deliverables: DeliverableStructOutput[]) {
     }
 
     const table = new Table({
-        head: [chalk.blue('ID'), chalk.blue('Root Hash'), chalk.blue('Access Confirmed')],
+        head: [
+            chalk.blue('ID'),
+            chalk.blue('Root Hash'),
+            chalk.blue('Access Confirmed'),
+        ],
         colWidths: [43, 65, 25],
     })
 

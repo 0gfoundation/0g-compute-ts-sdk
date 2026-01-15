@@ -21,7 +21,7 @@ exports.AUTOMATA_ABI = exports.AUTOMATA_CONTRACT_ADDRESS = exports.AUTOMATA_RPC 
 exports.MESSAGE_FOR_ENCRYPTION_KEY = 'MESSAGE_FOR_ENCRYPTION_KEY';
 exports.ZG_RPC_ENDPOINT_TESTNET = 'https://evmrpc-testnet.0g.ai';
 exports.INDEXER_URL_STANDARD = 'https://indexer-storage-testnet-standard.0g.ai';
-exports.INDEXER_URL_TURBO = 'http://47.251.40.189:12345';
+exports.INDEXER_URL_TURBO = 'https://indexer-storage-testnet-turbo.0g.ai';
 exports.TOKEN_COUNTER_MERKLE_ROOT = '0x4e8ae3790920b9971397f088fcfacbb9dad0c28ec2831f37f3481933b1fdbdbc';
 exports.TOKEN_COUNTER_FILE_HASH = '26ab266a12c9ce34611aba3f82baf056dc683181236d5fa15edb8eb8c8db3872';
 exports.MODEL_HASH_MAP = {

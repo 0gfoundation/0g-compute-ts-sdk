@@ -15,7 +15,7 @@ export declare const CONTRACT_ADDRESSES: {
     readonly testnetDev: {
         readonly ledger: "0xf248Baaee6A4dC84bac4675906F8dBd2D761356B";
         readonly inference: "0x335c02f5F1A01b54Ae7a4974c5Dd2853C3300C95";
-        readonly fineTuning: "0x0000000000000000000000000000000000000000";
+        readonly fineTuning: "0x933ecA2F203840Dc2fA05878a52C4a99aB13F8B1";
     };
     readonly mainnet: {
         readonly ledger: "0x2dE54c845Cd948B72D2e32e39586fe89607074E3";
