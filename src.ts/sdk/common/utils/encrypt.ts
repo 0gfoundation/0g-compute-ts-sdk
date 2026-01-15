@@ -3,6 +3,7 @@ import { ethers } from 'ethers'
 import { PrivateKey, decrypt } from 'eciesjs'
 import { getCryptoAdapter } from './crypto-adapter'
 import { isBrowser } from './env'
+import { logger } from '../logger'
 
 const ivLength: number = 12
 const tagLength: number = 16
@@ -164,6 +165,9 @@ export async function aesGCMDecryptToFile(
         ethers.keccak256(tagsBuffer),
         '0x' + tagSig.toString('hex')
     )
+
+    logger.debug(`recoveredAddress, ${recoveredAddress}`)
+    logger.debug(`providerTeeSigner, ${providerSigner.toLowerCase()}`)
 
     if (recoveredAddress.toLowerCase() !== providerSigner.toLowerCase()) {
         throw new Error('Invalid tag signature')

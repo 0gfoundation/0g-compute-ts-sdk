@@ -21,7 +21,7 @@ export const ZG_RPC_ENDPOINT_TESTNET = 'https://evmrpc-testnet.0g.ai'
 
 export const INDEXER_URL_STANDARD =
     'https://indexer-storage-testnet-standard.0g.ai'
-export const INDEXER_URL_TURBO = 'http://47.251.40.189:12345'
+export const INDEXER_URL_TURBO = 'https://indexer-storage-testnet-turbo.0g.ai'
 
 export const TOKEN_COUNTER_MERKLE_ROOT =
     '0x4e8ae3790920b9971397f088fcfacbb9dad0c28ec2831f37f3481933b1fdbdbc'

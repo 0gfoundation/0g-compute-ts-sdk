@@ -22,7 +22,7 @@ export const CONTRACT_ADDRESSES = {
     testnetDev: {
         ledger: '0xf248Baaee6A4dC84bac4675906F8dBd2D761356B',
         inference: '0x335c02f5F1A01b54Ae7a4974c5Dd2853C3300C95',
-        fineTuning: '0x0000000000000000000000000000000000000000',
+        fineTuning: '0x933ecA2F203840Dc2fA05878a52C4a99aB13F8B1',
     },
     mainnet: {
         // TODO: Update with actual mainnet addresses when available

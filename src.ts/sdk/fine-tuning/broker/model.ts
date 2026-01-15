@@ -12,11 +12,12 @@ import {
 import { download, upload } from '../zg-storage'
 import { BrokerBase } from './base'
 import { calculateTokenSizeViaPython, calculateTokenSizeViaExe } from '../token'
+import { logger } from '../../common/logger'
 
 export class ModelProcessor extends BrokerBase {
     async listModel(): Promise<[string, { [key: string]: string }][][]> {
         const services = await this.contract.listService()
-        let customizedModels: [string, { [key: string]: string }][] = []
+        const customizedModels: [string, { [key: string]: string }][] = []
         for (const service of services) {
             if (service.models.length !== 0) {
                 const url = service.url
@@ -65,7 +66,7 @@ export class ModelProcessor extends BrokerBase {
                 )
             }
 
-            let model = await this.servingProvider.getCustomizedModel(
+            const model = await this.servingProvider.getCustomizedModel(
                 providerAddress,
                 preTrainedModelName
             )
@@ -111,6 +112,10 @@ export class ModelProcessor extends BrokerBase {
                 taskId
             )
 
+            logger.debug(
+                `deliverable: ${hexToRoots(deliverable.modelRootHash)}`
+            )
+
             if (!deliverable) {
                 throw new Error('No deliverable found')
             }
@@ -138,6 +143,8 @@ export class ModelProcessor extends BrokerBase {
                 this.contract.getService(providerAddress),
                 this.contract.getDeliverable(providerAddress, taskId),
             ])
+
+            logger.debug(`service, ${service}`)
 
             if (!deliverable) {
                 throw new Error('No deliverable found')
