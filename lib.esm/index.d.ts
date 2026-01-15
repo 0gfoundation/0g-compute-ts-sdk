@@ -124,16 +124,8 @@ type TEESettlementDataStruct = {
     signature: BytesLike;
 };
 interface InferenceServingInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'isTokenRevoked' | 'ledgerAddress' | 'lockTime' | 'migrateRefunds' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeAllTokens' | 'revokeTEESignerAcknowledgement' | 'revokeToken' | 'revokeTokens' | 'serviceExists' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'RefundsMigrated' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
-=======
-    getEvent(nameOrSignatureOrTopic: 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'RefundsMigrated' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
+    getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'isTokenRevoked' | 'ledgerAddress' | 'lockTime' | 'owner' | 'previewSettlementResults' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeAllTokens' | 'revokeTEESignerAcknowledgement' | 'revokeToken' | 'revokeTokens' | 'serviceExists' | 'settleFeesWithTEE' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime'): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'AllTokensRevoked' | 'BalanceUpdated' | 'BatchBalanceUpdated' | 'ContractInitialized' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated' | 'TEESettlementResult' | 'TokenRevoked' | 'TokensRevoked'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
@@ -157,15 +149,6 @@ interface InferenceServingInterface extends Interface {
     encodeFunctionData(functionFragment: 'isTokenRevoked', values: [AddressLike, AddressLike, BigNumberish]): string;
     encodeFunctionData(functionFragment: 'ledgerAddress', values?: undefined): string;
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike, BigNumberish, BigNumberish]): string;
-=======
-    encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike[], AddressLike]): string;
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-    encodeFunctionData(functionFragment: 'migrateRefunds', values: [AddressLike, BigNumberish, BigNumberish]): string;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'previewSettlementResults', values: [TEESettlementDataStruct[]]): string;
     encodeFunctionData(functionFragment: 'processRefund', values: [AddressLike, AddressLike]): string;
@@ -204,7 +187,6 @@ interface InferenceServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'isTokenRevoked', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'ledgerAddress', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'lockTime', data: BytesLike): Result;
-    decodeFunctionResult(functionFragment: 'migrateRefunds', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'previewSettlementResults', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'processRefund', data: BytesLike): Result;
@@ -221,11 +203,7 @@ interface InferenceServingInterface extends Interface {
     decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'updateLockTime', data: BytesLike): Result;
 }
-<<<<<<< HEAD
-declare namespace AccountDeletedEvent {
-=======
 declare namespace AccountDeletedEvent$1 {
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     type InputTuple = [
         user: AddressLike,
         provider: AddressLike,
@@ -434,30 +412,6 @@ declare namespace RefundRequestedEvent$1 {
         provider: string;
         index: bigint;
         timestamp: bigint;
-    }
-    type Event = TypedContractEvent$2<InputTuple, OutputTuple, OutputObject>;
-    type Filter = TypedDeferredTopicFilter$2<Event>;
-    type Log = TypedEventLog$2<Event>;
-    type LogDescription = TypedLogDescription$2<Event>;
-}
-declare namespace RefundsMigratedEvent {
-    type InputTuple = [
-        user: AddressLike,
-        provider: AddressLike,
-        migratedCount: BigNumberish,
-        newValidLength: BigNumberish
-    ];
-    type OutputTuple = [
-        user: string,
-        provider: string,
-        migratedCount: bigint,
-        newValidLength: bigint
-    ];
-    interface OutputObject {
-        user: string;
-        provider: string;
-        migratedCount: bigint;
-        newValidLength: bigint;
     }
     type Event = TypedContractEvent$2<InputTuple, OutputTuple, OutputObject>;
     type Filter = TypedDeferredTopicFilter$2<Event>;
@@ -717,34 +671,6 @@ interface InferenceServing extends BaseContract {
     ], 'view'>;
     ledgerAddress: TypedContractMethod$2<[], [string], 'view'>;
     lockTime: TypedContractMethod$2<[], [bigint], 'view'>;
-    migrateRefunds: TypedContractMethod$2<[
-<<<<<<< HEAD
-<<<<<<< HEAD
-        provider: AddressLike,
-        startIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            cleanedCount: bigint;
-            nextIndex: bigint;
-        }
-=======
-        users: AddressLike[],
-        provider: AddressLike
-    ], [
-        bigint
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        provider: AddressLike,
-        startIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            cleanedCount: bigint;
-            nextIndex: bigint;
-        }
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
-    ], 'nonpayable'>;
     owner: TypedContractMethod$2<[], [string], 'view'>;
     previewSettlementResults: TypedContractMethod$2<[
         settlements: TEESettlementDataStruct[]
@@ -957,34 +883,6 @@ interface InferenceServing extends BaseContract {
     ], 'view'>;
     getFunction(nameOrSignature: 'ledgerAddress'): TypedContractMethod$2<[], [string], 'view'>;
     getFunction(nameOrSignature: 'lockTime'): TypedContractMethod$2<[], [bigint], 'view'>;
-    getFunction(nameOrSignature: 'migrateRefunds'): TypedContractMethod$2<[
-<<<<<<< HEAD
-<<<<<<< HEAD
-        provider: AddressLike,
-        startIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            cleanedCount: bigint;
-            nextIndex: bigint;
-        }
-=======
-        users: AddressLike[],
-        provider: AddressLike
-    ], [
-        bigint
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        provider: AddressLike,
-        startIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            cleanedCount: bigint;
-            nextIndex: bigint;
-        }
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
-    ], 'nonpayable'>;
     getFunction(nameOrSignature: 'owner'): TypedContractMethod$2<[], [string], 'view'>;
     getFunction(nameOrSignature: 'previewSettlementResults'): TypedContractMethod$2<[
         settlements: TEESettlementDataStruct[]
@@ -1046,11 +944,7 @@ interface InferenceServing extends BaseContract {
     getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod$2<[interfaceId: BytesLike], [boolean], 'view'>;
     getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod$2<[newOwner: AddressLike], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'updateLockTime'): TypedContractMethod$2<[_locktime: BigNumberish], [void], 'nonpayable'>;
-<<<<<<< HEAD
-    getEvent(key: 'AccountDeleted'): TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
-=======
     getEvent(key: 'AccountDeleted'): TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getEvent(key: 'AllTokensRevoked'): TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
     getEvent(key: 'BalanceUpdated'): TypedContractEvent$2<BalanceUpdatedEvent$1.InputTuple, BalanceUpdatedEvent$1.OutputTuple, BalanceUpdatedEvent$1.OutputObject>;
     getEvent(key: 'BatchBalanceUpdated'): TypedContractEvent$2<BatchBalanceUpdatedEvent.InputTuple, BatchBalanceUpdatedEvent.OutputTuple, BatchBalanceUpdatedEvent.OutputObject>;
@@ -1062,20 +956,14 @@ interface InferenceServing extends BaseContract {
     getEvent(key: 'ProviderStaked'): TypedContractEvent$2<ProviderStakedEvent$1.InputTuple, ProviderStakedEvent$1.OutputTuple, ProviderStakedEvent$1.OutputObject>;
     getEvent(key: 'ProviderTEESignerAcknowledged'): TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent$1.InputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputObject>;
     getEvent(key: 'RefundRequested'): TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
-    getEvent(key: 'RefundsMigrated'): TypedContractEvent$2<RefundsMigratedEvent.InputTuple, RefundsMigratedEvent.OutputTuple, RefundsMigratedEvent.OutputObject>;
     getEvent(key: 'ServiceRemoved'): TypedContractEvent$2<ServiceRemovedEvent$1.InputTuple, ServiceRemovedEvent$1.OutputTuple, ServiceRemovedEvent$1.OutputObject>;
     getEvent(key: 'ServiceUpdated'): TypedContractEvent$2<ServiceUpdatedEvent$1.InputTuple, ServiceUpdatedEvent$1.OutputTuple, ServiceUpdatedEvent$1.OutputObject>;
     getEvent(key: 'TEESettlementResult'): TypedContractEvent$2<TEESettlementResultEvent.InputTuple, TEESettlementResultEvent.OutputTuple, TEESettlementResultEvent.OutputObject>;
     getEvent(key: 'TokenRevoked'): TypedContractEvent$2<TokenRevokedEvent.InputTuple, TokenRevokedEvent.OutputTuple, TokenRevokedEvent.OutputObject>;
     getEvent(key: 'TokensRevoked'): TypedContractEvent$2<TokensRevokedEvent.InputTuple, TokensRevokedEvent.OutputTuple, TokensRevokedEvent.OutputObject>;
     filters: {
-<<<<<<< HEAD
-        'AccountDeleted(address,address,uint256)': TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
-        AccountDeleted: TypedContractEvent$2<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
-=======
         'AccountDeleted(address,address,uint256)': TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
         AccountDeleted: TypedContractEvent$2<AccountDeletedEvent$1.InputTuple, AccountDeletedEvent$1.OutputTuple, AccountDeletedEvent$1.OutputObject>;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
         'AllTokensRevoked(address,address,uint256)': TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
         AllTokensRevoked: TypedContractEvent$2<AllTokensRevokedEvent.InputTuple, AllTokensRevokedEvent.OutputTuple, AllTokensRevokedEvent.OutputObject>;
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent$2<BalanceUpdatedEvent$1.InputTuple, BalanceUpdatedEvent$1.OutputTuple, BalanceUpdatedEvent$1.OutputObject>;
@@ -1098,8 +986,6 @@ interface InferenceServing extends BaseContract {
         ProviderTEESignerAcknowledged: TypedContractEvent$2<ProviderTEESignerAcknowledgedEvent$1.InputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputTuple, ProviderTEESignerAcknowledgedEvent$1.OutputObject>;
         'RefundRequested(address,address,uint256,uint256)': TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
         RefundRequested: TypedContractEvent$2<RefundRequestedEvent$1.InputTuple, RefundRequestedEvent$1.OutputTuple, RefundRequestedEvent$1.OutputObject>;
-        'RefundsMigrated(address,address,uint256,uint256)': TypedContractEvent$2<RefundsMigratedEvent.InputTuple, RefundsMigratedEvent.OutputTuple, RefundsMigratedEvent.OutputObject>;
-        RefundsMigrated: TypedContractEvent$2<RefundsMigratedEvent.InputTuple, RefundsMigratedEvent.OutputTuple, RefundsMigratedEvent.OutputObject>;
         'ServiceRemoved(address)': TypedContractEvent$2<ServiceRemovedEvent$1.InputTuple, ServiceRemovedEvent$1.OutputTuple, ServiceRemovedEvent$1.OutputObject>;
         ServiceRemoved: TypedContractEvent$2<ServiceRemovedEvent$1.InputTuple, ServiceRemovedEvent$1.OutputTuple, ServiceRemovedEvent$1.OutputObject>;
         'ServiceUpdated(address,string,string,uint256,uint256,uint256,string,string)': TypedContractEvent$2<ServiceUpdatedEvent$1.InputTuple, ServiceUpdatedEvent$1.OutputTuple, ServiceUpdatedEvent$1.OutputObject>;
@@ -1304,16 +1190,8 @@ type LedgerStructOutput = [
     additionalInfo: string;
 };
 interface LedgerManagerInterface extends Interface {
-    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_PROVIDERS_PER_USER_PER_SERVICE' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'migrateUserServiceProvidersMapping' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership' | 'updateAdditionalInfo'): FunctionFragment;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
-=======
+    getFunction(nameOrSignature: 'MAX_ADDITIONAL_INFO_LENGTH' | 'MAX_PROVIDERS_PER_BATCH' | 'MAX_PROVIDERS_PER_USER_PER_SERVICE' | 'MAX_SERVICES' | 'MIN_ACCOUNT_BALANCE' | 'MIN_TRANSFER_AMOUNT' | 'addLedger' | 'deleteLedger' | 'depositFund' | 'depositFundFor' | 'getAllActiveServices' | 'getAllLedgers' | 'getAllVersions' | 'getLedger' | 'getLedgerProviders' | 'getRecommendedService' | 'getServiceAddressByName' | 'getServiceInfo' | 'initialize' | 'initialized' | 'isRecommendedVersion' | 'owner' | 'refund' | 'registerService' | 'renounceOwnership' | 'retrieveFund' | 'setRecommendedService' | 'spendFund' | 'transferFund' | 'transferOwnership' | 'updateAdditionalInfo'): FunctionFragment;
     getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered'): EventFragment;
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-    getEvent(nameOrSignatureOrTopic: 'FundSpent' | 'Initialized' | 'LedgerInfoUpdated' | 'OwnershipTransferred' | 'RecommendedServiceUpdated' | 'ServiceRegistered' | 'UserServiceProvidersMigrated'): EventFragment;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'MAX_ADDITIONAL_INFO_LENGTH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_BATCH', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MAX_PROVIDERS_PER_USER_PER_SERVICE', values?: undefined): string;
@@ -1335,15 +1213,6 @@ interface LedgerManagerInterface extends Interface {
     encodeFunctionData(functionFragment: 'initialize', values: [AddressLike]): string;
     encodeFunctionData(functionFragment: 'initialized', values?: undefined): string;
     encodeFunctionData(functionFragment: 'isRecommendedVersion', values: [string, string]): string;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
-=======
-    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values?: undefined): string;
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-    encodeFunctionData(functionFragment: 'migrateUserServiceProvidersMapping', values: [BigNumberish, BigNumberish]): string;
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
     encodeFunctionData(functionFragment: 'refund', values: [BigNumberish]): string;
     encodeFunctionData(functionFragment: 'registerService', values: [string, string, AddressLike, string]): string;
@@ -1375,7 +1244,6 @@ interface LedgerManagerInterface extends Interface {
     decodeFunctionResult(functionFragment: 'initialize', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'initialized', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'isRecommendedVersion', data: BytesLike): Result;
-    decodeFunctionResult(functionFragment: 'migrateUserServiceProvidersMapping', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'refund', data: BytesLike): Result;
     decodeFunctionResult(functionFragment: 'registerService', data: BytesLike): Result;
@@ -1466,27 +1334,6 @@ declare namespace ServiceRegisteredEvent {
     interface OutputObject {
         serviceAddress: string;
         serviceName: string;
-    }
-    type Event = TypedContractEvent$1<InputTuple, OutputTuple, OutputObject>;
-    type Filter = TypedDeferredTopicFilter$1<Event>;
-    type Log = TypedEventLog$1<Event>;
-    type LogDescription = TypedLogDescription$1<Event>;
-}
-declare namespace UserServiceProvidersMigratedEvent {
-    type InputTuple = [
-        user: AddressLike,
-        serviceAddress: AddressLike,
-        providerCount: BigNumberish
-    ];
-    type OutputTuple = [
-        user: string,
-        serviceAddress: string,
-        providerCount: bigint
-    ];
-    interface OutputObject {
-        user: string;
-        serviceAddress: string;
-        providerCount: bigint;
     }
     type Event = TypedContractEvent$1<InputTuple, OutputTuple, OutputObject>;
     type Filter = TypedDeferredTopicFilter$1<Event>;
@@ -1593,30 +1440,6 @@ interface LedgerManager extends BaseContract {
     ], [
         boolean
     ], 'view'>;
-    migrateUserServiceProvidersMapping: TypedContractMethod$1<[
-<<<<<<< HEAD
-<<<<<<< HEAD
-        startUserIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            migratedCount: bigint;
-            nextUserIndex: bigint;
-        }
-=======
-    ], [
-        void
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        startUserIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            migratedCount: bigint;
-            nextUserIndex: bigint;
-        }
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
-    ], 'nonpayable'>;
     owner: TypedContractMethod$1<[], [string], 'view'>;
     refund: TypedContractMethod$1<[amount: BigNumberish], [void], 'nonpayable'>;
     registerService: TypedContractMethod$1<[
@@ -1733,25 +1556,6 @@ interface LedgerManager extends BaseContract {
     ], [
         boolean
     ], 'view'>;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
-    getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod$1<[
-        startUserIndex: BigNumberish,
-        batchSize: BigNumberish
-    ], [
-        [bigint, bigint] & {
-            migratedCount: bigint;
-            nextUserIndex: bigint;
-        }
-    ], 'nonpayable'>;
-<<<<<<< HEAD
-=======
-    getFunction(nameOrSignature: 'migrateUserServiceProvidersMapping'): TypedContractMethod$1<[], [void], 'nonpayable'>;
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
->>>>>>> b81505b (feat(fine-tuning): adapt to new contract TEE signer mechanism)
     getFunction(nameOrSignature: 'owner'): TypedContractMethod$1<[], [string], 'view'>;
     getFunction(nameOrSignature: 'refund'): TypedContractMethod$1<[amount: BigNumberish], [void], 'nonpayable'>;
     getFunction(nameOrSignature: 'registerService'): TypedContractMethod$1<[
@@ -1796,7 +1600,6 @@ interface LedgerManager extends BaseContract {
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent$1<OwnershipTransferredEvent$1.InputTuple, OwnershipTransferredEvent$1.OutputTuple, OwnershipTransferredEvent$1.OutputObject>;
     getEvent(key: 'RecommendedServiceUpdated'): TypedContractEvent$1<RecommendedServiceUpdatedEvent.InputTuple, RecommendedServiceUpdatedEvent.OutputTuple, RecommendedServiceUpdatedEvent.OutputObject>;
     getEvent(key: 'ServiceRegistered'): TypedContractEvent$1<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
-    getEvent(key: 'UserServiceProvidersMigrated'): TypedContractEvent$1<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
     filters: {
         'FundSpent(address,address,uint256)': TypedContractEvent$1<FundSpentEvent.InputTuple, FundSpentEvent.OutputTuple, FundSpentEvent.OutputObject>;
         FundSpent: TypedContractEvent$1<FundSpentEvent.InputTuple, FundSpentEvent.OutputTuple, FundSpentEvent.OutputObject>;
@@ -1810,8 +1613,6 @@ interface LedgerManager extends BaseContract {
         RecommendedServiceUpdated: TypedContractEvent$1<RecommendedServiceUpdatedEvent.InputTuple, RecommendedServiceUpdatedEvent.OutputTuple, RecommendedServiceUpdatedEvent.OutputObject>;
         'ServiceRegistered(address,string)': TypedContractEvent$1<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
         ServiceRegistered: TypedContractEvent$1<ServiceRegisteredEvent.InputTuple, ServiceRegisteredEvent.OutputTuple, ServiceRegisteredEvent.OutputObject>;
-        'UserServiceProvidersMigrated(address,address,uint256)': TypedContractEvent$1<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
-        UserServiceProvidersMigrated: TypedContractEvent$1<UserServiceProvidersMigratedEvent.InputTuple, UserServiceProvidersMigratedEvent.OutputTuple, UserServiceProvidersMigratedEvent.OutputObject>;
     };
 }
 
@@ -3679,7 +3480,7 @@ declare const CONTRACT_ADDRESSES: {
     readonly testnetDev: {
         readonly ledger: "0xf248Baaee6A4dC84bac4675906F8dBd2D761356B";
         readonly inference: "0x335c02f5F1A01b54Ae7a4974c5Dd2853C3300C95";
-        readonly fineTuning: "0x0000000000000000000000000000000000000000";
+        readonly fineTuning: "0x933ecA2F203840Dc2fA05878a52C4a99aB13F8B1";
     };
     readonly mainnet: {
         readonly ledger: "0x2dE54c845Cd948B72D2e32e39586fe89607074E3";

@@ -6,10 +6,11 @@ const const_1 = require("../const");
 const zg_storage_1 = require("../zg-storage");
 const base_1 = require("./base");
 const token_1 = require("../token");
+const logger_1 = require("../../common/logger");
 class ModelProcessor extends base_1.BrokerBase {
     async listModel() {
         const services = await this.contract.listService();
-        let customizedModels = [];
+        const customizedModels = [];
         for (const service of services) {
             if (service.models.length !== 0) {
                 const url = service.url;
@@ -41,7 +42,7 @@ class ModelProcessor extends base_1.BrokerBase {
             if (providerAddress === undefined) {
                 throw new Error('Provider address is required for customized model');
             }
-            let model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
+            const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
             tokenizer = model.tokenizer;
             dataType = model.dataType;
         }
@@ -60,6 +61,7 @@ class ModelProcessor extends base_1.BrokerBase {
     async acknowledgeModel(providerAddress, taskId, dataPath, gasPrice) {
         try {
             const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
+            logger_1.logger.debug(`deliverable: ${(0, utils_1.hexToRoots)(deliverable.modelRootHash)}`);
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
@@ -76,6 +78,7 @@ class ModelProcessor extends base_1.BrokerBase {
                 this.contract.getService(providerAddress),
                 this.contract.getDeliverable(providerAddress, taskId),
             ]);
+            logger_1.logger.debug(`service, ${service}`);
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }

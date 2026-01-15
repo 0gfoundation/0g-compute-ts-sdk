@@ -97,7 +97,6 @@ export interface LedgerManagerInterface extends Interface {
             | 'initialize'
             | 'initialized'
             | 'isRecommendedVersion'
-            | 'migrateUserServiceProvidersMapping'
             | 'owner'
             | 'refund'
             | 'registerService'
@@ -118,7 +117,6 @@ export interface LedgerManagerInterface extends Interface {
             | 'OwnershipTransferred'
             | 'RecommendedServiceUpdated'
             | 'ServiceRegistered'
-            | 'UserServiceProvidersMigrated'
     ): EventFragment
 
     encodeFunctionData(
@@ -201,18 +199,6 @@ export interface LedgerManagerInterface extends Interface {
     encodeFunctionData(
         functionFragment: 'isRecommendedVersion',
         values: [string, string]
-    ): string
-    encodeFunctionData(
-        functionFragment: 'migrateUserServiceProvidersMapping',
-<<<<<<< HEAD
-<<<<<<< HEAD
-        values: [BigNumberish, BigNumberish]
-=======
-        values?: undefined
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        values: [BigNumberish, BigNumberish]
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
     ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
@@ -328,10 +314,6 @@ export interface LedgerManagerInterface extends Interface {
     ): Result
     decodeFunctionResult(
         functionFragment: 'isRecommendedVersion',
-        data: BytesLike
-    ): Result
-    decodeFunctionResult(
-        functionFragment: 'migrateUserServiceProvidersMapping',
         data: BytesLike
     ): Result
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result
@@ -471,32 +453,6 @@ export namespace ServiceRegisteredEvent {
     export interface OutputObject {
         serviceAddress: string
         serviceName: string
-    }
-    export type Event = TypedContractEvent<
-        InputTuple,
-        OutputTuple,
-        OutputObject
-    >
-    export type Filter = TypedDeferredTopicFilter<Event>
-    export type Log = TypedEventLog<Event>
-    export type LogDescription = TypedLogDescription<Event>
-}
-
-export namespace UserServiceProvidersMigratedEvent {
-    export type InputTuple = [
-        user: AddressLike,
-        serviceAddress: AddressLike,
-        providerCount: BigNumberish
-    ]
-    export type OutputTuple = [
-        user: string,
-        serviceAddress: string,
-        providerCount: bigint
-    ]
-    export interface OutputObject {
-        user: string
-        serviceAddress: string
-        providerCount: bigint
     }
     export type Event = TypedContractEvent<
         InputTuple,
@@ -650,22 +606,6 @@ export interface LedgerManager extends BaseContract {
         [serviceType: string, version: string],
         [boolean],
         'view'
-    >
-
-    migrateUserServiceProvidersMapping: TypedContractMethod<
-<<<<<<< HEAD
-<<<<<<< HEAD
-        [startUserIndex: BigNumberish, batchSize: BigNumberish],
-        [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
-=======
-        [],
-        [void],
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        [startUserIndex: BigNumberish, batchSize: BigNumberish],
-        [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-        'nonpayable'
     >
 
     owner: TypedContractMethod<[], [string], 'view'>
@@ -824,23 +764,6 @@ export interface LedgerManager extends BaseContract {
         'view'
     >
     getFunction(
-        nameOrSignature: 'migrateUserServiceProvidersMapping'
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-    ): TypedContractMethod<
-        [startUserIndex: BigNumberish, batchSize: BigNumberish],
-        [[bigint, bigint] & { migratedCount: bigint; nextUserIndex: bigint }],
-        'nonpayable'
-    >
-<<<<<<< HEAD
-=======
-    ): TypedContractMethod<[], [void], 'nonpayable'>
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-    getFunction(
         nameOrSignature: 'owner'
     ): TypedContractMethod<[], [string], 'view'>
     getFunction(
@@ -938,13 +861,6 @@ export interface LedgerManager extends BaseContract {
         ServiceRegisteredEvent.OutputTuple,
         ServiceRegisteredEvent.OutputObject
     >
-    getEvent(
-        key: 'UserServiceProvidersMigrated'
-    ): TypedContractEvent<
-        UserServiceProvidersMigratedEvent.InputTuple,
-        UserServiceProvidersMigratedEvent.OutputTuple,
-        UserServiceProvidersMigratedEvent.OutputObject
-    >
 
     filters: {
         'FundSpent(address,address,uint256)': TypedContractEvent<
@@ -1011,17 +927,6 @@ export interface LedgerManager extends BaseContract {
             ServiceRegisteredEvent.InputTuple,
             ServiceRegisteredEvent.OutputTuple,
             ServiceRegisteredEvent.OutputObject
-        >
-
-        'UserServiceProvidersMigrated(address,address,uint256)': TypedContractEvent<
-            UserServiceProvidersMigratedEvent.InputTuple,
-            UserServiceProvidersMigratedEvent.OutputTuple,
-            UserServiceProvidersMigratedEvent.OutputObject
-        >
-        UserServiceProvidersMigrated: TypedContractEvent<
-            UserServiceProvidersMigratedEvent.InputTuple,
-            UserServiceProvidersMigratedEvent.OutputTuple,
-            UserServiceProvidersMigratedEvent.OutputObject
         >
     }
 }

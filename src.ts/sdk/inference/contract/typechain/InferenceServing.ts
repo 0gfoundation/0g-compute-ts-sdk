@@ -199,7 +199,6 @@ export interface InferenceServingInterface extends Interface {
             | 'isTokenRevoked'
             | 'ledgerAddress'
             | 'lockTime'
-            | 'migrateRefunds'
             | 'owner'
             | 'previewSettlementResults'
             | 'processRefund'
@@ -231,7 +230,6 @@ export interface InferenceServingInterface extends Interface {
             | 'ProviderStaked'
             | 'ProviderTEESignerAcknowledged'
             | 'RefundRequested'
-            | 'RefundsMigrated'
             | 'ServiceRemoved'
             | 'ServiceUpdated'
             | 'TEESettlementResult'
@@ -328,18 +326,6 @@ export interface InferenceServingInterface extends Interface {
         values?: undefined
     ): string
     encodeFunctionData(functionFragment: 'lockTime', values?: undefined): string
-    encodeFunctionData(
-        functionFragment: 'migrateRefunds',
-<<<<<<< HEAD
-<<<<<<< HEAD
-        values: [AddressLike, BigNumberish, BigNumberish]
-=======
-        values: [AddressLike[], AddressLike]
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
-        values: [AddressLike, BigNumberish, BigNumberish]
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-    ): string
     encodeFunctionData(functionFragment: 'owner', values?: undefined): string
     encodeFunctionData(
         functionFragment: 'previewSettlementResults',
@@ -487,10 +473,6 @@ export interface InferenceServingInterface extends Interface {
         data: BytesLike
     ): Result
     decodeFunctionResult(functionFragment: 'lockTime', data: BytesLike): Result
-    decodeFunctionResult(
-        functionFragment: 'migrateRefunds',
-        data: BytesLike
-    ): Result
     decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result
     decodeFunctionResult(
         functionFragment: 'previewSettlementResults',
@@ -825,35 +807,6 @@ export namespace RefundRequestedEvent {
     export type LogDescription = TypedLogDescription<Event>
 }
 
-export namespace RefundsMigratedEvent {
-    export type InputTuple = [
-        user: AddressLike,
-        provider: AddressLike,
-        migratedCount: BigNumberish,
-        newValidLength: BigNumberish
-    ]
-    export type OutputTuple = [
-        user: string,
-        provider: string,
-        migratedCount: bigint,
-        newValidLength: bigint
-    ]
-    export interface OutputObject {
-        user: string
-        provider: string
-        migratedCount: bigint
-        newValidLength: bigint
-    }
-    export type Event = TypedContractEvent<
-        InputTuple,
-        OutputTuple,
-        OutputObject
-    >
-    export type Filter = TypedDeferredTopicFilter<Event>
-    export type Log = TypedEventLog<Event>
-    export type LogDescription = TypedLogDescription<Event>
-}
-
 export namespace ServiceRemovedEvent {
     export type InputTuple = [service: AddressLike]
     export type OutputTuple = [service: string]
@@ -1170,27 +1123,6 @@ export interface InferenceServing extends BaseContract {
 
     lockTime: TypedContractMethod<[], [bigint], 'view'>
 
-    migrateRefunds: TypedContractMethod<
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-        [
-            provider: AddressLike,
-            startIndex: BigNumberish,
-            batchSize: BigNumberish
-        ],
-        [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
-<<<<<<< HEAD
-=======
-        [users: AddressLike[], provider: AddressLike],
-        [bigint],
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-        'nonpayable'
-    >
-
     owner: TypedContractMethod<[], [string], 'view'>
 
     previewSettlementResults: TypedContractMethod<
@@ -1436,28 +1368,6 @@ export interface InferenceServing extends BaseContract {
         nameOrSignature: 'lockTime'
     ): TypedContractMethod<[], [bigint], 'view'>
     getFunction(
-        nameOrSignature: 'migrateRefunds'
-    ): TypedContractMethod<
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-        [
-            provider: AddressLike,
-            startIndex: BigNumberish,
-            batchSize: BigNumberish
-        ],
-        [[bigint, bigint] & { cleanedCount: bigint; nextIndex: bigint }],
-<<<<<<< HEAD
-=======
-        [users: AddressLike[], provider: AddressLike],
-        [bigint],
->>>>>>> 553a496 (chore(inference): update for ca)
-=======
->>>>>>> 3a1890f (chore(fine-tuning): update contract client)
-        'nonpayable'
-    >
-    getFunction(
         nameOrSignature: 'owner'
     ): TypedContractMethod<[], [string], 'view'>
     getFunction(
@@ -1621,13 +1531,6 @@ export interface InferenceServing extends BaseContract {
         RefundRequestedEvent.InputTuple,
         RefundRequestedEvent.OutputTuple,
         RefundRequestedEvent.OutputObject
-    >
-    getEvent(
-        key: 'RefundsMigrated'
-    ): TypedContractEvent<
-        RefundsMigratedEvent.InputTuple,
-        RefundsMigratedEvent.OutputTuple,
-        RefundsMigratedEvent.OutputObject
     >
     getEvent(
         key: 'ServiceRemoved'
@@ -1796,17 +1699,6 @@ export interface InferenceServing extends BaseContract {
             RefundRequestedEvent.InputTuple,
             RefundRequestedEvent.OutputTuple,
             RefundRequestedEvent.OutputObject
-        >
-
-        'RefundsMigrated(address,address,uint256,uint256)': TypedContractEvent<
-            RefundsMigratedEvent.InputTuple,
-            RefundsMigratedEvent.OutputTuple,
-            RefundsMigratedEvent.OutputObject
-        >
-        RefundsMigrated: TypedContractEvent<
-            RefundsMigratedEvent.InputTuple,
-            RefundsMigratedEvent.OutputTuple,
-            RefundsMigratedEvent.OutputObject
         >
 
         'ServiceRemoved(address)': TypedContractEvent<

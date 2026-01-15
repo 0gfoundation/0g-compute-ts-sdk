@@ -43,6 +43,7 @@ const ethers_1 = require("ethers");
 const eciesjs_1 = require("eciesjs");
 const crypto_adapter_1 = require("./crypto-adapter");
 const env_1 = require("./env");
+const logger_1 = require("../logger");
 const ivLength = 12;
 const tagLength = 16;
 const sigLength = 65;
@@ -127,6 +128,8 @@ async function aesGCMDecryptToFile(key, encryptedModelPath, decryptedModelPath, 
     await writeFd.close();
     await fd.close();
     const recoveredAddress = ethers_1.ethers.recoverAddress(ethers_1.ethers.keccak256(tagsBuffer), '0x' + tagSig.toString('hex'));
+    logger_1.logger.debug(`recoveredAddress, ${recoveredAddress}`);
+    logger_1.logger.debug(`providerTeeSigner, ${providerSigner.toLowerCase()}`);
     if (recoveredAddress.toLowerCase() !== providerSigner.toLowerCase()) {
         throw new Error('Invalid tag signature');
     }
