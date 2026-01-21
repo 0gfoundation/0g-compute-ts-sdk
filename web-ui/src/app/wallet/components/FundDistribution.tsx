@@ -19,6 +19,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Info, Loader2, CheckCircle, AlertCircl
 import { cn } from '@/lib/utils'
 import { BalanceCard } from './BalanceCard'
 import { ProviderFundsTable } from './ProviderFundsTable'
+import { BalanceFlowDiagram } from '@/components/ui/balance-flow-diagram'
 
 interface ProviderAccount {
     provider: string
@@ -82,16 +83,11 @@ export function FundDistribution({
 
     return (
         <div className="space-y-6">
-            {/* Account Overview Info */}
-            <Alert className="bg-purple-50 border-purple-200">
-                <Info className="h-4 w-4 text-purple-400" />
-                <AlertTitle className="text-sm text-purple-800 font-medium">How fund management works</AlertTitle>
-                <AlertDescription className="text-xs text-purple-700 space-y-1 mt-2">
-                    <p><strong>Available Balance:</strong> Funds for provider services and withdrawals</p>
-                    <p><strong>Provider Funds:</strong> Auto-allocated to AI service providers when used</p>
-                    <p><strong>Retrieval:</strong> Transfer unused provider funds back to Available Balance</p>
-                </AlertDescription>
-            </Alert>
+            {/* Visual Balance Flow Diagram */}
+            <BalanceFlowDiagram
+                availableBalance={`${formatNumber(ledgerInfo.availableBalance)} 0G`}
+                lockedBalance={`${formatNumber(ledgerInfo.locked)} 0G`}
+            />
 
             {/* Success Alert */}
             {showSuccessAlert.show && (

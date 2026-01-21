@@ -78,12 +78,7 @@ export function useProviderManagement(
             if (broker) {
                 try {
                     // Use the broker to get real service list
-                    // Include all providers (even unacknowledged ones) so UI can show them with warnings
-                    const services = await broker.inference.listService(
-                        0,
-                        50,
-                        true
-                    )
+                    const services = await broker.inference.listService()
 
                     // Transform services to Provider format
                     const transformedProviders =

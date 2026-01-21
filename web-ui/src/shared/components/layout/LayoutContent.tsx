@@ -9,6 +9,21 @@ import SimpleLoader from "../ui/SimpleLoader";
 import { copyToClipboard } from "@/lib/utils";
 import { zgTestnet, zgMainnet } from "../../config/wagmi";
 
+// Preset amounts for initial deposit (network-aware)
+const MAINNET_DEPOSIT_PRESETS = [
+  { value: 3, label: '3 0G' },
+  { value: 10, label: '10 0G' },
+  { value: 25, label: '25 0G' },
+  { value: 50, label: '50 0G' },
+];
+
+const TESTNET_DEPOSIT_PRESETS = [
+  { value: 0.1, label: '0.1 0G' },
+  { value: 1, label: '1 0G' },
+  { value: 5, label: '5 0G' },
+  { value: 10, label: '10 0G' },
+];
+
 interface LayoutContentProps {
   children: React.ReactNode;
 }
@@ -52,9 +67,28 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Network-aware default values
   const isTestnet = chainId === zgTestnet.id;
   const minimumDeposit = isTestnet ? 0.1 : 3;
-  const [initialDeposit, setInitialDeposit] = useState<string>(isTestnet ? "0.1" : "3");
+  const defaultDeposit = isTestnet ? "0.1" : "3";
+  const defaultPreset = isTestnet ? 0.1 : 3;
+  const depositPresets = isTestnet ? TESTNET_DEPOSIT_PRESETS : MAINNET_DEPOSIT_PRESETS;
+
+  const [initialDeposit, setInitialDeposit] = useState<string>(defaultDeposit);
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(defaultPreset);
+
+  const handlePresetClick = (presetValue: number) => {
+    setSelectedPreset(presetValue);
+    setInitialDeposit(presetValue.toString());
+    setError(null);
+  };
+
+  const handleCustomInput = (value: string) => {
+    setInitialDeposit(value);
+    setSelectedPreset(null);
+    setError(null);
+  };
 
   const lastCheckedStateRef = useRef<{
     pathname: string;
@@ -77,6 +111,10 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
       setShowDepositModal(false);
       lastCheckedStateRef.current = null;
 
+      // Reset deposit values to network-appropriate defaults
+      setInitialDeposit(defaultDeposit);
+      setSelectedPreset(defaultPreset);
+
       const resetTimer = setTimeout(() => {
         setIsLocalChainSwitching(false);
       }, 2000);
@@ -85,7 +123,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     }
 
     previousChainIdRef.current = chainId;
-  }, [chainId]);
+  }, [chainId, defaultDeposit, defaultPreset]);
 
   useEffect(() => {
     const checkLedger = async () => {
@@ -104,8 +142,16 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
         }
 
         try {
-          const ledger = await broker.ledger.getLedger();
-          if (!ledger || ledger.totalBalance === BigInt(0)) {
+          // Check if broker.ledger.ledger exists (nested ledger accessor)
+          const ledgerAccessor = (broker.ledger as any)?.ledger;
+          if (!ledgerAccessor?.getLedgerWithDetail) {
+            setShowDepositModal(true);
+            return;
+          }
+          const { ledgerInfo } = await ledgerAccessor.getLedgerWithDetail();
+          // ledgerInfo[0] is totalBalance in neuron units
+          const totalBalance = ledgerInfo ? BigInt(ledgerInfo[0]) : BigInt(0);
+          if (totalBalance === BigInt(0)) {
             setShowDepositModal(true);
           } else {
             setShowDepositModal(false);
@@ -170,7 +216,8 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     try {
       await broker.ledger.addLedger(depositAmount);
       setShowDepositModal(false);
-      setInitialDeposit(isTestnet ? "0.1" : "3");
+      setInitialDeposit(defaultDeposit);
+      setSelectedPreset(defaultPreset);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create account. Please try again.';
       setError(errorMessage);
@@ -291,10 +338,33 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
               </div>
             )}
 
-            {/* Initial Deposit Input */}
+            {/* Quick preset amounts */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Initial Deposit
+                Select Amount
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {depositPresets.map((preset) => (
+                  <button
+                    key={preset.value}
+                    onClick={() => handlePresetClick(preset.value)}
+                    disabled={isLoading}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      selectedPreset === preset.value
+                        ? 'bg-purple-100 border-purple-500 text-purple-700'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50'
+                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <div className="font-semibold">{preset.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom amount input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Custom Amount
               </label>
               <div className="relative">
                 <input
@@ -302,10 +372,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
                   min={minimumDeposit}
                   step="0.1"
                   value={initialDeposit}
-                  onChange={(e) => {
-                    setInitialDeposit(e.target.value);
-                    setError(null);
-                  }}
+                  onChange={(e) => handleCustomInput(e.target.value)}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder={`Enter amount (min ${minimumDeposit})`}
                 />

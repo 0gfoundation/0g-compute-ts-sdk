@@ -1,15 +1,47 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Provider } from '../../../../shared/types/broker';
 import { OFFICIAL_PROVIDERS } from '../../constants/providers';
 import { copyToClipboard } from '@/lib/utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Search, ShieldCheck, Shield, X, Check, Clock } from 'lucide-react';
+
+// Helper to get recently used providers from localStorage
+const getRecentlyUsedProviders = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem('recentlyUsedProviders');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+// Hook to detect mobile screen
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 // Helper function to format numbers with appropriate precision
 const formatNumber = (num: number): string => {
   // Use toPrecision to maintain significant digits, then parseFloat to clean up
   const cleanValue = parseFloat(num.toPrecision(15));
-  
+
   // If the number is very small, show more decimal places
   if (Math.abs(cleanValue) < 0.000001) {
     return cleanValue.toFixed(12).replace(/\.?0+$/, '');
@@ -44,6 +76,96 @@ interface ProviderSelectorProps {
   onAddFunds: () => void;
 }
 
+// Mobile Provider Card Component
+function MobileProviderCard({
+  provider,
+  isSelected,
+  isRecentlyUsed,
+  onSelect,
+}: {
+  provider: Provider;
+  isSelected: boolean;
+  isRecentlyUsed: boolean;
+  onSelect: () => void;
+}) {
+  const isTeeVerified = provider.verifiability?.toLowerCase().includes('teeml') || provider.verifiability?.toLowerCase().includes('tee');
+  const isOfficial = OFFICIAL_PROVIDERS.some((op) => op.address === provider.address);
+
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+        isSelected
+          ? 'border-purple-500 bg-purple-50'
+          : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-gray-50'
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-gray-900 truncate">{provider.name}</span>
+            {isSelected && (
+              <Check className="w-4 h-4 text-purple-600 flex-shrink-0" />
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* TEE Badge */}
+            {isTeeVerified ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                <ShieldCheck className="w-3 h-3" />
+                TEE Verified
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                <Shield className="w-3 h-3" />
+                Standard
+              </span>
+            )}
+            {/* Official Badge */}
+            {isOfficial && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                0G Official
+              </span>
+            )}
+            {/* Recently Used Badge */}
+            {isRecentlyUsed && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                <Clock className="w-3 h-3" />
+                Recently Used
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Pricing */}
+      {(provider.inputPrice !== undefined || provider.outputPrice !== undefined) && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-gray-500 text-xs">Input</span>
+              <div className="font-medium text-gray-900">
+                {provider.inputPrice?.toFixed(2) ?? '—'} <span className="text-gray-500 text-xs">0G/1M</span>
+              </div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Output</span>
+              <div className="font-medium text-gray-900">
+                {provider.outputPrice?.toFixed(2) ?? '—'} <span className="text-gray-500 text-xs">0G/1M</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Address */}
+      <div className="mt-2 text-xs text-gray-400 font-mono">
+        {provider.address.slice(0, 10)}...{provider.address.slice(-8)}
+      </div>
+    </button>
+  );
+}
+
 export function ProviderSelector({
   providers,
   selectedProvider,
@@ -56,9 +178,42 @@ export function ProviderSelector({
   providerPendingRefund,
   onAddFunds,
 }: ProviderSelectorProps) {
+  const isMobile = useIsMobile();
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+
+  // Recently used providers set for quick lookup
+  const recentlyUsedSet = useMemo(() => {
+    const used = getRecentlyUsedProviders();
+    return new Set(used);
+  }, []);
+
+  // Filter out unverified providers - only show verified providers that can be used
+  const verifiedProviders = useMemo(() => {
+    return providers.filter((p) => p.teeSignerAcknowledged === true);
+  }, [providers]);
+
+  // Filter providers based on search query for mobile (from verified providers only)
+  const filteredProviders = useMemo(() => {
+    if (!mobileSearchQuery.trim()) return verifiedProviders;
+    const query = mobileSearchQuery.toLowerCase();
+    return verifiedProviders.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.address.toLowerCase().includes(query) ||
+        p.verifiability?.toLowerCase().includes(query)
+    );
+  }, [verifiedProviders, mobileSearchQuery]);
+
+  // Handle mobile provider selection
+  const handleMobileSelect = (provider: Provider) => {
+    onProviderSelect(provider);
+    setIsDropdownOpen(false);
+    setMobileSearchQuery('');
+  };
+
   return (
     <div className="flex items-center space-x-1 sm:space-x-2 xl:space-x-4 min-w-0 flex-1">
-      {/* Provider Selection Dropdown */}
+      {/* Provider Selection Button */}
       <div className="relative min-w-0 flex-shrink sm:min-w-[140px] lg:min-w-[200px] xl:min-w-[400px] provider-dropdown">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -120,10 +275,10 @@ export function ProviderSelector({
           </svg>
         </div>
 
-        {/* Dropdown Menu */}
-        {isDropdownOpen && providers.length > 0 && (
+        {/* Desktop Dropdown Menu */}
+        {!isMobile && isDropdownOpen && verifiedProviders.length > 0 && (
           <div className="absolute z-10 w-full min-w-[200px] sm:min-w-[280px] mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {providers.map((provider) => (
+            {verifiedProviders.map((provider) => (
               <div
                 key={provider.address}
                 onClick={() => {
@@ -161,22 +316,83 @@ export function ProviderSelector({
                 {provider.inputPrice !== undefined ||
                 provider.outputPrice !== undefined ? (
                   <div className="mt-1 text-xs text-gray-500">
-                    {provider.inputPrice !== undefined && (
-                      <span>{provider.inputPrice.toFixed(2)}</span>
-                    )}
-                    {provider.inputPrice !== undefined &&
-                      provider.outputPrice !== undefined && (
-                        <span>/</span>
-                      )}
-                    {provider.outputPrice !== undefined && (
-                      <span>{provider.outputPrice.toFixed(2)}</span>
-                    )}
-                    <span className="ml-1">0G/M</span>
+                    <span className="text-gray-400">Input:</span> {provider.inputPrice?.toFixed(2) ?? '—'}
+                    <span className="mx-1">|</span>
+                    <span className="text-gray-400">Output:</span> {provider.outputPrice?.toFixed(2) ?? '—'}
+                    <span className="ml-1 text-gray-400">0G/1M tokens</span>
                   </div>
                 ) : null}
               </div>
             ))}
           </div>
+        )}
+
+        {/* Mobile Full-Screen Sheet */}
+        {isMobile && (
+          <Sheet open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-3xl">
+              <SheetHeader className="px-4 pt-4 pb-3 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <SheetTitle className="text-lg font-semibold">Select Provider</SheetTitle>
+                  <button
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Search Input */}
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search providers..."
+                    value={mobileSearchQuery}
+                    onChange={(e) => setMobileSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  {mobileSearchQuery && (
+                    <button
+                      onClick={() => setMobileSearchQuery('')}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              </SheetHeader>
+
+              {/* Provider List */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {filteredProviders.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No providers found</p>
+                    {mobileSearchQuery && (
+                      <p className="text-sm mt-1">Try a different search term</p>
+                    )}
+                  </div>
+                ) : (
+                  filteredProviders.map((provider) => (
+                    <MobileProviderCard
+                      key={provider.address}
+                      provider={provider}
+                      isSelected={selectedProvider?.address === provider.address}
+                      isRecentlyUsed={recentlyUsedSet.has(provider.address)}
+                      onSelect={() => handleMobileSelect(provider)}
+                    />
+                  ))
+                )}
+              </div>
+
+              {/* Footer with count */}
+              <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-500 text-center">
+                  {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''} available
+                </p>
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
       </div>
 
@@ -270,13 +486,16 @@ export function ProviderSelector({
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-[-1px]">
                   <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
                 </div>
-                <div className="font-semibold mb-1">Price per Million Tokens</div>
+                <div className="font-semibold mb-1">Price per 1 Million Tokens</div>
                 {selectedProvider.inputPrice !== undefined && (
-                  <div>Input: {selectedProvider.inputPrice.toFixed(2)} 0G</div>
+                  <div>Input (what you send): {selectedProvider.inputPrice.toFixed(4)} 0G</div>
                 )}
                 {selectedProvider.outputPrice !== undefined && (
-                  <div>Output: {selectedProvider.outputPrice.toFixed(2)} 0G</div>
+                  <div>Output (AI response): {selectedProvider.outputPrice.toFixed(4)} 0G</div>
                 )}
+                <div className="text-gray-400 mt-1 border-t border-gray-700 pt-1">
+                  ~{((selectedProvider.inputPrice || 0) + (selectedProvider.outputPrice || 0)).toFixed(4)} 0G per typical message
+                </div>
               </div>
             </div>
           )}

@@ -126,50 +126,6 @@ with open('audio.ogg', 'rb') as audio_file:
 print(transcription.text)`,
         }
         return examples[tab] || examples.curl
-    } else if (serviceType === 'image-editing') {
-        const examples = {
-            curl: `curl -s -X POST ${serviceUrl}/v1/proxy/images/edits \\
-  -H "Authorization: Bearer app-sk-<SECRET>" \\
-  -F "prompt=Create a lovely gift basket with these items in it" \\
-  -F "response_format=b64_json" \\
-  -F "image=@image.png" \\
-  | jq -r '.data[0].b64_json' | base64 -d > result.png`,
-            javascript: `const OpenAI = require('openai');
-const fs = require('fs');
-
-const client = new OpenAI({
-  baseURL: '${serviceUrl}/v1/proxy',
-  apiKey: 'app-sk-<SECRET>'
-});
-
-async function main() {
-  const response = await client.images.edit({
-    image: fs.createReadStream('image.png'),
-    prompt: 'Create a lovely gift basket with these items in it',
-    response_format: 'b64_json'
-  });
-
-  console.log(response.data);
-}
-
-main();`,
-            python: `from openai import OpenAI
-
-client = OpenAI(
-    base_url='${serviceUrl}/v1/proxy',
-    api_key='app-sk-<SECRET>'
-)
-
-with open('image.png', 'rb') as image_file:
-    response = client.images.edit(
-        image=image_file,
-        prompt='Create a lovely gift basket with these items in it',
-        response_format='b64_json'
-    )
-
-print(response.data)`,
-        }
-        return examples[tab] || examples.curl
     } else if (serviceType === 'text-to-image') {
         const examples = {
             curl: `curl ${serviceUrl}/v1/proxy/images/generations \\

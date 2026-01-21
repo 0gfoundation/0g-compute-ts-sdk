@@ -7,11 +7,13 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2, CheckCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 interface WithdrawDialogProps {
     isOpen: boolean
@@ -50,12 +52,15 @@ export function WithdrawDialog({
     const [isWithdrawing, setIsWithdrawing] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+    const { toast } = useToast()
 
     // Reset state when dialog closes
     useEffect(() => {
         if (!isOpen) {
             setWithdrawAmount('')
             setError(null)
+            setShowDeleteConfirm(false)
         }
     }, [isOpen])
 
@@ -87,6 +92,10 @@ export function WithdrawDialog({
             await refund(amount)
             setWithdrawAmount('')
             onClose()
+            toast({
+                title: "Withdrawal Successful",
+                description: `Successfully withdrew ${formatNumber(amount.toString())} 0G to your wallet.`,
+            })
             onSuccess?.()
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw'
@@ -99,17 +108,17 @@ export function WithdrawDialog({
     const handleDeleteAccount = async () => {
         if (!canDeleteAccount || availableAmount <= 0) return
 
-        if (!confirm('Are you sure you want to withdraw all funds and delete your account? This action cannot be undone.')) {
-            return
-        }
-
         setIsDeleting(true)
         setError(null)
 
         try {
             await refund(availableAmount)
+            setShowDeleteConfirm(false)
             onClose()
-            alert('All funds have been withdrawn and your account has been deleted.')
+            toast({
+                title: "Account Deleted",
+                description: "All funds have been withdrawn and your account has been deleted.",
+            })
             onDeleteSuccess?.()
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw all funds'
@@ -117,6 +126,11 @@ export function WithdrawDialog({
         } finally {
             setIsDeleting(false)
         }
+    }
+
+    const handleDeleteClick = () => {
+        if (!canDeleteAccount || availableAmount <= 0) return
+        setShowDeleteConfirm(true)
     }
 
     return (
@@ -194,7 +208,7 @@ export function WithdrawDialog({
                     </div>
                     <Button
                         variant="outline"
-                        onClick={handleDeleteAccount}
+                        onClick={handleDeleteClick}
                         disabled={!canDeleteAccount || isDeleting || availableAmount <= 0}
                         className="w-full border-red-300 text-red-600 hover:bg-red-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
                     >
@@ -203,6 +217,55 @@ export function WithdrawDialog({
                     </Button>
                 </div>
             </DialogContent>
+
+            {/* Delete Account Confirmation Dialog */}
+            <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="h-5 w-5" />
+                            Delete Account
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-600">
+                            Are you sure you want to withdraw all funds and delete your account? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <Alert className="bg-red-50 border-red-200">
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <AlertDescription className="text-sm text-red-700">
+                                You will withdraw <strong>{formatNumber(availableBalance)} 0G</strong> and your account will be permanently deleted.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    <DialogFooter className="flex gap-3 sm:gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={isDeleting}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleDeleteAccount}
+                            disabled={isDeleting}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {isDeleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            {isDeleting ? "Deleting..." : "Yes, Delete Account"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     )
 }

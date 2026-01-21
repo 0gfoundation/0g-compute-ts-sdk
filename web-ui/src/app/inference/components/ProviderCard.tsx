@@ -10,171 +10,200 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
+    MessageCircle,
+    Code,
     Copy,
     AlertCircle,
     Loader2,
-    MessageSquare,
-    Image as ImageIcon,
+    Clock,
+    TrendingDown,
+    Image,
     Mic,
-    Check,
+    Shield,
 } from 'lucide-react'
 import { cn, copyToClipboard } from '@/lib/utils'
-import { useToast } from '@/hooks/use-toast'
 import type { Provider } from '@/shared/types/broker'
 
 interface ProviderCardProps {
     provider: Provider
     isOfficial: boolean
     isLoading?: boolean
-    onClick?: (provider: Provider) => void // Changed: single click handler for the entire card
+    isRecentlyUsed?: boolean
+    usageCount?: number
+    isCheapest?: boolean
+    onChat?: (provider: Provider) => void
+    onBuild?: (provider: Provider) => void
+    onImageGen?: (provider: Provider) => void
+    onSpeechToText?: (provider: Provider) => void
 }
 
 export function ProviderCard({
     provider,
     isOfficial,
     isLoading = false,
-    onClick,
+    isRecentlyUsed = false,
+    usageCount,
+    isCheapest = false,
+    onChat,
+    onBuild,
+    onImageGen,
+    onSpeechToText,
 }: ProviderCardProps) {
-    const { toast } = useToast()
-    const [isCopied, setIsCopied] = React.useState(false)
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
 
-    const copyAddress = async (e: React.MouseEvent) => {
-        e.stopPropagation() // Prevent card click when copying address
-        const success = await copyToClipboard(provider.address)
-        if (success) {
-            setIsCopied(true)
-            toast({
-                title: 'Address copied',
-                description: 'Provider address copied to clipboard',
-                duration: 2000,
-            })
-            setTimeout(() => setIsCopied(false), 2000)
-        }
+    // Determine service type category for UI display
+    // Handle various image-related service types
+    const isImageService = provider.serviceType === 'text-to-image' ||
+        provider.serviceType?.includes('image') ||
+        provider.name?.toLowerCase().includes('image')
+    const isChatService = provider.serviceType === 'chatbot'
+    const isSpeechService = provider.serviceType === 'speech-to-text'
+
+    const copyAddress = async () => {
+        await copyToClipboard(provider.address)
     }
 
     const truncatedAddress = `${provider.address.slice(0, 8)}...${provider.address.slice(-6)}`
 
-    const handleCardClick = () => {
-        if (!isDisabled && onClick) {
-            onClick(provider)
-        }
-    }
-
-    // Determine model type icon based on service type
-    const getModelTypeIcon = () => {
-        const serviceType = provider.serviceType
-        if (serviceType === 'text-to-image' || serviceType === 'image-editing') {
-            return <ImageIcon className="h-4 w-4 text-purple-600" />
-        }
-        if (serviceType === 'speech-to-text' || serviceType === 'audio') {
-            return <Mic className="h-4 w-4 text-purple-600" />
-        }
-        // Default to text/LLM
-        return <MessageSquare className="h-4 w-4 text-purple-600" />
-    }
-
-    // Get pricing unit based on service type
-    const getPricingUnit = () => {
-        const serviceType = provider.serviceType
-        if (serviceType === 'text-to-image' || serviceType === 'image-editing') {
-            return '0G/Image'
-        }
-        if (serviceType === 'speech-to-text' || serviceType === 'audio') {
-            return '0G/1M Tok'
-        }
-        // Default to text tokens
-        return '0G/1M Tok'
-    }
-
     return (
         <Card
             className={cn(
-                'relative transition-all',
+                'relative group',
                 isDisabled
                     ? 'opacity-60 cursor-not-allowed'
-                    : 'hover:shadow-lg cursor-pointer hover:scale-[1.02]'
+                    : 'hover:shadow-glow'
             )}
-            onClick={handleCardClick}
         >
             <CardContent className="p-5">
                 {/* Loading indicator */}
                 {isLoading && (
-                    <div className="absolute top-2 right-2">
-                        <Loader2 className="h-3 w-3 animate-spin text-purple-600" />
+                    <div className="absolute top-3 right-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     </div>
                 )}
 
                 {/* Header with name and badges */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            {/* Model type icon */}
-                            <div className="flex-shrink-0">
-                                {getModelTypeIcon()}
-                            </div>
-                            <h3 className="text-base font-semibold text-gray-900 truncate">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="text-base font-semibold text-foreground truncate">
                                 {provider.name}
                             </h3>
                             {isOfficial && (
-                                <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-0 px-1.5 py-0.5 text-xs">
-                                    0G
+                                <Badge className="bg-primary/10 text-primary hover:bg-primary/10 border-0 px-2 py-0.5 text-xs font-medium">
+                                    0G Official
                                 </Badge>
                             )}
-                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-0 px-1.5 py-0.5 text-xs">
-                                {provider.verifiability}
-                            </Badge>
-                            {!isVerified && (
-                                <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-0 px-1.5 py-0.5 text-xs">
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {isVerified ? (
+                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
+                                    <Shield className="h-3 w-3" />
+                                    {provider.verifiability}
+                                </Badge>
+                            ) : (
+                                <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 px-1.5 py-0.5 text-xs">
                                     Unverified
                                 </Badge>
+                            )}
+                            {isRecentlyUsed && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            Recent{usageCount && usageCount > 1 ? ` (${usageCount}x)` : ''}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>You&apos;ve used this provider recently</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                            {isCheapest && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
+                                            <TrendingDown className="h-3 w-3" />
+                                            Best Value
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Lowest price among available providers</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
                         </div>
 
                         {/* Pricing and address */}
-                        <div className="flex items-center gap-2 flex-wrap min-h-[28px]">
-                            {/* Pricing section */}
+                        <div className="flex items-center gap-2 flex-wrap mt-3">
+                            {/* Pricing section - improved clarity */}
                             {(provider.inputPrice !== undefined ||
                                 provider.outputPrice !== undefined) && (
-                                <div className="flex items-center gap-2 text-xs">
-                                    {provider.inputPrice !== undefined &&
-                                        provider.serviceType !== 'text-to-image' &&
-                                        provider.serviceType !== 'image-editing' && (
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-gray-600">In:</span>
-                                                <span className="font-semibold text-gray-900">
-                                                    {provider.inputPrice.toFixed(4)}
-                                                </span>
-                                            </div>
-                                        )}
-                                    {provider.outputPrice !== undefined && (
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-gray-600">
-                                                {provider.serviceType === 'text-to-image' ||
-                                                provider.serviceType === 'image-editing'
-                                                    ? 'Price/Image:'
-                                                    : 'Out:'}
-                                            </span>
-                                            <span className="font-semibold text-gray-900">
-                                                {provider.outputPrice.toFixed(4)}
-                                            </span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2 text-xs bg-secondary px-2.5 py-1.5 rounded-lg cursor-help font-mono">
+                                            {isImageService ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-muted-foreground">Price:</span>
+                                                    <span className="font-semibold text-foreground">
+                                                        {provider.outputPrice?.toFixed(4)} 0G/image
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {provider.inputPrice !== undefined && (
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-muted-foreground">In:</span>
+                                                            <span className="font-semibold text-foreground">
+                                                                {provider.inputPrice.toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {provider.outputPrice !== undefined && (
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-muted-foreground">Out:</span>
+                                                            <span className="font-semibold text-foreground">
+                                                                {provider.outputPrice.toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <span className="text-muted-foreground">0G/1M</span>
+                                                </>
+                                            )}
                                         </div>
-                                    )}
-                                    <span className="text-gray-500 font-medium">{getPricingUnit()}</span>
-                                </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                        <div className="text-sm">
+                                            <p className="font-semibold mb-1">Pricing Details</p>
+                                            {isImageService ? (
+                                                <p>Cost per generated image: {provider.outputPrice?.toFixed(4)} 0G</p>
+                                            ) : (
+                                                <>
+                                                    {provider.inputPrice !== undefined && (
+                                                        <p>Input (what you send): {provider.inputPrice.toFixed(4)} 0G per 1M tokens</p>
+                                                    )}
+                                                    {provider.outputPrice !== undefined && (
+                                                        <p>Output (AI response): {provider.outputPrice.toFixed(4)} 0G per 1M tokens</p>
+                                                    )}
+                                                    <p className="text-muted-foreground mt-1 text-xs">~{((provider.inputPrice || 0) + (provider.outputPrice || 0)).toFixed(4)} 0G per typical message</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
                             )}
 
                             {/* Address with copy */}
                             <div className="flex items-center gap-1">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <code className="text-[10px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded cursor-default">
+                                        <code className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded-md cursor-default">
                                             {truncatedAddress}
                                         </code>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p className="text-xs">{provider.address}</p>
+                                        <p>{provider.address}</p>
                                     </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
@@ -182,18 +211,14 @@ export function ProviderCard({
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-5 w-5 text-gray-400 hover:text-gray-600"
+                                            className="h-6 w-6 text-muted-foreground hover:text-primary"
                                             onClick={copyAddress}
                                         >
-                                            {isCopied ? (
-                                                <Check className="h-2.5 w-2.5 text-green-600" />
-                                            ) : (
-                                                <Copy className="h-2.5 w-2.5" />
-                                            )}
+                                            <Copy className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p className="text-xs">{isCopied ? 'Copied!' : 'Copy address'}</p>
+                                        <p>Copy address</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
@@ -201,13 +226,110 @@ export function ProviderCard({
                     </div>
                 </div>
 
+                {/* Action buttons */}
+                <div className="flex gap-2 mt-4">
+                    {isDisabled ? (
+                        <>
+                            {isChatService && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 text-xs cursor-not-allowed"
+                                    disabled
+                                >
+                                    <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                                    Chat
+                                </Button>
+                            )}
+                            {isImageService && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 text-xs cursor-not-allowed"
+                                    disabled
+                                >
+                                    <Image className="h-3.5 w-3.5 mr-1.5" />
+                                    Generate
+                                </Button>
+                            )}
+                            {isSpeechService && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 text-xs cursor-not-allowed"
+                                    disabled
+                                >
+                                    <Mic className="h-3.5 w-3.5 mr-1.5" />
+                                    Transcribe
+                                </Button>
+                            )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 text-xs cursor-not-allowed"
+                                disabled
+                            >
+                                <Code className="h-3.5 w-3.5 mr-1.5" />
+                                Build
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            {isChatService && onChat && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="flex-1 text-xs"
+                                    onClick={() => onChat(provider)}
+                                >
+                                    <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                                    Chat
+                                </Button>
+                            )}
+                            {isImageService && onImageGen && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="flex-1 text-xs"
+                                    onClick={() => onImageGen(provider)}
+                                >
+                                    <Image className="h-3.5 w-3.5 mr-1.5" />
+                                    Generate
+                                </Button>
+                            )}
+                            {isSpeechService && onSpeechToText && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="flex-1 text-xs"
+                                    onClick={() => onSpeechToText(provider)}
+                                >
+                                    <Mic className="h-3.5 w-3.5 mr-1.5" />
+                                    Transcribe
+                                </Button>
+                            )}
+                            {onBuild && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 text-xs"
+                                    onClick={() => onBuild(provider)}
+                                >
+                                    <Code className="h-3.5 w-3.5 mr-1.5" />
+                                    Build
+                                </Button>
+                            )}
+                        </>
+                    )}
+                </div>
+
                 {/* Unverified notice */}
                 {!isVerified && (
-                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                    <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg">
                         <div className="flex items-start">
-                            <AlertCircle className="h-3 w-3 text-red-500 mr-1 mt-0.5 flex-shrink-0" />
+                            <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
                             <p className="text-xs text-red-700">
-                                This provider is awaiting verification by the 0G team.
+                                This provider has not been verified and cannot be used until verification is complete.
                             </p>
                         </div>
                     </div>

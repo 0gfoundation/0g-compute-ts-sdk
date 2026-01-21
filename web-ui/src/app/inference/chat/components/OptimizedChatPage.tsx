@@ -15,7 +15,19 @@ import { ProviderSelector } from "./ProviderSelector";
 import { MessageList } from "./MessageList";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopUpModal } from "./TopUpModal";
+import { ChatOnboarding, useChatOnboarding } from "./ChatOnboarding";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { Provider } from "../../../../shared/types/broker";
 
 
 
@@ -96,9 +108,56 @@ export function OptimizedChatPage() {
   // Chat history state
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
   const { searchQuery, setSearchQuery, searchResults, isSearching, clearSearch } = useProviderSearch(chatHistory);
-  
+
+  // Onboarding
+  const { showOnboarding, completeOnboarding } = useChatOnboarding();
+
+  // Provider switch confirmation
+  const [showSwitchWarning, setShowSwitchWarning] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<Provider | null>(null);
+
+  // Handle provider selection with confirmation if there are messages
+  const handleProviderSelect = useCallback((provider: Provider) => {
+    const hasUserMessages = messages.some(m => m.role === 'user');
+
+    if (hasUserMessages && selectedProvider && provider.address !== selectedProvider.address) {
+      // Show warning dialog
+      setPendingProvider(provider);
+      setShowSwitchWarning(true);
+    } else {
+      // No messages or same provider, just switch
+      setSelectedProvider(provider);
+    }
+  }, [messages, selectedProvider, setSelectedProvider]);
+
+  const confirmProviderSwitch = useCallback(async () => {
+    if (pendingProvider) {
+      // Save current session if there are messages
+      await chatHistory.createNewSession();
+
+      // Reset messages for new session
+      setMessages([
+        {
+          role: "system",
+          content: "You are a helpful assistant that provides accurate information.",
+          timestamp: Date.now(),
+        },
+      ]);
+
+      // Switch to new provider
+      setSelectedProvider(pendingProvider);
+    }
+    setPendingProvider(null);
+    setShowSwitchWarning(false);
+  }, [pendingProvider, chatHistory, setSelectedProvider]);
+
+  const cancelProviderSwitch = useCallback(() => {
+    setPendingProvider(null);
+    setShowSwitchWarning(false);
+  }, []);
+
   // Message handling hook
-  const { sendMessage, verifyResponse, stopGeneration } = useMessageHandling({
+  const { sendMessage, verifyResponse, stopGeneration, resendMessage } = useMessageHandling({
     broker,
     selectedProvider,
     serviceMetadata,
@@ -112,8 +171,50 @@ export function OptimizedChatPage() {
     setErrorWithTimeout,
     isUserScrollingRef,
     messagesEndRef,
-    userAddress: address, // Pass wallet address for API key lookup
   });
+
+  // Handle editing a user message - truncates conversation and resends
+  const handleEditMessage = useCallback(async (originalIndex: number, newContent: string) => {
+    // Truncate messages to just before the edited message
+    const truncatedMessages = messages.slice(0, originalIndex);
+
+    // Add the edited message
+    const editedMessage: Message = {
+      role: 'user',
+      content: newContent,
+      timestamp: Date.now(),
+    };
+
+    setMessages([...truncatedMessages, editedMessage]);
+
+    // Resend with the new message
+    if (resendMessage) {
+      await resendMessage(newContent, truncatedMessages);
+    }
+  }, [messages, setMessages, resendMessage]);
+
+  // Handle regenerating an assistant response
+  const handleRegenerateMessage = useCallback(async (originalIndex: number) => {
+    // Find the previous user message
+    let userMessageIndex = originalIndex - 1;
+    while (userMessageIndex >= 0 && messages[userMessageIndex].role !== 'user') {
+      userMessageIndex--;
+    }
+
+    if (userMessageIndex < 0) return;
+
+    const userMessage = messages[userMessageIndex];
+
+    // Truncate messages to just before the assistant response
+    const truncatedMessages = messages.slice(0, originalIndex);
+
+    setMessages(truncatedMessages);
+
+    // Resend the previous user message
+    if (resendMessage) {
+      await resendMessage(userMessage.content, truncatedMessages);
+    }
+  }, [messages, setMessages, resendMessage]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -459,7 +560,7 @@ export function OptimizedChatPage() {
             <ProviderSelector
               providers={providers}
               selectedProvider={selectedProvider}
-              onProviderSelect={setSelectedProvider}
+              onProviderSelect={handleProviderSelect}
               isDropdownOpen={isDropdownOpen}
               setIsDropdownOpen={setIsDropdownOpen}
               isInitializing={isInitializing}
@@ -524,6 +625,8 @@ export function OptimizedChatPage() {
           verifyResponse={verifyResponse}
           messagesContainerRef={messagesContainerRef}
           messagesEndRef={messagesEndRef}
+          onEditMessage={handleEditMessage}
+          onRegenerateMessage={handleRegenerateMessage}
         />
 
         {/* Input */}
@@ -534,11 +637,46 @@ export function OptimizedChatPage() {
           isStreaming={isStreaming}
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
+          inputPrice={selectedProvider?.inputPrice}
+          outputPrice={selectedProvider?.outputPrice}
         />
         </div>
       </div>
 
       {/* Note: Deposit modal is now handled globally in LayoutContent */}
+
+      {/* First-time user onboarding */}
+      {showOnboarding && (
+        <ChatOnboarding
+          hasProvider={!!selectedProvider}
+          hasBalance={(providerBalance ?? 0) > 0}
+          onComplete={completeOnboarding}
+        />
+      )}
+
+      {/* Provider Switch Warning Dialog */}
+      <AlertDialog open={showSwitchWarning} onOpenChange={setShowSwitchWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch Provider?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Switching to <span className="font-semibold text-gray-900">{pendingProvider?.name}</span> will start a new conversation.
+              Your current chat history will be saved and you can access it from the history sidebar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelProviderSwitch}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmProviderSwitch}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Switch Provider
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <TopUpModal
         isOpen={showTopUpModal}
