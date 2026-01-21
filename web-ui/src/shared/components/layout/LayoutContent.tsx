@@ -52,7 +52,9 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialDeposit, setInitialDeposit] = useState<string>("3");
+  const isTestnet = chainId === zgTestnet.id;
+  const minimumDeposit = isTestnet ? 0.1 : 3;
+  const [initialDeposit, setInitialDeposit] = useState<string>(isTestnet ? "0.1" : "3");
 
   const lastCheckedStateRef = useRef<{
     pathname: string;
@@ -158,8 +160,8 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     if (!broker) return;
 
     const depositAmount = parseFloat(initialDeposit);
-    if (isNaN(depositAmount) || depositAmount < 3) {
-      setError('Minimum deposit is 3 0G');
+    if (isNaN(depositAmount) || depositAmount < minimumDeposit) {
+      setError(`Minimum deposit is ${minimumDeposit} 0G`);
       return;
     }
 
@@ -168,7 +170,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
     try {
       await broker.ledger.addLedger(depositAmount);
       setShowDepositModal(false);
-      setInitialDeposit("3");
+      setInitialDeposit(isTestnet ? "0.1" : "3");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create account. Please try again.';
       setError(errorMessage);
@@ -297,7 +299,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
               <div className="relative">
                 <input
                   type="number"
-                  min="3"
+                  min={minimumDeposit}
                   step="0.1"
                   value={initialDeposit}
                   onChange={(e) => {
@@ -305,14 +307,14 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
                     setError(null);
                   }}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="Enter amount (min 3)"
+                  placeholder={`Enter amount (min ${minimumDeposit})`}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
                   0G
                 </span>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Minimum deposit: 3 0G
+                Minimum deposit: {minimumDeposit} 0G
               </p>
             </div>
 
@@ -333,7 +335,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
             <button
               onClick={handleCreateAccount}
-              disabled={isLoading || parseFloat(initialDeposit) < 3 || isNaN(parseFloat(initialDeposit))}
+              disabled={isLoading || parseFloat(initialDeposit) < minimumDeposit || isNaN(parseFloat(initialDeposit))}
               className="w-full px-4 py-3 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
               {isLoading ? (
