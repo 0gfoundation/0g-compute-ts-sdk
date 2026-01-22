@@ -30,14 +30,14 @@ A modern web interface for the 0G Compute Network - enabling decentralized AI se
 
 ```bash
 # Clone the repository
-git clone https://github.com/0glabs/0g-compute-web-ui.git
-cd 0g-compute-web-ui
+git clone https://github.com/0gfoundation/0g-serving-user-broker.git
+cd 0g-serving-user-broker/web-ui
 
 # Install dependencies
-pnpm install
+npm install
 
 # Start development server
-pnpm dev
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -63,7 +63,7 @@ This app uses Next.js static export (`output: 'export'`), making it compatible w
 
 ### Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/0glabs/0g-compute-web-ui)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/0gfoundation/0g-serving-user-broker&root-directory=web-ui)
 
 ## Project Structure
 
@@ -112,4 +112,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [0G Documentation](https://docs.0g.ai)
 - [0G Compute Concepts](https://docs.0g.ai/concepts/compute)
-- [SDK Repository](https://github.com/0glabs/0g-serving-user-broker)
+- [SDK Repository](https://github.com/0gfoundation/0g-serving-user-broker)
