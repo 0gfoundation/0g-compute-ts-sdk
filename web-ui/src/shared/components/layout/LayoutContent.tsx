@@ -8,6 +8,7 @@ import { NavigationProvider, useNavigation } from "../navigation/OptimizedNaviga
 import SimpleLoader from "../ui/SimpleLoader";
 import { copyToClipboard } from "@/lib/utils";
 import { zgTestnet, zgMainnet } from "../../config/wagmi";
+import { formatBlockchainError } from "../../utils/blockchainErrors";
 
 // Preset amounts for initial deposit (network-aware)
 const MAINNET_DEPOSIT_PRESETS = [
@@ -219,7 +220,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
       setInitialDeposit(defaultDeposit);
       setSelectedPreset(defaultPreset);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create account. Please try again.';
+      const errorMessage = formatBlockchainError(err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
