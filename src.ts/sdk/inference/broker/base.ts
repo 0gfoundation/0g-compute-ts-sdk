@@ -404,7 +404,9 @@ export abstract class ZGServingUserBrokerBase {
                 tokenId = options.tokenId
                 if (tokenId < 0 || tokenId >= EPHEMERAL_TOKEN_ID) {
                     throw new Error(
-                        `Invalid tokenId: ${tokenId}. Must be between 0 and ${EPHEMERAL_TOKEN_ID - 1}`
+                        `Invalid tokenId: ${tokenId}. Must be between 0 and ${
+                            EPHEMERAL_TOKEN_ID - 1
+                        }`
                     )
                 }
                 // Check if this tokenId is already revoked

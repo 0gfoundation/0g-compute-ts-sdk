@@ -100,7 +100,7 @@ function showUpdateNotification(updateInfo: {
             // No cache, fetch with timeout to avoid blocking too long
             const fetchPromise = notifier.fetchInfo()
             const timeoutPromise = new Promise<undefined>((resolve) =>
-                setTimeout(() => resolve(undefined), 2000),
+                setTimeout(() => resolve(undefined), 2000)
             )
             updateInfo = await Promise.race([fetchPromise, timeoutPromise])
         }
