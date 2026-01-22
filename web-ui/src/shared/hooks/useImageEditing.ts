@@ -11,57 +11,57 @@ interface ServiceMetadata {
   model: string;
 }
 
-interface GeneratedImage {
+interface EditedImage {
   id: string;
   prompt: string;
-  imageData: string; // base64 or URL
+  originalImage: string; // base64 or URL of original
+  editedImage: string; // base64 or URL of result
   timestamp: number;
-  size: string;
   providerAddress: string;
   providerName: string;
 }
 
-interface ImageGenerationConfig {
+interface ImageEditingConfig {
   broker: any;
   selectedProvider: Provider | null;
   serviceMetadata: ServiceMetadata | null;
   onError?: (error: string) => void;
 }
 
-interface GenerationOptions {
+interface EditOptions {
+  image: File;
   prompt: string;
   size?: string;
   n?: number;
-  responseFormat?: 'b64_json' | 'url';
 }
 
-export function useImageGeneration(config: ImageGenerationConfig) {
+export function useImageEditing(config: ImageEditingConfig) {
   const { broker, selectedProvider, serviceMetadata, onError } = config;
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
+  const [currentImage, setCurrentImage] = useState<EditedImage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Stop generation
-  const stopGeneration = useCallback(() => {
+  // Stop editing
+  const stopEditing = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
-      setIsGenerating(false);
+      setIsEditing(false);
     }
   }, []);
 
-  // Generate image
-  const generateImage = useCallback(async (options: GenerationOptions) => {
-    const { prompt, size = '1024x1024', n = 1, responseFormat = 'b64_json' } = options;
+  // Edit image
+  const editImage = useCallback(async (options: EditOptions) => {
+    const { image, prompt, size = '1024x1024', n = 1 } = options;
 
-    if (!prompt.trim() || !selectedProvider || !broker) {
-      onError?.('Please provide a prompt and select a provider');
+    if (!image || !prompt.trim() || !selectedProvider || !broker) {
+      onError?.('Please provide an image, prompt, and select a provider');
       return null;
     }
 
-    setIsGenerating(true);
+    setIsEditing(true);
     setCurrentImage(null);
 
     // Create AbortController for this request
@@ -80,32 +80,37 @@ export function useImageGeneration(config: ImageGenerationConfig) {
         }
       }
 
-      // Prepare request body
-      const requestBody = {
+      // Create FormData for multipart request
+      const formData = new FormData();
+      formData.append('image', image);
+      formData.append('prompt', prompt.trim());
+      formData.append('model', currentMetadata.model);
+      formData.append('n', n.toString());
+      formData.append('size', size);
+      formData.append('response_format', 'b64_json');
+
+      // Get request headers from broker
+      // For multipart requests, we need to create a placeholder body for signing
+      const signatureBody = JSON.stringify({
         model: currentMetadata.model,
         prompt: prompt.trim(),
         n,
         size,
-        response_format: responseFormat,
-      };
-
-      // Get request headers from broker
+      });
       const headers = await broker.inference.getRequestHeaders(
         selectedProvider.address,
-        JSON.stringify(requestBody)
+        signatureBody
       );
 
-      // Send request to image generation endpoint
-      // The endpoint already includes the base path (e.g., http://host:port/v1/proxy)
-      // Note: Image editing (/images/edits) requires file upload and is not supported here
+      // Remove Content-Type header - let browser set it with boundary for multipart
+      const { 'Content-Type': _, ...headerWithoutContentType } = headers;
+
+      // Send request to image editing endpoint
       const { endpoint } = currentMetadata;
-      const response = await fetch(`${endpoint}/images/generations`, {
+      const response = await fetch(`${endpoint}/images/edits`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
-        body: JSON.stringify(requestBody),
+        headers: headerWithoutContentType,
+        body: formData,
         signal,
       });
 
@@ -116,7 +121,7 @@ export function useImageGeneration(config: ImageGenerationConfig) {
           if (errorBody) {
             try {
               const errorJson = JSON.parse(errorBody);
-              errorMessage = errorJson.error?.message || JSON.stringify(errorJson, null, 2);
+              errorMessage = errorJson.error?.message || errorJson.detail || JSON.stringify(errorJson, null, 2);
             } catch {
               errorMessage = errorBody;
             }
@@ -129,48 +134,51 @@ export function useImageGeneration(config: ImageGenerationConfig) {
 
       const data = await response.json();
 
-      // Handle response - can be b64_json or url format
-      const imageResults: GeneratedImage[] = [];
+      // Convert original image to base64 for display
+      const originalImageBase64 = await fileToBase64(image);
+
+      // Handle response
+      const imageResults: EditedImage[] = [];
 
       if (data.data && Array.isArray(data.data)) {
         for (const item of data.data) {
-          const generatedImage: GeneratedImage = {
-            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          const editedImage: EditedImage = {
+            id: `edit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             prompt,
-            imageData: item.b64_json
+            originalImage: originalImageBase64,
+            editedImage: item.b64_json
               ? `data:image/png;base64,${item.b64_json}`
               : item.url || '',
             timestamp: Date.now(),
-            size,
             providerAddress: selectedProvider.address,
             providerName: selectedProvider.name,
           };
-          imageResults.push(generatedImage);
+          imageResults.push(editedImage);
         }
       }
 
       if (imageResults.length > 0) {
         setCurrentImage(imageResults[0]);
-        setGeneratedImages(prev => [...imageResults, ...prev]);
+        setEditedImages(prev => [...imageResults, ...prev]);
 
         // Save to localStorage for history
         saveToHistory(imageResults);
       }
 
-      setIsGenerating(false);
+      setIsEditing(false);
       abortControllerRef.current = null;
       return imageResults;
 
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        setIsGenerating(false);
+        setIsEditing(false);
         abortControllerRef.current = null;
         return null;
       }
 
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate image';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to edit image';
       onError?.(errorMessage);
-      setIsGenerating(false);
+      setIsEditing(false);
       abortControllerRef.current = null;
       return null;
     }
@@ -184,10 +192,10 @@ export function useImageGeneration(config: ImageGenerationConfig) {
   // Load history from localStorage
   const loadHistory = useCallback(() => {
     try {
-      const stored = localStorage.getItem('imageGenerationHistory');
+      const stored = localStorage.getItem('imageEditingHistory');
       if (stored) {
-        const history = JSON.parse(stored) as GeneratedImage[];
-        setGeneratedImages(history);
+        const history = JSON.parse(stored) as EditedImage[];
+        setEditedImages(history);
       }
     } catch {
       // Silent fail
@@ -196,34 +204,44 @@ export function useImageGeneration(config: ImageGenerationConfig) {
 
   // Clear history
   const clearHistory = useCallback(() => {
-    setGeneratedImages([]);
+    setEditedImages([]);
     try {
-      localStorage.removeItem('imageGenerationHistory');
+      localStorage.removeItem('imageEditingHistory');
     } catch {
       // Silent fail
     }
   }, []);
 
   return {
-    isGenerating,
+    isEditing,
     currentImage,
-    generatedImages,
-    generateImage,
-    stopGeneration,
+    editedImages,
+    editImage,
+    stopEditing,
     clearCurrentImage,
     loadHistory,
     clearHistory,
   };
 }
 
+// Helper function to convert File to base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // Helper function to save to localStorage
-function saveToHistory(images: GeneratedImage[]) {
+function saveToHistory(images: EditedImage[]) {
   try {
-    const stored = localStorage.getItem('imageGenerationHistory');
-    const existing = stored ? JSON.parse(stored) as GeneratedImage[] : [];
-    // Keep only last 50 images
-    const updated = [...images, ...existing].slice(0, 50);
-    localStorage.setItem('imageGenerationHistory', JSON.stringify(updated));
+    const stored = localStorage.getItem('imageEditingHistory');
+    const existing = stored ? JSON.parse(stored) as EditedImage[] : [];
+    // Keep only last 30 images (editing stores more data)
+    const updated = [...images, ...existing].slice(0, 30);
+    localStorage.setItem('imageEditingHistory', JSON.stringify(updated));
   } catch {
     // Silent fail
   }

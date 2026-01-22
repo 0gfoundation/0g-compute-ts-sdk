@@ -117,6 +117,20 @@ export function OptimizedInferencePage() {
         [setIsNavigating, setTargetRoute, setTargetPageType]
     )
 
+    // Navigate to image-edit page
+    const handleImageEditWithProvider = useCallback(
+        (provider: Provider) => {
+            const editUrl = `/inference/image-edit?provider=${encodeURIComponent(provider.address)}`
+            setIsNavigating(true)
+            setTargetRoute('Image Editing')
+            setTargetPageType('image-edit')
+            setTimeout(() => {
+                window.location.href = editUrl
+            }, 50)
+        },
+        [setIsNavigating, setTargetRoute, setTargetPageType]
+    )
+
     // Filter and sort providers
     const filteredAndSortedProviders = useMemo(() => {
         let result = providers || []
@@ -285,6 +299,7 @@ export function OptimizedInferencePage() {
                                         onChat={handleChatWithProvider}
                                         onBuild={handleBuildWithProvider}
                                         onImageGen={handleImageGenWithProvider}
+                                        onImageEdit={handleImageEditWithProvider}
                                         onSpeechToText={handleSpeechToTextWithProvider}
                                     />
                                 )

@@ -20,6 +20,7 @@ import {
     Image,
     Mic,
     Shield,
+    Wand2,
 } from 'lucide-react'
 import { cn, copyToClipboard } from '@/lib/utils'
 import type { Provider } from '@/shared/types/broker'
@@ -34,6 +35,7 @@ interface ProviderCardProps {
     onChat?: (provider: Provider) => void
     onBuild?: (provider: Provider) => void
     onImageGen?: (provider: Provider) => void
+    onImageEdit?: (provider: Provider) => void
     onSpeechToText?: (provider: Provider) => void
 }
 
@@ -47,16 +49,21 @@ export function ProviderCard({
     onChat,
     onBuild,
     onImageGen,
+    onImageEdit,
     onSpeechToText,
 }: ProviderCardProps) {
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
 
     // Determine service type category for UI display
-    // Handle various image-related service types
-    const isImageService = provider.serviceType === 'text-to-image' ||
-        provider.serviceType?.includes('image') ||
+    // Separate text-to-image from image-editing (which requires file upload)
+    const isImageEditing = provider.serviceType === 'image-editing' ||
+        provider.name?.toLowerCase().includes('edit')
+    const isTextToImage = !isImageEditing && (
+        provider.serviceType === 'text-to-image' ||
         provider.name?.toLowerCase().includes('image')
+    )
+    const isImageService = isTextToImage || isImageEditing
     const isChatService = provider.serviceType === 'chatbot'
     const isSpeechService = provider.serviceType === 'speech-to-text'
 
@@ -286,7 +293,7 @@ export function ProviderCard({
                                     Chat
                                 </Button>
                             )}
-                            {isImageService && onImageGen && (
+                            {isTextToImage && onImageGen && (
                                 <Button
                                     variant="default"
                                     size="sm"
@@ -295,6 +302,17 @@ export function ProviderCard({
                                 >
                                     <Image className="h-3.5 w-3.5 mr-1.5" />
                                     Generate
+                                </Button>
+                            )}
+                            {isImageEditing && onImageEdit && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="flex-1 text-xs"
+                                    onClick={() => onImageEdit(provider)}
+                                >
+                                    <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+                                    Edit
                                 </Button>
                             )}
                             {isSpeechService && onSpeechToText && (

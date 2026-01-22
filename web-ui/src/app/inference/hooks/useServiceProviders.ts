@@ -5,7 +5,7 @@ import { transformBrokerServicesToProviders } from '../utils/providerTransform'
 import { neuronToA0gi } from '../../../shared/utils/currency'
 import type { Provider } from '../../../shared/types/broker'
 
-export type ServiceType = 'chatbot' | 'text-to-image' | 'speech-to-text'
+export type ServiceType = 'chatbot' | 'text-to-image' | 'speech-to-text' | 'image-editing'
 
 interface ServiceMetadata {
     endpoint: string
@@ -100,10 +100,20 @@ export function useServiceProviders(
                 if (!p.teeSignerAcknowledged) return false
 
                 if (serviceType === 'text-to-image') {
-                    // Match any image-related service type or name
+                    // Match text-to-image services only, exclude image-editing
+                    // Image editing requires file upload and uses /images/edits endpoint
+                    if (p.serviceType === 'image-editing' ||
+                        p.name?.toLowerCase().includes('edit')) {
+                        return false
+                    }
                     return p.serviceType === 'text-to-image' ||
-                        p.serviceType?.includes('image') ||
                         p.name?.toLowerCase().includes('image')
+                }
+
+                if (serviceType === 'image-editing') {
+                    // Match image-editing services
+                    return p.serviceType === 'image-editing' ||
+                        p.name?.toLowerCase().includes('edit')
                 }
 
                 return p.serviceType === serviceType
