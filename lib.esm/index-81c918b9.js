@@ -16868,7 +16868,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-60c75846.js');
+    const { download } = await import('./index-6886ca8f.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -22229,9 +22229,9 @@ const CONTRACT_ADDRESSES = {
         fineTuning: '0xaC66eBd174435c04F1449BBa08157a707B6fa7b1',
     },
     testnetDev: {
-        ledger: '0xf248Baaee6A4dC84bac4675906F8dBd2D761356B',
-        inference: '0x335c02f5F1A01b54Ae7a4974c5Dd2853C3300C95',
-        fineTuning: '0x933ecA2F203840Dc2fA05878a52C4a99aB13F8B1',
+        ledger: '0x815B93ab4Ba4BDF530dbF1552649a3c534F8BbF7',
+        inference: '0x41bD7Ac5c19000A974D5c192bcd5FB67b56C85c5',
+        fineTuning: '0x4e4158DF35CfdC0ac63264D3E112F5B8E9a5c569',
     },
     mainnet: {
         // TODO: Update with actual mainnet addresses when available
@@ -22385,4 +22385,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-f0a9c946.js.map
+//# sourceMappingURL=index-81c918b9.js.map
