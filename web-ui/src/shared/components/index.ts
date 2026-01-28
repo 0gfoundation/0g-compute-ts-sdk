@@ -10,3 +10,9 @@ export { LazyChatPage } from './navigation/LazyPages';
 // UI components
 export { PageLoader } from './ui/PageLoader';
 export { SimpleLoader } from './ui/SimpleLoader';
+
+// Widget components
+export { BalanceWidget, BalanceWidgetMini } from './BalanceWidget';
+
+// Provider setup components
+export * from './provider-setup';

@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StateDisplay } from '@/components/ui/state-display';
 import { BalanceCard, AddFundsForm, WithdrawDialog, FundDistribution } from './components';
+import { TransactionHistory, useTransactionHistory } from './components/TransactionHistory';
 import { Loader2 } from 'lucide-react';
 
 function LedgerContent() {
@@ -20,8 +21,9 @@ function LedgerContent() {
     depositFund,
   } = use0GBroker();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'detail'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'detail' | 'history'>('overview');
   const [expandedRefunds, setExpandedRefunds] = useState<{ [key: string]: boolean }>({});
+  const { transactions, isLoading: txLoading, refreshTransactions, addTransaction } = useTransactionHistory();
   const [refundDetails, setRefundDetails] = useState<{ [key: string]: { amount: bigint, remainTime: bigint }[] }>({});
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
@@ -35,6 +37,8 @@ function LedgerContent() {
     const tab = searchParams.get('tab');
     if (tab === 'transactions') {
       setActiveTab('detail');
+    } else if (tab === 'history') {
+      setActiveTab('history');
     } else {
       setActiveTab('overview');
     }
@@ -184,32 +188,48 @@ function LedgerContent() {
 
   return (
     <div className="w-full">
-      <div className="mb-3">
-        <h1 className="text-lg font-semibold text-gray-900">Account</h1>
-        <p className="text-xs text-gray-500">Manage your account balance and funding</p>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Account</h1>
+            <p className="text-sm text-muted-foreground">Manage your balance and funds</p>
+          </div>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'detail')}>
-        <div className="bg-white rounded-t-xl border border-gray-200">
-          <div className="flex border-b border-gray-200">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'detail' | 'history')}>
+        <div className="bg-card rounded-t-xl border border-border">
+          <div className="flex border-b border-border">
             <TabsList className="bg-transparent p-0 h-auto">
               <TabsTrigger
                 value="overview"
-                className="px-6 py-4 font-medium text-sm rounded-none border-b-2 border-transparent transition-all relative data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:bg-white data-[state=active]:shadow-none text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                className="px-6 py-4 font-medium text-sm rounded-none border-b-2 border-transparent transition-all relative data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-card data-[state=active]:shadow-none text-muted-foreground hover:text-foreground hover:bg-secondary"
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="detail"
-                className="px-6 py-4 font-medium text-sm rounded-none border-b-2 border-transparent transition-all relative data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:bg-white data-[state=active]:shadow-none text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                className="px-6 py-4 font-medium text-sm rounded-none border-b-2 border-transparent transition-all relative data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-card data-[state=active]:shadow-none text-muted-foreground hover:text-foreground hover:bg-secondary"
               >
                 Fund Distribution
+              </TabsTrigger>
+              <TabsTrigger
+                value="history"
+                className="px-6 py-4 font-medium text-sm rounded-none border-b-2 border-transparent transition-all relative data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-card data-[state=active]:shadow-none text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                History
               </TabsTrigger>
             </TabsList>
           </div>
         </div>
 
-        <div className="bg-white rounded-b-xl border border-gray-200 border-t-0 p-6">
+        <div className="bg-card rounded-b-xl border border-border border-t-0 p-6">
             <TabsContent value="overview" className="mt-0 space-y-6">
               {/* Total Balance Section */}
               <BalanceCard
@@ -246,6 +266,16 @@ function LedgerContent() {
                 formatTime={formatTime}
               />
             </TabsContent>
+
+            <TabsContent value="history" className="mt-0">
+              <TransactionHistory
+                transactions={transactions}
+                isLoading={txLoading}
+                onRefresh={refreshTransactions}
+                formatNumber={formatNumber}
+                explorerBaseUrl="https://chainscan-newton.0g.ai"
+              />
+            </TabsContent>
         </div>
       </Tabs>
 
@@ -268,7 +298,7 @@ export default function LedgerPage() {
   return (
     <Suspense fallback={
       <div className="w-full flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>
       <LedgerContent />

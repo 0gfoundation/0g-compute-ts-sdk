@@ -21,6 +21,8 @@ interface MessageListProps {
   verifyResponse: (message: Message, originalIndex: number) => void;
   messagesContainerRef?: React.RefObject<HTMLDivElement | null>;
   messagesEndRef?: React.RefObject<HTMLDivElement | null>;
+  onEditMessage?: (originalIndex: number, newContent: string) => void;
+  onRegenerateMessage?: (originalIndex: number) => void;
 }
 
 // Avatar component for loading state
@@ -39,6 +41,8 @@ export function MessageList({
   verifyResponse,
   messagesContainerRef: externalContainerRef,
   messagesEndRef: externalEndRef,
+  onEditMessage,
+  onRegenerateMessage,
 }: MessageListProps) {
   const internalContainerRef = useRef<HTMLDivElement>(null);
   const internalEndRef = useRef<HTMLDivElement>(null);
@@ -59,6 +63,8 @@ export function MessageList({
             isLoading={isLoading}
             isStreaming={isStreaming}
             onVerify={verifyResponse}
+            onEdit={onEditMessage}
+            onRegenerate={onRegenerateMessage}
           />
         ))}
 

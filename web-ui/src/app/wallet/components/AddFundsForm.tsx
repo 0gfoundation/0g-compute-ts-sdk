@@ -6,6 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Info, Loader2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+
+// Preset amounts for quick deposit
+const PRESET_AMOUNTS = [
+    { value: 5, label: '5 0G' },
+    { value: 10, label: '10 0G' },
+    { value: 25, label: '25 0G' },
+    { value: 50, label: '50 0G' },
+]
 
 interface AddFundsFormProps {
     depositFund: (amount: number) => Promise<void>
@@ -14,8 +23,22 @@ interface AddFundsFormProps {
 
 export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
     const [amount, setAmount] = useState('')
+    const [selectedPreset, setSelectedPreset] = useState<number | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const { toast } = useToast()
+
+    const handlePresetClick = (presetValue: number) => {
+        setSelectedPreset(presetValue)
+        setAmount(presetValue.toString())
+        setError(null)
+    }
+
+    const handleCustomInput = (value: string) => {
+        setAmount(value)
+        setSelectedPreset(null)
+        setError(null)
+    }
 
     const handleSubmit = async () => {
         if (!amount) return
@@ -28,12 +51,20 @@ export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
 
         try {
             await depositFund(numAmount)
-            alert(`Successfully added ${amount} 0G tokens to your account!`)
+            toast({
+                title: "Funds Added Successfully",
+                description: `Added ${amount} 0G tokens to your account.`,
+            })
             setAmount('')
             onSuccess?.()
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to add funds'
             setError(errorMessage)
+            toast({
+                variant: "destructive",
+                title: "Failed to Add Funds",
+                description: errorMessage,
+            })
         } finally {
             setIsLoading(false)
         }
@@ -48,17 +79,41 @@ export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
 
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
+                        {/* Quick-add preset amounts */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Quick Add
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {PRESET_AMOUNTS.map((preset) => (
+                                    <button
+                                        key={preset.value}
+                                        onClick={() => handlePresetClick(preset.value)}
+                                        disabled={isLoading}
+                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                                            selectedPreset === preset.value
+                                                ? 'bg-purple-100 border-purple-500 text-purple-700'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50'
+                                        } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    >
+                                        <div className="font-semibold">{preset.label}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Custom amount input */}
                         <div>
                             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                                Amount
+                                Custom Amount
                             </label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     id="amount"
                                     value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    placeholder="0.1"
+                                    onChange={(e) => handleCustomInput(e.target.value)}
+                                    placeholder="Enter amount"
                                     step="0.01"
                                     min="0"
                                     className="pr-12"
@@ -81,7 +136,7 @@ export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
                             className="w-full bg-purple-600 hover:bg-purple-700"
                         >
                             {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                            {isLoading ? "Adding Funds..." : "Add Funds"}
+                            {isLoading ? "Adding Funds..." : `Add ${amount || '0'} 0G`}
                         </Button>
                     </div>
 

@@ -1,6 +1,11 @@
 export { use0GBroker } from './use0GBroker';
+export { useBrokerOperations } from './useBrokerOperations';
 export { useChatHistory } from './useChatHistory';
 export { useErrorWithTimeout } from './useErrorWithTimeout';
 export { useMessageHandling } from './useMessageHandling';
+export { useOnChainTokens } from './useOnChainTokens';
 export { useOptimizedDataFetching } from './useOptimizedDataFetching';
+export { useProviderSetup } from './useProviderSetup';
+export { useProviderVerification } from './useProviderVerification';
+export { useSlotStatus } from './useSlotStatus';
 export { useStreamingState } from './useStreamingState';

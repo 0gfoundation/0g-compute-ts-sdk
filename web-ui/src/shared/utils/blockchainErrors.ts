@@ -133,6 +133,16 @@ export function formatBlockchainError(error: unknown): string {
     return 'Smart contract call failed. Please try again.'
   }
 
+  // Missing revert data - usually means contract reverted without reason
+  if (err.message?.includes('missing revert data')) {
+    return 'Transaction failed. Please ensure you have enough 0G tokens for gas and the deposit amount.'
+  }
+
+  // Internal JSON-RPC error
+  if (err.message?.includes('Internal JSON-RPC error')) {
+    return 'Network error. Please check your wallet connection and try again.'
+  }
+
   // Gas estimation errors
   if (err.message?.toLowerCase().includes('gas required exceeds')) {
     return 'Transaction requires too much gas. Please try with a smaller amount.'

@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // Hook to detect mobile screen
 function useIsMobile(breakpoint = 768) {
@@ -22,6 +23,34 @@ function useIsMobile(breakpoint = 768) {
 
   return isMobile;
 }
+
+// Helper to get date group label
+type DateGroup = 'Today' | 'Yesterday' | 'Last 7 Days' | 'Last 30 Days' | 'Older';
+
+function getDateGroup(timestamp: number): DateGroup {
+  const now = new Date();
+  const date = new Date(timestamp);
+
+  // Reset to start of day for comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+  const last7DaysStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+  const last30DaysStart = todayStart - 30 * 24 * 60 * 60 * 1000;
+
+  const ts = date.getTime();
+
+  if (ts >= todayStart) return 'Today';
+  if (ts >= yesterdayStart) return 'Yesterday';
+  if (ts >= last7DaysStart) return 'Last 7 Days';
+  if (ts >= last30DaysStart) return 'Last 30 Days';
+  return 'Older';
+}
+
+interface GroupedSessions {
+  [key: string]: Session[];
+}
+
+const DATE_GROUP_ORDER: DateGroup[] = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Older'];
 
 interface SearchResult {
   sessionId: string;
@@ -66,6 +95,29 @@ function SidebarContent({
   chatHistory,
   handleHistoryClick,
 }: Omit<ChatSidebarProps, 'showHistorySidebar' | 'onClose'>) {
+  // Track collapsed state for date groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Group sessions by date
+  const groupedSessions = useMemo(() => {
+    const groups: GroupedSessions = {};
+    for (const session of chatHistory.sessions) {
+      const group = getDateGroup(session.updated_at);
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(session);
+    }
+    return groups;
+  }, [chatHistory.sessions]);
+
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [group]: !prev[group]
+    }));
+  };
+
   return (
     <>
       <div className="p-4 border-b border-gray-200 bg-gray-50">
@@ -159,63 +211,98 @@ function SidebarContent({
             )}
           </div>
         ) : (
-          /* Session List */
+          /* Session List - Grouped by Date */
           chatHistory.sessions.length === 0 ? (
             <div className="p-4 text-center text-gray-500 text-sm">
               No chat history yet
             </div>
           ) : (
-            <div className="space-y-1 p-2">
-              {chatHistory.sessions.map((session) => (
-              <div
-                key={session.session_id}
-                className={`relative group rounded-lg text-sm transition-colors ${
-                  chatHistory.currentSessionId === session.session_id
-                    ? 'bg-purple-50 border border-purple-200'
-                    : isProcessing
-                    ? 'bg-gray-100 border border-transparent'
-                    : 'hover:bg-gray-50 border border-transparent'
-                }`}
-              >
-                <button
-                  onClick={() => handleHistoryClick(session.session_id)}
-                  disabled={isProcessing}
-                  className={`w-full text-left p-3 pr-10 rounded-lg transition-colors ${
-                    isProcessing
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : ''
-                  }`}
-                >
-                  <div className="font-medium text-gray-900 truncate">
-                    {session.title || 'Untitled Chat'}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {new Date(session.updated_at).toLocaleDateString()}
-                  </div>
-                </button>
+            <div className="p-2">
+              {DATE_GROUP_ORDER.map((group) => {
+                const sessions = groupedSessions[group];
+                if (!sessions || sessions.length === 0) return null;
 
-                {/* Delete button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isProcessing) {
-                      chatHistory.deleteSession(session.session_id);
-                    }
-                  }}
-                  disabled={isProcessing}
-                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 ${
-                    isProcessing
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                  }`}
-                  title="Delete chat history"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-              ))}
+                const isCollapsed = collapsedGroups[group];
+
+                return (
+                  <div key={group} className="mb-2">
+                    {/* Group Header */}
+                    <button
+                      onClick={() => toggleGroup(group)}
+                      className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <div className="flex items-center gap-1">
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                        <span>{group}</span>
+                      </div>
+                      <span className="text-gray-400">{sessions.length}</span>
+                    </button>
+
+                    {/* Group Sessions */}
+                    {!isCollapsed && (
+                      <div className="space-y-1 mt-1">
+                        {sessions.map((session) => (
+                          <div
+                            key={session.session_id}
+                            className={`relative group rounded-lg text-sm transition-colors ${
+                              chatHistory.currentSessionId === session.session_id
+                                ? 'bg-purple-50 border border-purple-200'
+                                : isProcessing
+                                ? 'bg-gray-100 border border-transparent'
+                                : 'hover:bg-gray-50 border border-transparent'
+                            }`}
+                          >
+                            <button
+                              onClick={() => handleHistoryClick(session.session_id)}
+                              disabled={isProcessing}
+                              className={`w-full text-left p-3 pr-10 rounded-lg transition-colors ${
+                                isProcessing
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : ''
+                              }`}
+                            >
+                              <div className="font-medium text-gray-900 truncate">
+                                {session.title || 'Untitled Chat'}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(session.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {group !== 'Today' && group !== 'Yesterday' && (
+                                  <span> • {new Date(session.updated_at).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Delete button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isProcessing) {
+                                  chatHistory.deleteSession(session.session_id);
+                                }
+                              }}
+                              disabled={isProcessing}
+                              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 ${
+                                isProcessing
+                                  ? 'text-gray-300 cursor-not-allowed'
+                                  : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                              }`}
+                              title="Delete chat history"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )
         )}
