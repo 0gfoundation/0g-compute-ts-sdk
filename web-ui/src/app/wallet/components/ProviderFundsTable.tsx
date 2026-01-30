@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/tooltip'
 import { ChevronUp, RefreshCw, Loader2, HelpCircle, Clock, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isProviderUnstable } from '@/shared/config/unstableProviders'
 
 // Live countdown component
 function CountdownTimer({ remainSeconds, formatTime }: { remainSeconds: number; formatTime: (s: number) => string }) {
@@ -171,8 +172,20 @@ export function ProviderFundsTable({
                                         {/* Provider Address - always full width on mobile */}
                                         <div className="mb-3 md:mb-0">
                                             <div className="text-xs font-medium text-gray-500 mb-1">Provider Address</div>
-                                            <div className="text-sm font-medium text-gray-900 font-mono break-all">
-                                                {provider.provider}
+                                            <div className="text-sm font-medium text-gray-900 font-mono break-all flex items-center gap-2">
+                                                <span>{provider.provider}</span>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                            isProviderUnstable(provider.provider)
+                                                                ? 'bg-yellow-500 animate-pulse'
+                                                                : 'bg-green-500'
+                                                        }`} />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{isProviderUnstable(provider.provider) ? 'Limited Availability' : 'High Availability'}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             </div>
                                         </div>
                                         {/* Fund info - side by side on mobile, grid on desktop */}
