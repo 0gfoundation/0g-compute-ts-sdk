@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Provider } from '../../../shared/types/broker';
 import { formatBalance } from '../../../shared/utils/currency';
+import { isProviderUnstable, isOfficial0GProvider } from '@/shared/config/unstableProviders';
 
 interface ProviderSelectorProps {
   providers: Provider[];
@@ -57,14 +58,27 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
         <div className="flex-1 min-w-0">
           {selectedProvider ? (
             <div>
-              <div className="font-medium text-gray-900 truncate">
+              <div className="font-medium text-gray-900 truncate flex items-center gap-1.5">
                 {selectedProvider.name}
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    isProviderUnstable(selectedProvider.address)
+                      ? 'bg-yellow-500 animate-pulse'
+                      : 'bg-green-500'
+                  }`}
+                  title={isProviderUnstable(selectedProvider.address) ? 'Limited Availability' : 'High Availability'}
+                />
               </div>
               <div className="text-xs text-gray-500 mt-0.5 flex items-center space-x-4">
                 <span>{selectedProvider.model.includes('/') ? selectedProvider.model.split('/').slice(1).join('/') : selectedProvider.model}</span>
                 <span className="flex items-center space-x-1">
                   <span>🔒</span>
                   <span>{selectedProvider.verifiability}</span>
+                  {isOfficial0GProvider(selectedProvider.address) && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+                      0G
+                    </span>
+                  )}
                 </span>
                 {selectedProvider.inputPrice && selectedProvider.outputPrice && (
                   <span className="text-green-600 font-medium">
@@ -118,8 +132,16 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
                     : ""
                 }`}
               >
-                <div className="font-medium text-gray-900">
+                <div className="font-medium text-gray-900 flex items-center gap-1.5">
                   {provider.name}
+                  <div
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      isProviderUnstable(provider.address)
+                        ? 'bg-yellow-500 animate-pulse'
+                        : 'bg-green-500'
+                    }`}
+                    title={isProviderUnstable(provider.address) ? 'Limited Availability' : 'High Availability'}
+                  />
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5 space-y-1">
                   <div className="flex items-center space-x-4">
@@ -127,6 +149,11 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
                     <span className="flex items-center space-x-1">
                       <span>🔒</span>
                       <span>{provider.verifiability}</span>
+                      {isOfficial0GProvider(provider.address) && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+                          0G
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="text-gray-600">

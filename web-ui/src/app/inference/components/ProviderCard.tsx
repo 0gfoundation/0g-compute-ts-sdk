@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { cn, copyToClipboard } from '@/lib/utils'
 import type { Provider } from '@/shared/types/broker'
+import { isProviderUnstable, isOfficial0GProvider } from '@/shared/config/unstableProviders'
 
 interface ProviderCardProps {
     provider: Provider
@@ -54,6 +55,8 @@ export function ProviderCard({
 }: ProviderCardProps) {
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
+    const isUnstable = isProviderUnstable(provider.address)
+    const is0GOfficial = isOfficial0GProvider(provider.address)
 
     // Determine service type category for UI display
     // Separate text-to-image from image-editing (which requires file upload)
@@ -94,9 +97,21 @@ export function ProviderCard({
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <h3 className="text-base font-semibold text-foreground truncate">
-                                {provider.name}
-                            </h3>
+                            <div className="flex items-center gap-1.5">
+                                <h3 className="text-base font-semibold text-foreground truncate">
+                                    {provider.name}
+                                </h3>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center">
+                                            <div className={`w-2 h-2 rounded-full ${isUnstable ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{isUnstable ? 'Limited Availability' : 'High Availability'}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
                             {isOfficial && (
                                 <Badge className="bg-primary/10 text-primary hover:bg-primary/10 border-0 px-2 py-0.5 text-xs font-medium">
                                     0G Official
@@ -105,10 +120,17 @@ export function ProviderCard({
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {isVerified ? (
-                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
-                                    <Shield className="h-3 w-3" />
-                                    {provider.verifiability}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
+                                        <Shield className="h-3 w-3" />
+                                        {provider.verifiability}
+                                    </Badge>
+                                    {is0GOfficial && (
+                                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-0 px-1.5 py-0.5 text-xs font-semibold">
+                                            0G
+                                        </Badge>
+                                    )}
+                                </div>
                             ) : (
                                 <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-0 px-1.5 py-0.5 text-xs">
                                     Unverified

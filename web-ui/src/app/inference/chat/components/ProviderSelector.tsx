@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Search, ShieldCheck, Shield, X, Check, Clock } from 'lucide-react';
+import { isProviderUnstable, isOfficial0GProvider } from '@/shared/config/unstableProviders';
 
 // Helper to get recently used providers from localStorage
 const getRecentlyUsedProviders = (): string[] => {
@@ -90,6 +91,7 @@ function MobileProviderCard({
 }) {
   const isTeeVerified = provider.verifiability?.toLowerCase().includes('teeml') || provider.verifiability?.toLowerCase().includes('tee');
   const isOfficial = OFFICIAL_PROVIDERS.some((op) => op.address === provider.address);
+  const isUnstable = isProviderUnstable(provider.address);
 
   return (
     <button
@@ -104,6 +106,12 @@ function MobileProviderCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="font-semibold text-gray-900 truncate">{provider.name}</span>
+            <div
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                isUnstable ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+              }`}
+              title={isUnstable ? 'Limited Availability' : 'High Availability'}
+            />
             {isSelected && (
               <Check className="w-4 h-4 text-purple-600 flex-shrink-0" />
             )}
@@ -119,6 +127,12 @@ function MobileProviderCard({
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                 <Shield className="w-3 h-3" />
                 Standard
+              </span>
+            )}
+            {/* 0G Official Badge */}
+            {isOfficial0GProvider(provider.address) && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                0G
               </span>
             )}
             {/* Official Badge */}
@@ -227,8 +241,16 @@ export function ProviderSelector({
           ) : selectedProvider ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <span className="font-medium text-xs sm:text-sm truncate">
+                <span className="font-medium text-xs sm:text-sm truncate flex items-center gap-1.5">
                   {selectedProvider.name}
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      isProviderUnstable(selectedProvider.address)
+                        ? 'bg-yellow-500 animate-pulse'
+                        : 'bg-green-500'
+                    }`}
+                    title={isProviderUnstable(selectedProvider.address) ? 'Limited Availability' : 'High Availability'}
+                  />
                 </span>
                 {/* Address - only on xl screens */}
                 <span className="hidden xl:inline text-gray-500">•</span>
@@ -244,10 +266,9 @@ export function ProviderSelector({
                 }`}>
                   {selectedProvider.verifiability}
                 </span>
-                {OFFICIAL_PROVIDERS.some(
-                  (op) => op.address === selectedProvider.address
-                ) && (
-                  <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                {/* 0G Official Badge */}
+                {isOfficial0GProvider(selectedProvider.address) && (
+                  <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
                     0G
                   </span>
                 )}
@@ -289,7 +310,17 @@ export function ProviderSelector({
               >
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap">
-                    <span className="font-medium text-xs sm:text-sm">{provider.name}</span>
+                    <span className="font-medium text-xs sm:text-sm flex items-center gap-1.5">
+                      {provider.name}
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          isProviderUnstable(provider.address)
+                            ? 'bg-yellow-500 animate-pulse'
+                            : 'bg-green-500'
+                        }`}
+                        title={isProviderUnstable(provider.address) ? 'Limited Availability' : 'High Availability'}
+                      />
+                    </span>
                     {/* Address - hidden on mobile */}
                     <span className="hidden md:inline text-gray-500">•</span>
                     <span className="hidden md:inline text-gray-600 text-xs">
@@ -304,10 +335,9 @@ export function ProviderSelector({
                     }`}>
                       {provider.verifiability}
                     </span>
-                    {OFFICIAL_PROVIDERS.some(
-                      (op) => op.address === provider.address
-                    ) && (
-                      <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {/* 0G Official Badge */}
+                    {isOfficial0GProvider(provider.address) && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
                         0G
                       </span>
                     )}
