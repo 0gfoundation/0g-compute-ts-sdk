@@ -2983,7 +2983,7 @@ interface SingerRAVerificationResult {
      */
     signingAddress: string;
 }
-interface VerificationResult {
+interface VerificationResult$1 {
     success: boolean;
     teeVerifier: string;
     targetSeparated: boolean;
@@ -2991,20 +2991,20 @@ interface VerificationResult {
     reportsGenerated: string[];
     outputDirectory: string;
     reportsData?: {
-        broker?: AttestationReport;
-        llm?: AttestationReport;
-        combined?: AttestationReport;
+        broker?: AttestationReport$1;
+        llm?: AttestationReport$1;
+        combined?: AttestationReport$1;
     };
 }
-interface AttestationReport {
+interface AttestationReport$1 {
     tcb_info?: Record<string, unknown>;
     info?: {
         tcb_info?: Record<string, unknown>;
     };
-    event_log?: EventLogEntry[];
+    event_log?: EventLogEntry$1[];
     [key: string]: unknown;
 }
-interface EventLogEntry {
+interface EventLogEntry$1 {
     event: string;
     event_payload?: string;
     [key: string]: unknown;
@@ -3022,7 +3022,7 @@ declare class Verifier extends ZGServingUserBrokerBase {
      * @param outputDir - Directory to save attestation reports (default: current directory)
      * @returns Verification results and user guidance
      */
-    verifyService(providerAddress: string, outputDir?: string): Promise<VerificationResult>;
+    verifyService(providerAddress: string, outputDir?: string): Promise<VerificationResult$1>;
     /**
      * Extract TEE signer address from attestation report
      */
@@ -3281,7 +3281,7 @@ declare class InferenceBroker {
      *
      * @throws An error if errors occur during the verification process.
      */
-    verifyService: (providerAddress: string, outputDir?: string) => Promise<VerificationResult | null>;
+    verifyService: (providerAddress: string, outputDir?: string) => Promise<VerificationResult$1 | null>;
     /**
      * getSignerRaDownloadLink returns the download link for the Signer RA.
      *
@@ -3424,6 +3424,30 @@ interface FineTuningAccountDetail {
     }[];
 }
 
+interface AttestationReport {
+    tcb_info?: Record<string, unknown>;
+    info?: {
+        tcb_info?: Record<string, unknown>;
+    };
+    event_log?: EventLogEntry[];
+    report_data?: string;
+    [key: string]: unknown;
+}
+interface EventLogEntry {
+    event: string;
+    event_payload?: string;
+    [key: string]: unknown;
+}
+interface VerificationResult {
+    success: boolean;
+    teeVerifier: string;
+    reportsGenerated: string[];
+    outputDirectory: string;
+    reportsData?: {
+        combined?: AttestationReport;
+    };
+}
+
 declare class FineTuningBroker {
     private signer;
     private fineTuningCA;
@@ -3431,6 +3455,7 @@ declare class FineTuningBroker {
     private modelProcessor;
     private datasetProcessor;
     private serviceProcessor;
+    private verifier;
     private serviceProvider;
     private _gasPrice?;
     private _maxGasPrice?;
@@ -3459,6 +3484,45 @@ declare class FineTuningBroker {
     getLog: (providerAddress: string, taskID?: string) => Promise<string>;
     acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, gasPrice?: number) => Promise<void>;
     decryptModel: (providerAddress: string, taskId: string, encryptedModelPath: string, decryptedModelPath: string) => Promise<void>;
+    /**
+     * Verify fine-tuning service TEE attestation (DStack only)
+     *
+     * Downloads and verifies the TEE attestation report to ensure the provider
+     * is running in a trusted execution environment. This simplified version
+     * only supports DStack (Intel TDX) verification.
+     *
+     * @param providerAddress - The provider address to verify
+     * @param outputDir - Directory to save attestation reports (default: current directory)
+     * @returns Promise resolving to verification results with report paths and status
+     *
+     * @example
+     * ```typescript
+     * const broker = await createFineTuningBroker(signer, contractAddress, ledger);
+     *
+     * // Verify a provider's TEE attestation
+     * const result = await broker.verifyService(
+     *   '0x1234...',
+     *   './attestation-reports'
+     * );
+     *
+     * if (result.success && result.reportsData) {
+     *   console.log('Verification successful');
+     *   console.log('Reports saved to:', result.outputDirectory);
+     * }
+     * ```
+     *
+     * @remarks
+     * This method downloads the attestation report and performs automated checks:
+     * 1. TEE Signer Address Verification - matches contract signer with report signer
+     * 2. Docker Compose Verification - validates compose hash against event log
+     *
+     * After automated checks, users must manually verify:
+     * 1. Docker images using sigstore (https://search.sigstore.dev/)
+     * 2. Run dstack-verifier for complete quote verification
+     *
+     * @throws {Error} If provider doesn't exist or attestation report cannot be retrieved
+     */
+    verifyService: (providerAddress: string, outputDir?: string) => Promise<VerificationResult>;
 }
 /**
  * createFineTuningBroker is used to initialize ZGServingUserBroker

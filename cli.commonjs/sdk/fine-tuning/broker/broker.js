@@ -8,6 +8,7 @@ const dataset_1 = require("./dataset");
 const service_1 = require("./service");
 const provider_1 = require("../provider/provider");
 const utils_1 = require("../../common/utils");
+const verifier_1 = require("./verifier");
 class FineTuningBroker {
     signer;
     fineTuningCA;
@@ -15,6 +16,7 @@ class FineTuningBroker {
     modelProcessor;
     datasetProcessor;
     serviceProcessor;
+    verifier;
     serviceProvider;
     _gasPrice;
     _maxGasPrice;
@@ -40,6 +42,7 @@ class FineTuningBroker {
         this.modelProcessor = new model_1.ModelProcessor(contract, this.ledger, this.serviceProvider);
         this.datasetProcessor = new dataset_1.DatasetProcessor(contract, this.ledger, this.serviceProvider);
         this.serviceProcessor = new service_1.ServiceProcessor(contract, this.ledger, this.serviceProvider);
+        this.verifier = new verifier_1.Verifier(contract, this.ledger, this.serviceProvider);
     }
     listService = async () => {
         try {
@@ -197,6 +200,52 @@ class FineTuningBroker {
     decryptModel = async (providerAddress, taskId, encryptedModelPath, decryptedModelPath) => {
         try {
             return await this.modelProcessor.decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
+    /**
+     * Verify fine-tuning service TEE attestation (DStack only)
+     *
+     * Downloads and verifies the TEE attestation report to ensure the provider
+     * is running in a trusted execution environment. This simplified version
+     * only supports DStack (Intel TDX) verification.
+     *
+     * @param providerAddress - The provider address to verify
+     * @param outputDir - Directory to save attestation reports (default: current directory)
+     * @returns Promise resolving to verification results with report paths and status
+     *
+     * @example
+     * ```typescript
+     * const broker = await createFineTuningBroker(signer, contractAddress, ledger);
+     *
+     * // Verify a provider's TEE attestation
+     * const result = await broker.verifyService(
+     *   '0x1234...',
+     *   './attestation-reports'
+     * );
+     *
+     * if (result.success && result.reportsData) {
+     *   console.log('Verification successful');
+     *   console.log('Reports saved to:', result.outputDirectory);
+     * }
+     * ```
+     *
+     * @remarks
+     * This method downloads the attestation report and performs automated checks:
+     * 1. TEE Signer Address Verification - matches contract signer with report signer
+     * 2. Docker Compose Verification - validates compose hash against event log
+     *
+     * After automated checks, users must manually verify:
+     * 1. Docker images using sigstore (https://search.sigstore.dev/)
+     * 2. Run dstack-verifier for complete quote verification
+     *
+     * @throws {Error} If provider doesn't exist or attestation report cannot be retrieved
+     */
+    verifyService = async (providerAddress, outputDir = '.') => {
+        try {
+            return await this.verifier.verifyService(providerAddress, outputDir);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
