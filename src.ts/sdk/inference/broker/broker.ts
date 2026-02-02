@@ -358,11 +358,11 @@ export class InferenceBroker {
      * with the chat ID.
      *
      * @param {string} providerAddress - The address of the provider.
-     * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
-     * it would be the response text.
      * @param {string} chatID - Only for verifiable services. You can provide the chat ID obtained from the response to
      * automatically download the response signature. The function will verify the reliability of the response
      * using the service's signing address.
+     * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
+     * it would be the response text.
      *
      * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
      *
