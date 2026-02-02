@@ -118,8 +118,8 @@
             ).withResponse()
 
             const receivedContent = completion.choices[0].message.content
-            // Extract chatID from the ZG-Res-Key response header (required for verification)
-            const chatID = response.headers.get('ZG-Res-Key') || ''
+            // Extract chatID from ZG-Res-Key header, falling back to completion.id for older providers
+            const chatID = response.headers.get('ZG-Res-Key') || completion.id
             if (!receivedContent) {
                 throw new Error('No content received.')
             }
