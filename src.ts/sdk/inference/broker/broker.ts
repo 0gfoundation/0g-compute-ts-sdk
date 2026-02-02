@@ -358,9 +358,10 @@ export class InferenceBroker {
      * with the chat ID.
      *
      * @param {string} providerAddress - The address of the provider.
-     * @param {string} chatID - Only for verifiable services. You can provide the chat ID obtained from the response to
-     * automatically download the response signature. The function will verify the reliability of the response
-     * using the service's signing address.
+     * @param {string} chatID - Only for verifiable services. The chat session ID returned by the provider
+     * in the `ZG-Res-Key` HTTP response header. Extract this header from the provider's response and pass
+     * it here for signature verification. For providers that don't include this header, fall back to using
+     * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
      * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
      * it would be the response text.
      *

@@ -104,7 +104,8 @@
                 baseURL: endpoint,
                 apiKey: '',
             })
-            const completion = await openai.chat.completions.create(
+            // Use withResponse() to access both the completion data and response headers
+            const { data: completion, response } = await openai.chat.completions.create(
                 {
                     messages: [{ role: 'system', content }],
                     model: model,
@@ -114,10 +115,11 @@
                         ...headers,
                     },
                 }
-            )
+            ).withResponse()
 
             const receivedContent = completion.choices[0].message.content
-            const chatID = completion.id
+            // Extract chatID from the ZG-Res-Key response header (required for verification)
+            const chatID = response.headers.get('ZG-Res-Key') || ''
             if (!receivedContent) {
                 throw new Error('No content received.')
             }
