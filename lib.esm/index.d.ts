@@ -3250,19 +3250,24 @@ declare class InferenceBroker {
     /**
      * processResponse is used after the user successfully obtains a response from the provider service.
      *
-     * It will settle the fee for the response content. Additionally, if the service is verifiable,
-     * input the chat ID from the response and processResponse will determine the validity of the
-     * returned content by checking the provider service's response and corresponding signature associated
-     * with the chat ID.
+     * It caches the estimated fee based on usage data, which will be used by getRequestHeaders to determine
+     * when to top up the sub-account balance. Additionally, if the service is verifiable, input the chat ID
+     * from the response and processResponse will determine the validity of the returned content by checking
+     * the provider service's response and corresponding signature associated with the chat ID.
+     *
+     * Note: Fee caching is only useful for long-running SDK instances (e.g., web servers). In CLI usage,
+     * the cache is cleared on each invocation, so automatic balance management doesn't apply.
      *
      * @param {string} providerAddress - The address of the provider.
-     * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
-     * it would be the response text.
-     * @param {string} chatID - Only for verifiable services. You can provide the chat ID obtained from the response to
-     * automatically download the response signature. The function will verify the reliability of the response
-     * using the service's signing address.
+     * @param {string} chatID - Only for verifiable services. The chat session ID returned by the provider
+     * in the `ZG-Res-Key` HTTP response header. Extract this header from the provider's response and pass
+     * it here for signature verification. For providers that don't include this header, fall back to using
+     * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
+     * @param {string} content - Usage data from the response. For chatbot/speech-to-text: JSON string with
+     * token usage; For text-to-image: can be empty. This is used to calculate and cache estimated fees.
      *
      * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
+     * null if no chatID provided (verification skipped).
      *
      * @throws An error if any issues occur during the processing of the response.
      */
@@ -3424,6 +3429,7 @@ declare class FineTuningBroker {
     private fineTuningCA;
     private ledger;
     private modelProcessor;
+    private datasetProcessor;
     private serviceProcessor;
     private serviceProvider;
     private _gasPrice?;

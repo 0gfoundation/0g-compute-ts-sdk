@@ -4,6 +4,7 @@ exports.FineTuningBroker = void 0;
 exports.createFineTuningBroker = createFineTuningBroker;
 const contract_1 = require("../contract");
 const model_1 = require("./model");
+const dataset_1 = require("./dataset");
 const service_1 = require("./service");
 const provider_1 = require("../provider/provider");
 const utils_1 = require("../../common/utils");
@@ -12,6 +13,7 @@ class FineTuningBroker {
     fineTuningCA;
     ledger;
     modelProcessor;
+    datasetProcessor;
     serviceProcessor;
     serviceProvider;
     _gasPrice;
@@ -36,6 +38,7 @@ class FineTuningBroker {
         const contract = new contract_1.FineTuningServingContract(this.signer, this.fineTuningCA, userAddress, this._gasPrice, this._maxGasPrice, this._step);
         this.serviceProvider = new provider_1.Provider(contract);
         this.modelProcessor = new model_1.ModelProcessor(contract, this.ledger, this.serviceProvider);
+        this.datasetProcessor = new dataset_1.DatasetProcessor(contract, this.ledger, this.serviceProvider);
         this.serviceProcessor = new service_1.ServiceProcessor(contract, this.ledger, this.serviceProvider);
     }
     listService = async () => {
@@ -120,7 +123,7 @@ class FineTuningBroker {
     };
     uploadDataset = async (dataPath, gasPrice, maxGasPrice) => {
         try {
-            await this.modelProcessor.uploadDataset(this.signer.privateKey, dataPath, gasPrice || this._gasPrice, maxGasPrice || this._maxGasPrice);
+            await this.datasetProcessor.uploadDataset(this.signer.privateKey, dataPath, gasPrice || this._gasPrice, maxGasPrice || this._maxGasPrice);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
@@ -128,7 +131,7 @@ class FineTuningBroker {
     };
     downloadDataset = async (dataPath, dataRoot) => {
         try {
-            await this.modelProcessor.downloadDataset(dataPath, dataRoot);
+            await this.datasetProcessor.downloadDataset(dataPath, dataRoot);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
@@ -136,7 +139,7 @@ class FineTuningBroker {
     };
     calculateToken = async (datasetPath, preTrainedModelName, usePython, providerAddress) => {
         try {
-            await this.modelProcessor.calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress);
+            await this.datasetProcessor.calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

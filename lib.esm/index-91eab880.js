@@ -16314,19 +16314,24 @@ class InferenceBroker {
     /**
      * processResponse is used after the user successfully obtains a response from the provider service.
      *
-     * It will settle the fee for the response content. Additionally, if the service is verifiable,
-     * input the chat ID from the response and processResponse will determine the validity of the
-     * returned content by checking the provider service's response and corresponding signature associated
-     * with the chat ID.
+     * It caches the estimated fee based on usage data, which will be used by getRequestHeaders to determine
+     * when to top up the sub-account balance. Additionally, if the service is verifiable, input the chat ID
+     * from the response and processResponse will determine the validity of the returned content by checking
+     * the provider service's response and corresponding signature associated with the chat ID.
+     *
+     * Note: Fee caching is only useful for long-running SDK instances (e.g., web servers). In CLI usage,
+     * the cache is cleared on each invocation, so automatic balance management doesn't apply.
      *
      * @param {string} providerAddress - The address of the provider.
-     * @param {string} content - The main content returned by the service. For example, in the case of a chatbot service,
-     * it would be the response text.
-     * @param {string} chatID - Only for verifiable services. You can provide the chat ID obtained from the response to
-     * automatically download the response signature. The function will verify the reliability of the response
-     * using the service's signing address.
+     * @param {string} chatID - Only for verifiable services. The chat session ID returned by the provider
+     * in the `ZG-Res-Key` HTTP response header. Extract this header from the provider's response and pass
+     * it here for signature verification. For providers that don't include this header, fall back to using
+     * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
+     * @param {string} content - Usage data from the response. For chatbot/speech-to-text: JSON string with
+     * token usage; For text-to-image: can be empty. This is used to calculate and cache estimated fees.
      *
      * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
+     * null if no chatID provided (verification skipped).
      *
      * @throws An error if any issues occur during the processing of the response.
      */
@@ -16835,6 +16840,138 @@ async function getFileContentSize(filePath) {
     }
 }
 
+/**
+ * ModelProcessor handles model-related operations including listing available models,
+ * acknowledging model delivery, and decrypting fine-tuned models.
+ */
+class ModelProcessor extends BrokerBase {
+    /**
+     * List all available models including both standard pre-trained models
+     * and customized models from providers.
+     *
+     * @returns A tuple containing two arrays:
+     *   - [0]: Standard pre-trained models with their configurations
+     *   - [1]: Customized models from providers with descriptions
+     *
+     * @example
+     * ```typescript
+     * const [standardModels, customizedModels] = await broker.fineTuning.listModel();
+     *
+     * // Standard models: [['meta-llama/Llama-2-7b-chat-hf', {...}], ...]
+     * // Customized models: [['my-model', { description: '...', provider: '0x...' }], ...]
+     * ```
+     */
+    async listModel() {
+        try {
+            const services = await this.contract.listService();
+            const customizedModels = [];
+            for (const service of services) {
+                if (service.models.length !== 0) {
+                    const url = service.url;
+                    const models = await this.servingProvider.getCustomizedModels(url);
+                    for (const item of models) {
+                        customizedModels.push([
+                            item.name,
+                            {
+                                description: item.description,
+                                provider: service.provider,
+                            },
+                        ]);
+                    }
+                }
+            }
+            return [Object.entries(MODEL_HASH_MAP), customizedModels];
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Acknowledge receipt of a fine-tuned model from a provider.
+     * Downloads the encrypted model from 0G Storage and confirms receipt on-chain.
+     *
+     * @param providerAddress - Address of the provider who trained the model
+     * @param taskId - ID of the fine-tuning task
+     * @param dataPath - Local path where the encrypted model will be saved
+     * @param gasPrice - Optional gas price for the transaction
+     * @throws Error if no deliverable found or download fails
+     *
+     * @example
+     * ```typescript
+     * await broker.fineTuning.acknowledgeModel(
+     *   '0x1234...',
+     *   'task-123',
+     *   './encrypted-model.bin'
+     * );
+     * ```
+     */
+    async acknowledgeModel(providerAddress, taskId, dataPath, gasPrice) {
+        try {
+            const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
+            logger.debug(`deliverable: ${hexToRoots(deliverable.modelRootHash)}`);
+            if (!deliverable) {
+                throw new Error('No deliverable found');
+            }
+            await download(dataPath, hexToRoots(deliverable.modelRootHash));
+            await this.contract.acknowledgeDeliverable(providerAddress, taskId, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Decrypt a fine-tuned model after acknowledgement.
+     * Uses the user's private key to decrypt the model encryption key,
+     * then decrypts the model file.
+     *
+     * @param providerAddress - Address of the provider who trained the model
+     * @param taskId - ID of the fine-tuning task
+     * @param encryptedModelPath - Local path to the encrypted model file
+     * @param decryptedModelPath - Local path where the decrypted model will be saved
+     * @throws Error if deliverable not found, not acknowledged, or decryption fails
+     *
+     * @example
+     * ```typescript
+     * await broker.fineTuning.decryptModel(
+     *   '0x1234...',
+     *   'task-123',
+     *   './encrypted-model.bin',
+     *   './my-model'
+     * );
+     * ```
+     *
+     * @remarks
+     * The model can only be decrypted after:
+     * 1. The provider has delivered the encrypted model
+     * 2. The user has acknowledged the model (called acknowledgeModel)
+     * 3. The provider has shared the encrypted decryption key
+     */
+    async decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath) {
+        try {
+            const [service, deliverable] = await Promise.all([
+                this.contract.getService(providerAddress),
+                this.contract.getDeliverable(providerAddress, taskId),
+            ]);
+            logger.debug(`service, ${service}`);
+            if (!deliverable) {
+                throw new Error('No deliverable found');
+            }
+            if (!deliverable.acknowledged) {
+                throw new Error('Deliverable not acknowledged yet');
+            }
+            if (!deliverable.encryptedSecret) {
+                throw new Error('EncryptedSecret not found');
+            }
+            const secret = await eciesDecrypt(this.contract.signer, deliverable.encryptedSecret);
+            await aesGCMDecryptToFile(secret, encryptedModelPath, decryptedModelPath, service.teeSignerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+        return;
+    }
+}
+
 // Dynamic imports for Node.js specific modules
 let fs;
 let os;
@@ -16868,7 +17005,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-6886ca8f.js');
+    const { download } = await import('./index-e9dc83fb.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -17089,94 +17226,104 @@ async function calculateFileHash(filePath, algorithm = 'sha256') {
     });
 }
 
-class ModelProcessor extends BrokerBase {
-    async listModel() {
-        const services = await this.contract.listService();
-        const customizedModels = [];
-        for (const service of services) {
-            if (service.models.length !== 0) {
-                const url = service.url;
-                const models = await this.servingProvider.getCustomizedModels(url);
-                for (const item of models) {
-                    customizedModels.push([
-                        item.name,
-                        {
-                            description: item.description,
-                            provider: service.provider,
-                        },
-                    ]);
-                }
-            }
-        }
-        return [Object.entries(MODEL_HASH_MAP), customizedModels];
-    }
+/**
+ * DatasetProcessor handles dataset-related operations including upload, download,
+ * and token calculation for fine-tuning tasks.
+ */
+class DatasetProcessor extends BrokerBase {
+    /**
+     * Upload a dataset to 0G Storage for fine-tuning.
+     *
+     * @param privateKey - Private key for signing the upload transaction
+     * @param dataPath - Local path to the dataset file
+     * @param gasPrice - Optional gas price for the transaction
+     * @param maxGasPrice - Optional maximum gas price
+     * @throws Error if upload fails
+     */
     async uploadDataset(privateKey, dataPath, gasPrice, maxGasPrice) {
-        await upload(privateKey, dataPath, gasPrice);
+        try {
+            await upload(privateKey, dataPath, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
     }
-    async calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress) {
-        let tokenizer;
-        let dataType;
-        if (preTrainedModelName in MODEL_HASH_MAP) {
-            tokenizer = MODEL_HASH_MAP[preTrainedModelName].tokenizer;
-            dataType = MODEL_HASH_MAP[preTrainedModelName].type;
-        }
-        else {
-            if (providerAddress === undefined) {
-                throw new Error('Provider address is required for customized model');
-            }
-            const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
-            tokenizer = model.tokenizer;
-            dataType = model.dataType;
-        }
-        let dataSize = 0;
-        if (usePython) {
-            dataSize = await calculateTokenSizeViaPython(tokenizer, datasetPath, dataType);
-        }
-        else {
-            dataSize = await calculateTokenSizeViaExe(tokenizer, datasetPath, dataType, TOKEN_COUNTER_MERKLE_ROOT, TOKEN_COUNTER_FILE_HASH);
-        }
-        console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
-    }
+    /**
+     * Download a dataset from 0G Storage.
+     *
+     * @param dataPath - Local path where the dataset will be saved
+     * @param dataRoot - Root hash of the dataset in 0G Storage
+     * @throws Error if download fails
+     */
     async downloadDataset(dataPath, dataRoot) {
-        download(dataPath, dataRoot);
-    }
-    async acknowledgeModel(providerAddress, taskId, dataPath, gasPrice) {
         try {
-            const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
-            logger.debug(`deliverable: ${hexToRoots(deliverable.modelRootHash)}`);
-            if (!deliverable) {
-                throw new Error('No deliverable found');
-            }
-            await download(dataPath, hexToRoots(deliverable.modelRootHash));
-            await this.contract.acknowledgeDeliverable(providerAddress, taskId, gasPrice);
+            await download(dataPath, dataRoot);
         }
         catch (error) {
             throwFormattedError(error);
         }
     }
-    async decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath) {
+    /**
+     * Calculate the token size of a dataset for cost estimation.
+     * Supports both Python-based and executable-based token counting.
+     *
+     * @param datasetPath - Local path to the dataset file
+     * @param usePython - Whether to use Python for token counting (true) or executable (false)
+     * @param preTrainedModelName - Name of the pre-trained model (determines tokenizer)
+     * @param providerAddress - Optional provider address (required for customized models)
+     * @returns Token count of the dataset
+     * @throws Error if provider address is not provided for customized models
+     *
+     * @example
+     * ```typescript
+     * // Calculate tokens for a standard model
+     * await broker.fineTuning.calculateToken(
+     *   './dataset.jsonl',
+     *   false,
+     *   'meta-llama/Llama-2-7b-chat-hf'
+     * );
+     *
+     * // Calculate tokens for a customized model
+     * await broker.fineTuning.calculateToken(
+     *   './dataset.jsonl',
+     *   false,
+     *   'my-custom-model',
+     *   '0x1234...'
+     * );
+     * ```
+     */
+    async calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress) {
         try {
-            const [service, deliverable] = await Promise.all([
-                this.contract.getService(providerAddress),
-                this.contract.getDeliverable(providerAddress, taskId),
-            ]);
-            logger.debug(`service, ${service}`);
-            if (!deliverable) {
-                throw new Error('No deliverable found');
+            let tokenizer;
+            let dataType;
+            // Determine tokenizer and data type from model configuration
+            if (preTrainedModelName in MODEL_HASH_MAP) {
+                tokenizer = MODEL_HASH_MAP[preTrainedModelName].tokenizer;
+                dataType = MODEL_HASH_MAP[preTrainedModelName].type;
             }
-            if (!deliverable.acknowledged) {
-                throw new Error('Deliverable not acknowledged yet');
+            else {
+                // Customized model - fetch from provider
+                if (providerAddress === undefined) {
+                    throw new Error('Provider address is required for customized model');
+                }
+                const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
+                tokenizer = model.tokenizer;
+                dataType = model.dataType;
             }
-            if (!deliverable.encryptedSecret) {
-                throw new Error('EncryptedSecret not found');
+            // Calculate token size using specified method
+            let dataSize = 0;
+            if (usePython) {
+                dataSize = await calculateTokenSizeViaPython(tokenizer, datasetPath, dataType);
             }
-            const secret = await eciesDecrypt(this.contract.signer, deliverable.encryptedSecret);
-            await aesGCMDecryptToFile(secret, encryptedModelPath, decryptedModelPath, service.teeSignerAddress);
+            else {
+                dataSize = await calculateTokenSizeViaExe(tokenizer, datasetPath, dataType, TOKEN_COUNTER_MERKLE_ROOT, TOKEN_COUNTER_FILE_HASH);
+            }
+            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
+            return dataSize;
         }
         catch (error) {
             throwFormattedError(error);
         }
-        return;
     }
 }
 
@@ -21362,6 +21509,7 @@ class FineTuningBroker {
     fineTuningCA;
     ledger;
     modelProcessor;
+    datasetProcessor;
     serviceProcessor;
     serviceProvider;
     _gasPrice;
@@ -21386,6 +21534,7 @@ class FineTuningBroker {
         const contract = new FineTuningServingContract(this.signer, this.fineTuningCA, userAddress, this._gasPrice, this._maxGasPrice, this._step);
         this.serviceProvider = new Provider(contract);
         this.modelProcessor = new ModelProcessor(contract, this.ledger, this.serviceProvider);
+        this.datasetProcessor = new DatasetProcessor(contract, this.ledger, this.serviceProvider);
         this.serviceProcessor = new ServiceProcessor(contract, this.ledger, this.serviceProvider);
     }
     listService = async () => {
@@ -21470,7 +21619,7 @@ class FineTuningBroker {
     };
     uploadDataset = async (dataPath, gasPrice, maxGasPrice) => {
         try {
-            await this.modelProcessor.uploadDataset(this.signer.privateKey, dataPath, gasPrice || this._gasPrice, maxGasPrice || this._maxGasPrice);
+            await this.datasetProcessor.uploadDataset(this.signer.privateKey, dataPath, gasPrice || this._gasPrice, maxGasPrice || this._maxGasPrice);
         }
         catch (error) {
             throwFormattedError(error);
@@ -21478,7 +21627,7 @@ class FineTuningBroker {
     };
     downloadDataset = async (dataPath, dataRoot) => {
         try {
-            await this.modelProcessor.downloadDataset(dataPath, dataRoot);
+            await this.datasetProcessor.downloadDataset(dataPath, dataRoot);
         }
         catch (error) {
             throwFormattedError(error);
@@ -21486,7 +21635,7 @@ class FineTuningBroker {
     };
     calculateToken = async (datasetPath, preTrainedModelName, usePython, providerAddress) => {
         try {
-            await this.modelProcessor.calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress);
+            await this.datasetProcessor.calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress);
         }
         catch (error) {
             throwFormattedError(error);
@@ -22385,4 +22534,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-81c918b9.js.map
+//# sourceMappingURL=index-91eab880.js.map

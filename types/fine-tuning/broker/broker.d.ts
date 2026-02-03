@@ -7,6 +7,7 @@ export declare class FineTuningBroker {
     private fineTuningCA;
     private ledger;
     private modelProcessor;
+    private datasetProcessor;
     private serviceProcessor;
     private serviceProvider;
     private _gasPrice?;
