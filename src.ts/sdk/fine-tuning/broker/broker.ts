@@ -1,6 +1,7 @@
 import { FineTuningServingContract } from '../contract'
 import type { Wallet } from 'ethers'
 import { ModelProcessor } from './model'
+import { DatasetProcessor } from './dataset'
 import type { FineTuningAccountDetail } from './service'
 import { ServiceProcessor } from './service'
 import type { LedgerBroker } from '../../ledger'
@@ -13,6 +14,7 @@ export class FineTuningBroker {
     private fineTuningCA: string
     private ledger!: LedgerBroker
     private modelProcessor!: ModelProcessor
+    private datasetProcessor!: DatasetProcessor
     private serviceProcessor!: ServiceProcessor
     private serviceProvider!: Provider
     private _gasPrice?: number
@@ -54,6 +56,11 @@ export class FineTuningBroker {
 
         this.serviceProvider = new Provider(contract)
         this.modelProcessor = new ModelProcessor(
+            contract,
+            this.ledger,
+            this.serviceProvider
+        )
+        this.datasetProcessor = new DatasetProcessor(
             contract,
             this.ledger,
             this.serviceProvider
@@ -181,7 +188,7 @@ export class FineTuningBroker {
         maxGasPrice?: number
     ): Promise<void> => {
         try {
-            await this.modelProcessor.uploadDataset(
+            await this.datasetProcessor.uploadDataset(
                 this.signer.privateKey,
                 dataPath,
                 gasPrice || this._gasPrice,
@@ -197,7 +204,7 @@ export class FineTuningBroker {
         dataRoot: string
     ): Promise<void> => {
         try {
-            await this.modelProcessor.downloadDataset(dataPath, dataRoot)
+            await this.datasetProcessor.downloadDataset(dataPath, dataRoot)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -210,7 +217,7 @@ export class FineTuningBroker {
         providerAddress?: string
     ): Promise<void> => {
         try {
-            await this.modelProcessor.calculateToken(
+            await this.datasetProcessor.calculateToken(
                 datasetPath,
                 usePython,
                 preTrainedModelName,
