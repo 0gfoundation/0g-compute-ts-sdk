@@ -14,16 +14,29 @@ const const_2 = require("../sdk/fine-tuning/const");
 function fineTuning(program) {
     program
         .command('verify')
-        .description('verify TEE remote attestation of service')
+        .description('Verify the reliability and TEE attestation of a fine-tuning service')
         .requiredOption('--provider <address>', 'Provider address')
+        .option('--output-dir <path>', 'Output directory for verification reports', '.')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .option('--gas-price <price>', 'Gas price for transactions')
         .action((options) => {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
-            await broker.fineTuning.acknowledgeProviderSigner(options.provider, options.gasPrice);
-            console.log('Provider verified');
+            const result = await broker.fineTuning.verifyService(options.provider, options.outputDir);
+            if (!result) {
+                console.error('❌ Verification failed: No result returned');
+                process.exit(1);
+            }
+            if (!result.success) {
+                console.error('❌ Service verification failed');
+                console.error('   Reports saved to:', result.outputDirectory);
+                console.error('   Review the attestation reports for details');
+                process.exit(1);
+            }
+            // Success case
+            console.log('✅ Verification completed successfully');
+            console.log('   Reports:', result.reportsGenerated.join(', '));
+            console.log('   Output directory:', result.outputDirectory);
         });
     });
     program

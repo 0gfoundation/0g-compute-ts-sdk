@@ -13,19 +13,41 @@ import { TOKEN_COUNTER_MERKLE_ROOT } from '../sdk/fine-tuning/const'
 export default function fineTuning(program: Command) {
     program
         .command('verify')
-        .description('verify TEE remote attestation of service')
+        .description('Verify the reliability and TEE attestation of a fine-tuning service')
         .requiredOption('--provider <address>', 'Provider address')
+        .option(
+            '--output-dir <path>',
+            'Output directory for verification reports',
+            '.'
+        )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .option('--gas-price <price>', 'Gas price for transactions')
         .action((options) => {
             withFineTuningBroker(options, async (broker) => {
-                await broker.fineTuning!.acknowledgeProviderSigner(
+                const result = await broker.fineTuning!.verifyService(
                     options.provider,
-                    options.gasPrice
+                    options.outputDir
                 )
-                console.log('Provider verified')
+
+                if (!result) {
+                    console.error('❌ Verification failed: No result returned')
+                    process.exit(1)
+                }
+
+                if (!result.success) {
+                    console.error('❌ Service verification failed')
+                    console.error('   Reports saved to:', result.outputDirectory)
+                    console.error(
+                        '   Review the attestation reports for details'
+                    )
+                    process.exit(1)
+                }
+
+                // Success case
+                console.log('✅ Verification completed successfully')
+                console.log('   Reports:', result.reportsGenerated.join(', '))
+                console.log('   Output directory:', result.outputDirectory)
             })
         })
 
