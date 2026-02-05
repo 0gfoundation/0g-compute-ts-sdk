@@ -17005,7 +17005,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-021126fd.js');
+    const { download } = await import('./index-9a93754a.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21557,8 +21557,7 @@ class Verifier extends BrokerBase {
             console.log(`   TEE Verifier: dstack (Intel TDX)`);
             console.log('   Verification Method: DStack TEE (Intel TDX)');
             console.log('   Verification includes: Quote validation, Compose hash check, Image integrity');
-            console.log('   Architecture: Combined (Broker in TEE node)');
-            console.log('   Required Reports: 1 (Combined)');
+            console.log('   Required Reports: 1');
             console.log('');
             // Step 2: Get attestation report
             console.log('📥 Step 2: Downloading attestation report...');
@@ -22942,4 +22941,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-ba2b47ec.js.map
+//# sourceMappingURL=index-5c02b8ac.js.map

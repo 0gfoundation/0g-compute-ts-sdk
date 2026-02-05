@@ -90,8 +90,7 @@ class Verifier extends base_1.BrokerBase {
             console.log(`   TEE Verifier: dstack (Intel TDX)`);
             console.log('   Verification Method: DStack TEE (Intel TDX)');
             console.log('   Verification includes: Quote validation, Compose hash check, Image integrity');
-            console.log('   Architecture: Combined (Broker in TEE node)');
-            console.log('   Required Reports: 1 (Combined)');
+            console.log('   Required Reports: 1');
             console.log('');
             // Step 2: Get attestation report
             console.log('📥 Step 2: Downloading attestation report...');
