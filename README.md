@@ -71,6 +71,9 @@ Open `http://localhost:3090` in your browser to:
 
 # Get API secret for direct access
 0g-compute-cli inference get-secret --provider <PROVIDER_ADDRESS>
+
+# Generate API key with a specific token ID (0-254)
+0g-compute-cli inference get-secret --provider <PROVIDER_ADDRESS> --token-id 5
 ```
 
 ### SDK

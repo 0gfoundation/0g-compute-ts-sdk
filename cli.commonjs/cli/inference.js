@@ -622,11 +622,21 @@ function inference(program) {
         .command('get-secret')
         .description('Generate an authentication secret (API Key) for API access')
         .requiredOption('--provider <address>', 'Provider address')
+        .option('--token-id <id>', 'Specific token ID to use (0-254). If not provided, will find the first available slot')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .action(async (options) => {
         try {
+            // Validate token-id if provided
+            let tokenId;
+            if (options.tokenId !== undefined) {
+                tokenId = parseInt(options.tokenId);
+                if (isNaN(tokenId) || tokenId < 0 || tokenId > 254) {
+                    console.error(chalk_1.default.red('Error: Token ID must be a number between 0 and 254'));
+                    process.exit(1);
+                }
+            }
             const duration = await promptDurationSelection();
             (0, util_1.withBroker)(options, async (broker) => {
                 // First check if ledger (main account) exists
@@ -647,7 +657,10 @@ function inference(program) {
                     throw new Error(errorMessage);
                 }
                 // Use createApiKey to generate a persistent token
-                const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, { expiresIn: duration });
+                const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, {
+                    expiresIn: duration,
+                    tokenId: tokenId
+                });
                 const bearerToken = apiKey.rawToken;
                 // Get service metadata to determine service type
                 // TODO: Support pagination for listing services
@@ -729,6 +742,7 @@ function inference(program) {
                 console.log();
                 console.log(chalk_1.default.yellow('⚠️  IMPORTANT SECURITY NOTES:'));
                 console.log(chalk_1.default.yellow(`   • This API Key can be revoked using: 0g-compute-cli inference revoke-token --provider ${options.provider} --token-id ${apiKey.tokenId}`));
+                console.log(chalk_1.default.yellow(`   • To generate another key, specify a different token-id: 0g-compute-cli inference get-secret --provider ${options.provider} --token-id <0-254>`));
                 console.log(chalk_1.default.yellow('   • Keep it secure and do not share it'));
                 if (apiKey.expiresAt > 0) {
                     console.log(chalk_1.default.yellow('   • It will expire automatically at the specified time'));

@@ -867,11 +867,26 @@ export default function inference(program: Command) {
             'Generate an authentication secret (API Key) for API access'
         )
         .requiredOption('--provider <address>', 'Provider address')
+        .option('--token-id <id>', 'Specific token ID to use (0-254). If not provided, will find the first available slot')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
         .action(async (options) => {
             try {
+                // Validate token-id if provided
+                let tokenId: number | undefined
+                if (options.tokenId !== undefined) {
+                    tokenId = parseInt(options.tokenId)
+                    if (isNaN(tokenId) || tokenId < 0 || tokenId > 254) {
+                        console.error(
+                            chalk.red(
+                                'Error: Token ID must be a number between 0 and 254'
+                            )
+                        )
+                        process.exit(1)
+                    }
+                }
+
                 const duration = await promptDurationSelection()
 
                 withBroker(options, async (broker) => {
@@ -896,7 +911,10 @@ export default function inference(program: Command) {
                     const apiKey =
                         await broker.inference.requestProcessor.createApiKey(
                             options.provider,
-                            { expiresIn: duration }
+                            {
+                                expiresIn: duration,
+                                tokenId: tokenId
+                            }
                         )
 
                     const bearerToken = apiKey.rawToken
@@ -1012,6 +1030,11 @@ export default function inference(program: Command) {
                     console.log(
                         chalk.yellow(
                             `   • This API Key can be revoked using: 0g-compute-cli inference revoke-token --provider ${options.provider} --token-id ${apiKey.tokenId}`
+                        )
+                    )
+                    console.log(
+                        chalk.yellow(
+                            `   • To generate another key, specify a different token-id: 0g-compute-cli inference get-secret --provider ${options.provider} --token-id <0-254>`
                         )
                     )
                     console.log(
