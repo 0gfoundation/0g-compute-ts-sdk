@@ -73,8 +73,8 @@ jobs:
 
           claude_args: |
             --model claude-sonnet-4-5-20250929
-            --max-turns 15
-            --allowedTools "Bash(git *),Bash(pnpm *),Bash(npm *),Bash(node *),Bash(tsc *),Bash(eslint *),Bash(prettier *)"
+            --max-turns 40
+            --allowedTools "Bash(*)"
             --system-prompt "You are a code review expert for the 0G Compute Network SDK project.
 
             Project Background:
