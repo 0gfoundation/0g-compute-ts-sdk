@@ -136,6 +136,75 @@ export default function inference(program: Command) {
         })
 
     program
+        .command('list-providers-detail')
+        .description(
+            'List inference providers with health metrics (uptime and latency)'
+        )
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option(
+            '--include-invalid',
+            'Include all services, even those without valid teeSignerAddress'
+        )
+        .action((options: any) => {
+            withBroker(options, async (broker) => {
+                // TODO: Support pagination for listing services
+                const services = await broker.inference.listServiceWithDetail(
+                    0,
+                    50,
+                    options.includeInvalid
+                )
+
+                const table = new Table({
+                    head: [
+                        chalk.cyan('Provider'),
+                        chalk.cyan('Model'),
+                        chalk.cyan('Service Type'),
+                        chalk.cyan('Status'),
+                        chalk.cyan('Uptime %'),
+                        chalk.cyan('Latency (ms)'),
+                    ],
+                    colWidths: [44, 35, 18, 12, 12, 15],
+                })
+
+                services.forEach((service) => {
+                    const health = service.healthMetrics
+                    table.push([
+                        service.provider,
+                        service.model || 'N/A',
+                        service.serviceType || 'N/A',
+                        health?.status
+                            ? health.status === 'healthy'
+                                ? chalk.green('healthy')
+                                : chalk.red(health.status)
+                            : chalk.gray('N/A'),
+                        health?.uptime !== undefined
+                            ? health.uptime === 100
+                                ? chalk.green(health.uptime.toString())
+                                : chalk.yellow(health.uptime.toString())
+                            : chalk.gray('N/A'),
+                        health?.avgResponseTime !== undefined
+                            ? health.avgResponseTime < 1000
+                                ? chalk.green(health.avgResponseTime.toString())
+                                : chalk.yellow(
+                                      health.avgResponseTime.toString()
+                                  )
+                            : chalk.gray('N/A'),
+                    ])
+                })
+
+                console.log('\n' + table.toString())
+                console.log(
+                    chalk.gray(
+                        '\nNote: Health metrics are fetched from the monitoring API. ' +
+                            'Services without metrics may be newly registered or temporarily unavailable.'
+                    )
+                )
+            })
+        })
+
+    program
         .command('acknowledge-provider')
         .description('Acknowledge the provider signer')
         .requiredOption('--provider <address>', 'Provider address')
@@ -867,7 +936,10 @@ export default function inference(program: Command) {
             'Generate an authentication secret (API Key) for API access'
         )
         .requiredOption('--provider <address>', 'Provider address')
-        .option('--token-id <id>', 'Specific token ID to use (0-254). If not provided, will find the first available slot')
+        .option(
+            '--token-id <id>',
+            'Specific token ID to use (0-254). If not provided, will find the first available slot'
+        )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -913,7 +985,7 @@ export default function inference(program: Command) {
                             options.provider,
                             {
                                 expiresIn: duration,
-                                tokenId: tokenId
+                                tokenId: tokenId,
                             }
                         )
 
