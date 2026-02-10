@@ -2958,6 +2958,75 @@ declare class AccountProcessor extends ZGServingUserBrokerBase {
     listAccount(): Promise<AccountStructOutput[]>;
 }
 
+interface ServiceWithDetail {
+    provider: string;
+    serviceType: string;
+    url: string;
+    inputPrice: bigint;
+    outputPrice: bigint;
+    updatedAt: bigint;
+    model: string;
+    verifiability: string;
+    additionalInfo: string;
+    teeSignerAddress: string;
+    teeSignerAcknowledged: boolean;
+    healthMetrics?: {
+        status: string;
+        uptime: number;
+        avgResponseTime: number;
+        lastCheck: string;
+    };
+}
+declare class ModelProcessor extends ZGServingUserBrokerBase {
+    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput$1[]>;
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved or health API is unreachable.
+     */
+    listServiceWithDetail(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceWithDetail[]>;
+    /**
+     * Get health API endpoint based on chain ID
+     * @param chainId - The chain ID
+     * @returns The health API endpoint URL
+     */
+    private getHealthApiEndpoint;
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    removeService(gasPrice?: number): Promise<void>;
+    /**
+     * Update service (Provider owner only)
+     *
+     * This function allows the provider owner to update their existing service.
+     * All parameters are optional - if not provided, the current value is preserved.
+     *
+     * @param options - Update options
+     * @param options.url - New service URL
+     * @param options.model - New model name
+     * @param options.inputPrice - New input price (in neuron, the smallest unit)
+     * @param options.outputPrice - New output price (in neuron, the smallest unit)
+     * @param options.gasPrice - Optional gas price for the transaction
+     * @throws Will throw an error if the caller is not the service owner or if update fails.
+     */
+    updateService(options: {
+        url?: string;
+        model?: string;
+        inputPrice?: bigint;
+        outputPrice?: bigint;
+        gasPrice?: number;
+    }): Promise<void>;
+}
+
 /**
  * ResponseProcessor is a subclass of ZGServingUserBroker.
  * It needs to be initialized with createZGServingUserBroker
@@ -3056,40 +3125,6 @@ declare class Verifier extends ZGServingUserBrokerBase {
     static verifySignature(message: string, signature: string, expectedAddress: string): boolean;
 }
 
-declare class ModelProcessor extends ZGServingUserBrokerBase {
-    listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput$1[]>;
-    /**
-     * Remove service (Provider owner only)
-     *
-     * This function allows the provider owner to remove their service from the contract.
-     *
-     * @param {number} gasPrice - Optional gas price for the transaction.
-     * @throws Will throw an error if the caller is not the service owner or if removal fails.
-     */
-    removeService(gasPrice?: number): Promise<void>;
-    /**
-     * Update service (Provider owner only)
-     *
-     * This function allows the provider owner to update their existing service.
-     * All parameters are optional - if not provided, the current value is preserved.
-     *
-     * @param options - Update options
-     * @param options.url - New service URL
-     * @param options.model - New model name
-     * @param options.inputPrice - New input price (in neuron, the smallest unit)
-     * @param options.outputPrice - New output price (in neuron, the smallest unit)
-     * @param options.gasPrice - Optional gas price for the transaction
-     * @throws Will throw an error if the caller is not the service owner or if update fails.
-     */
-    updateService(options: {
-        url?: string;
-        model?: string;
-        inputPrice?: bigint;
-        outputPrice?: bigint;
-        gasPrice?: number;
-    }): Promise<void>;
-}
-
 declare class InferenceBroker {
     requestProcessor: RequestProcessor;
     responseProcessor: ResponseProcessor;
@@ -3111,6 +3146,31 @@ declare class InferenceBroker {
      * @throws An error if the service list cannot be retrieved.
      */
     listService: (offset?: number, limit?: number, includeUnacknowledged?: boolean) => Promise<ServiceStructOutput$1[]>;
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * This method combines on-chain service data with real-time health metrics including
+     * uptime percentage and average response time (latency) for each service provider.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved.
+     *
+     * @example
+     * ```typescript
+     * const servicesWithHealth = await broker.inference.listServiceWithDetail();
+     * servicesWithHealth.forEach(service => {
+     *   console.log(`Provider: ${service.provider}`);
+     *   if (service.healthMetrics) {
+     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
+     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
+     *   }
+     * });
+     * ```
+     */
+    listServiceWithDetail: (offset?: number, limit?: number, includeUnacknowledged?: boolean) => Promise<ServiceWithDetail[]>;
     /**
      * Retrieves the account information for a given provider address.
      *

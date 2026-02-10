@@ -19,12 +19,45 @@ export interface ServiceHealthMetric {
     model: string
     provider: string
     status: string
-    uptime: number
-    avgResponseTime: number
+    checks: {
+        total: number
+        successful: number
+        failed: number
+        uptime: number
+    }
+    performance: {
+        response_time?: {
+            avg: number
+            unit: string
+            samples: number
+        }
+        ttft?: {
+            avg: number
+            unit: string
+            samples: number
+        }
+        tokens_per_second?: {
+            avg: number
+            unit: string
+            samples: number
+        }
+    }
     lastCheck: string
 }
 
-export interface ServiceWithDetail extends ServiceStructOutput {
+// Plain object interface without array indices (ethers Result types don't spread well)
+export interface ServiceWithDetail {
+    provider: string
+    serviceType: string
+    url: string
+    inputPrice: bigint
+    outputPrice: bigint
+    updatedAt: bigint
+    model: string
+    verifiability: string
+    additionalInfo: string
+    teeSignerAddress: string
+    teeSignerAcknowledged: boolean
     healthMetrics?: {
         status: string
         uptime: number
@@ -101,18 +134,30 @@ export class ModelProcessor extends ZGServingUserBrokerBase {
             }
 
             // Merge health metrics with services
+            // Note: Cannot use spread operator on ethers Result objects as it loses named properties
             const servicesWithDetail: ServiceWithDetail[] = services.map(
                 (service) => {
                     const health = healthMap.get(service.provider.toLowerCase())
                     return {
-                        ...service,
+                        provider: service.provider,
+                        serviceType: service.serviceType,
+                        url: service.url,
+                        inputPrice: service.inputPrice,
+                        outputPrice: service.outputPrice,
+                        updatedAt: service.updatedAt,
+                        model: service.model,
+                        verifiability: service.verifiability,
+                        additionalInfo: service.additionalInfo,
+                        teeSignerAddress: service.teeSignerAddress,
+                        teeSignerAcknowledged: service.teeSignerAcknowledged,
                         healthMetrics: health
                             ? {
-                                  status: health.status,
-                                  uptime: health.uptime,
-                                  avgResponseTime: health.avgResponseTime,
-                                  lastCheck: health.lastCheck,
-                              }
+                                status: health.status,
+                                uptime: health.checks.uptime,
+                                avgResponseTime:
+                                    health.performance.response_time?.avg ?? 0,
+                                lastCheck: health.lastCheck,
+                            }
                             : undefined,
                     }
                 }
@@ -132,10 +177,10 @@ export class ModelProcessor extends ZGServingUserBrokerBase {
     private getHealthApiEndpoint(chainId?: bigint): string {
         // Mainnet: 16661n, Testnet: 16602n
         if (chainId === 16661n) {
-            return 'http://47.245.100.163'
+            return 'https://compute-status.0g.ai'
         } else {
             // Default to testnet
-            return 'http://47.245.100.163:81'
+            return 'https://compute-status-testnet.0g.ai'
         }
     }
 

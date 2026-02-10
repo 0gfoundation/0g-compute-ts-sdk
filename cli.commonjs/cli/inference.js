@@ -113,6 +113,94 @@ function inference(program) {
         });
     });
     program
+        .command('list-providers-detail')
+        .description('List inference providers with health metrics (uptime and latency)')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--include-invalid', 'Include all services, even those without valid teeSignerAddress')
+        .action((options) => {
+        const table = new cli_table3_1.default({
+            colWidths: [50, 50],
+        });
+        (0, util_1.withBroker)(options, async (broker) => {
+            // TODO: Support pagination for listing services
+            const services = await broker.inference.listServiceWithDetail(0, 50, options.includeInvalid);
+            services.forEach((service, index) => {
+                const health = service.healthMetrics;
+                table.push([
+                    chalk_1.default.blue(`Provider ${index + 1}`),
+                    chalk_1.default.blue(service.provider),
+                ]);
+                table.push(['Model', service.model || 'N/A']);
+                // Only show input price for non text-to-image and non image-editing services
+                if (service.serviceType !== 'text-to-image' &&
+                    service.serviceType !== 'image-editing') {
+                    table.push([
+                        'Input Price Per Token (0G)',
+                        service.inputPrice
+                            ? (0, util_1.neuronToA0gi)(BigInt(service.inputPrice)).toFixed(18)
+                            : 'N/A',
+                    ]);
+                }
+                // Change output price label for text-to-image and image-editing services
+                const outputPriceLabel = service.serviceType === 'text-to-image' ||
+                    service.serviceType === 'image-editing'
+                    ? 'Price Per Image (OG)'
+                    : 'Output Price Per Token (0G)';
+                table.push([
+                    outputPriceLabel,
+                    service.outputPrice
+                        ? (0, util_1.neuronToA0gi)(BigInt(service.outputPrice)).toFixed(18)
+                        : 'N/A',
+                ]);
+                table.push([
+                    'Verifiability',
+                    service.verifiability || 'N/A',
+                ]);
+                // Add health metrics
+                if (health?.status) {
+                    let statusDisplay = '';
+                    if (health.status === 'healthy') {
+                        statusDisplay = chalk_1.default.green('✓ Healthy');
+                    }
+                    else if (health.status === 'warning') {
+                        statusDisplay = chalk_1.default.yellow('⚠ Warning');
+                    }
+                    else {
+                        statusDisplay = chalk_1.default.red('✗ Critical');
+                    }
+                    table.push(['Health Status', statusDisplay]);
+                    if (health.uptime !== undefined) {
+                        const uptimeDisplay = health.uptime === 100
+                            ? chalk_1.default.green(`${health.uptime}%`)
+                            : health.uptime >= 80
+                                ? chalk_1.default.yellow(`${health.uptime}%`)
+                                : chalk_1.default.red(`${health.uptime}%`);
+                        table.push(['Uptime', uptimeDisplay]);
+                    }
+                    if (health.avgResponseTime !== undefined) {
+                        const latencyDisplay = health.avgResponseTime < 1000
+                            ? chalk_1.default.green(`${health.avgResponseTime}ms`)
+                            : health.avgResponseTime < 5000
+                                ? chalk_1.default.yellow(`${health.avgResponseTime}ms`)
+                                : chalk_1.default.red(`${health.avgResponseTime}ms`);
+                        table.push(['Avg Response Time', latencyDisplay]);
+                    }
+                }
+                else {
+                    table.push([
+                        'Health Status',
+                        chalk_1.default.gray('No metrics available'),
+                    ]);
+                }
+            });
+            console.log(table.toString());
+            console.log(chalk_1.default.gray('\nNote: Health metrics are fetched from the monitoring API. ' +
+                'Services without metrics may be newly registered or temporarily unavailable.'));
+        });
+    });
+    program
         .command('acknowledge-provider')
         .description('Acknowledge the provider signer')
         .requiredOption('--provider <address>', 'Provider address')
@@ -659,7 +747,7 @@ function inference(program) {
                 // Use createApiKey to generate a persistent token
                 const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, {
                     expiresIn: duration,
-                    tokenId: tokenId
+                    tokenId: tokenId,
                 });
                 const bearerToken = apiKey.rawToken;
                 // Get service metadata to determine service type

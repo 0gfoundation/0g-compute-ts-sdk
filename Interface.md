@@ -18,13 +18,13 @@
 2. get ledger: 0g-compute-cli get-account
 3. deposit fund (optional) 0g-compute-cli deposit -a <>
 4. refund fund (optional) 0g-compute-cli refund -a <>
-5. list services 
+5. list services
 6. acknowledge provider signer
     1. [`call provider url/v1/quote`] call provider quote api to download quote (contains provider signer)
     2. [`TBD`] verify the quote using third party service (TODO: Jiahao discuss with Phala)
     3. [`call contract`] acknowledge the provider signer in contract
 7. [`use 0g storage sdk`] upload dataset, get dataset root hash
-8. create task 
+8. create task
     1. get preTrained model root hash based on the model
     2. [`call contract`] calculate fee
     3. [`call contract`] transfer fund from ledger to fine-tuning provider

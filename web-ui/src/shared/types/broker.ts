@@ -39,6 +39,9 @@ export interface Provider {
   outputPriceNeuron?: bigint;
   teeSignerAcknowledged?: boolean;
   serviceType?: string; // Added for UI conditional rendering
+  // Health status from compute-status API
+  healthStatus?: 'healthy' | 'warning' | 'critical' | 'unknown';
+  uptime?: number; // percentage
 }
 
 /**

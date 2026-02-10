@@ -15336,2260 +15336,6 @@ class RequestProcessor extends ZGServingUserBrokerBase {
     }
 }
 
-var VerifiabilityEnum;
-(function (VerifiabilityEnum) {
-    VerifiabilityEnum["OpML"] = "OpML";
-    VerifiabilityEnum["TeeML"] = "TeeML";
-    VerifiabilityEnum["ZKML"] = "ZKML";
-})(VerifiabilityEnum || (VerifiabilityEnum = {}));
-let ModelProcessor$1 = class ModelProcessor extends ZGServingUserBrokerBase {
-    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
-        try {
-            const services = await this.contract.listService(offset, limit, includeUnacknowledged);
-            return services;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Remove service (Provider owner only)
-     *
-     * This function allows the provider owner to remove their service from the contract.
-     *
-     * @param {number} gasPrice - Optional gas price for the transaction.
-     * @throws Will throw an error if the caller is not the service owner or if removal fails.
-     */
-    async removeService(gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice) {
-                txOptions.gasPrice = gasPrice;
-            }
-            await this.contract.sendTx('removeService', [], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Update service (Provider owner only)
-     *
-     * This function allows the provider owner to update their existing service.
-     * All parameters are optional - if not provided, the current value is preserved.
-     *
-     * @param options - Update options
-     * @param options.url - New service URL
-     * @param options.model - New model name
-     * @param options.inputPrice - New input price (in neuron, the smallest unit)
-     * @param options.outputPrice - New output price (in neuron, the smallest unit)
-     * @param options.gasPrice - Optional gas price for the transaction
-     * @throws Will throw an error if the caller is not the service owner or if update fails.
-     */
-    async updateService(options) {
-        try {
-            // Get current service to preserve unchanged fields
-            const userAddress = this.contract.getUserAddress();
-            const currentService = await this.contract.getService(userAddress);
-            if (!currentService || !currentService.provider) {
-                throw new Error('Service not found for the current provider');
-            }
-            // Build ServiceParams with updated values (use new value if provided, otherwise keep current)
-            const params = {
-                serviceType: currentService.serviceType,
-                url: options.url ?? currentService.url,
-                model: options.model ?? currentService.model,
-                verifiability: currentService.verifiability,
-                inputPrice: options.inputPrice ?? currentService.inputPrice,
-                outputPrice: options.outputPrice ?? currentService.outputPrice,
-                additionalInfo: currentService.additionalInfo,
-                teeSignerAddress: currentService.teeSignerAddress,
-            };
-            const txOptions = {};
-            if (options.gasPrice) {
-                txOptions.gasPrice = options.gasPrice;
-            }
-            await this.contract.sendTx('addOrUpdateService', [params], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-};
-function isVerifiability(value) {
-    return Object.values(VerifiabilityEnum).includes(value);
-}
-
-/**
- * The Verifier class contains methods for verifying service reliability.
- */
-let Verifier$1 = class Verifier extends ZGServingUserBrokerBase {
-    constructor(contract, ledger, metadata, cache) {
-        super(contract, ledger, metadata, cache);
-    }
-    /**
-     * Comprehensive TEE service verification guide
-     * Guides users through verifying whether a provider is running in TEE
-     *
-     * @param providerAddress - The provider address to verify
-     * @param outputDir - Directory to save attestation reports (default: current directory)
-     * @returns Verification results and user guidance
-     */
-    async verifyService(providerAddress, outputDir = '.') {
-        try {
-            console.log(`🔍 Starting TEE verification for provider: ${providerAddress}`);
-            console.log('');
-            // Step 1: Get service information from contract
-            console.log('📋 Step 1: Retrieving service information from contract...');
-            const svc = await this.getService(providerAddress);
-            if (!svc.additionalInfo) {
-                throw new Error('Service additionalInfo is missing - cannot proceed with verification');
-            }
-            // Step 2: Parse additionalInfo and analyze service configuration
-            console.log('🔧 Step 2: Parsing and analyzing service configuration...');
-            let additionalInfo;
-            try {
-                additionalInfo = JSON.parse(svc.additionalInfo);
-            }
-            catch {
-                throw new Error('Failed to parse service additionalInfo as JSON');
-            }
-            const verifierURL = additionalInfo.VerifierURL;
-            const targetSeparated = additionalInfo.TargetSeparated === true;
-            const teeVerifier = additionalInfo.TEEVerifier || 'dstack'; // default to dstack
-            const imageName = additionalInfo.ImageName;
-            const imageDigest = additionalInfo.ImageDigest;
-            if (teeVerifier === 'dstack' && !verifierURL) {
-                console.warn('⚠️  Warning: VerifierURL not found in additionalInfo');
-            }
-            // Display service verification configuration
-            console.log(`   Provider URL: ${svc.url}`);
-            console.log(`   TEE Verifier: ${teeVerifier}`);
-            if (imageName) {
-                console.log(`   Image Name: ${imageName}`);
-            }
-            if (imageDigest) {
-                console.log(`   Image Digest: ${imageDigest}`);
-            }
-            // TEE verification method information
-            if (teeVerifier === 'dstack') {
-                console.log('   Verification Method: DStack TEE (Intel TDX)');
-                console.log('   Verification includes: Quote validation, Compose hash check, Image integrity');
-            }
-            else if (teeVerifier === 'cryptopilot') {
-                console.log('   Verification Method: CryptoPilot TEE');
-                console.log('   Please follow the official documentation to verify the downloaded attestation report.');
-                console.log('   Official documentation: https://github.com/0gfoundation/0g-tapp-verifier/blob/main/README.md');
-            }
-            else {
-                console.log(`   Verification Method: Unknown (${teeVerifier})`);
-            }
-            // Component architecture information
-            if (targetSeparated) {
-                console.log('   Architecture: Separated (Broker and LLM inference in different TEE nodes)');
-                console.log('   Required Reports: 2 (Broker + LLM inference)');
-            }
-            else {
-                console.log('   Architecture: Combined (Broker and LLM inference in same TEE node)');
-                console.log('   Required Reports: 1 (Combined)');
-            }
-            if (verifierURL) {
-                console.log(`   Verifier Image URL: ${verifierURL}`);
-            }
-            console.log('');
-            // Step 3: Get attestation reports
-            console.log('📥 Step 3: Downloading attestation reports...');
-            const reports = {};
-            if (targetSeparated) {
-                // Get both broker and LLM reports
-                console.log('   Downloading broker attestation report...');
-                const brokerReport = await this.getQuote(providerAddress);
-                const brokerPath = `${outputDir}/broker_attestation_report.json`;
-                await this.saveReportToFile(brokerReport.rawReport, brokerPath);
-                reports.broker = JSON.parse(brokerReport.rawReport);
-                console.log(`   ✅ Broker report saved to: ${brokerPath}`);
-                console.log('   Downloading LLM inference attestation report...');
-                const llmReport = await this.getQuoteInLLMServer(svc.url, svc.model);
-                const llmPath = `${outputDir}/llm_attestation_report.json`;
-                await this.saveReportToFile(llmReport.rawReport, llmPath);
-                reports.llm = JSON.parse(llmReport.rawReport);
-                console.log(`   ✅ LLM report saved to: ${llmPath}`);
-            }
-            else {
-                // Get single combined report via broker
-                console.log('   Downloading combined attestation report...');
-                const combinedReport = await this.getQuote(providerAddress);
-                const combinedPath = `${outputDir}/attestation_report.json`;
-                await this.saveReportToFile(combinedReport.rawReport, combinedPath);
-                reports.combined = JSON.parse(combinedReport.rawReport);
-                console.log(`   ✅ Combined report saved to: ${combinedPath}`);
-            }
-            console.log('');
-            // If cryptopilot, return after step 3
-            if (teeVerifier === 'cryptopilot') {
-                return {
-                    success: true,
-                    teeVerifier,
-                    targetSeparated,
-                    verifierURL,
-                    reportsGenerated: Object.keys(reports),
-                    outputDirectory: outputDir,
-                    reportsData: reports, // Include report data for browser environment
-                };
-            }
-            // Step 4: TEE Signer Address Verification
-            console.log('🔑 Step 4: TEE Signer Address Verification');
-            console.log(`   Contract TEE Signer Address: ${svc.teeSignerAddress}`);
-            // Extract signer addresses from reports and verify
-            let signerMatches = 0;
-            let totalSignerChecks = 0;
-            for (const [reportType, report] of Object.entries(reports)) {
-                if (reportType === 'llm') {
-                    continue;
-                }
-                const reportSignerAddress = this.extractTeeSignerAddress(report);
-                if (reportSignerAddress) {
-                    totalSignerChecks++;
-                    const addressMatch = reportSignerAddress.toLowerCase() ===
-                        svc.teeSignerAddress.toLowerCase();
-                    console.log(`   ${reportType.charAt(0).toUpperCase() +
-                        reportType.slice(1)} Report Signer: ${reportSignerAddress}`);
-                    console.log(`   Address Match: ${addressMatch ? '✅ MATCH' : '❌ MISMATCH'}`);
-                    if (addressMatch) {
-                        signerMatches++;
-                    }
-                    else {
-                        console.log(`   ⚠️  Warning: TEE signer address mismatch detected!`);
-                    }
-                }
-                else {
-                    console.log(`   ${reportType.charAt(0).toUpperCase() +
-                        reportType.slice(1)} Report: No signer address found`);
-                }
-            }
-            console.log('');
-            // Step 5: Process DStack verification if applicable
-            let dockerImages = [];
-            let composeVerificationPassed = false;
-            if (teeVerifier === 'dstack') {
-                console.log('🔍 Step 5: DStack Verification Process');
-                const result = await this.processDStackVerification(reports);
-                dockerImages = result.images;
-                composeVerificationPassed = result.composeVerificationPassed;
-            }
-            else if (teeVerifier === 'cryptopilot') {
-                console.log('🔍 Step 5: CryptoPilot Verification Process');
-                console.log('   ⚠️  CryptoPilot verification is not yet implemented.');
-                console.log('   Please refer to CryptoPilot documentation for manual verification.');
-                composeVerificationPassed = false; // Unknown for cryptopilot
-            }
-            console.log('');
-            // Verification Summary
-            const verificationSummary = {
-                composeVerification: composeVerificationPassed,
-                signerAddressVerification: signerMatches === totalSignerChecks &&
-                    totalSignerChecks > 0,
-                signerAddressMatches: signerMatches,
-                totalReports: totalSignerChecks,
-                allVerificationsPassed: composeVerificationPassed &&
-                    signerMatches === totalSignerChecks &&
-                    totalSignerChecks > 0,
-            };
-            console.log('📋 Automated Verification Summary');
-            console.log(`   Docker Compose Verification: ${verificationSummary.composeVerification
-                ? '✅ PASSED'
-                : '❌ FAILED'}`);
-            console.log(`   TEE Signer Address Verification: ${verificationSummary.signerAddressVerification
-                ? '✅ PASSED'
-                : '❌ FAILED'} (${verificationSummary.signerAddressMatches}/${verificationSummary.totalReports} matches)`);
-            console.log('');
-            console.log('🎯 ============================================================================');
-            console.log('🎯  AUTOMATED VERIFICATION CHECKS HAVE BEEN COMPLETED');
-            console.log('🎯  Please continue with the manual verification steps below to complete');
-            console.log('🎯  the full verification process.');
-            console.log('🎯 ============================================================================');
-            console.log('');
-            // Step 6: Image verification guidance
-            console.log('🖼️  Step 6: Image Verification');
-            // Display found Docker images
-            if (dockerImages.length > 0) {
-                console.log(`   Images Extracted from Docker Compose (${dockerImages.length}):`);
-                const brokerImages = [];
-                const otherImages = [];
-                dockerImages.forEach((image, index) => {
-                    const isBroker = image.includes('broker') || image.includes('0g-serving');
-                    if (isBroker) {
-                        brokerImages.push(image);
-                        console.log(`     ${index + 1}. ${image} (0G Broker)`);
-                    }
-                    else {
-                        otherImages.push(image);
-                        console.log(`     ${index + 1}. ${image}`);
-                    }
-                });
-                console.log('');
-                // Show broker verification guidance only if broker images are found
-                if (brokerImages.length > 0) {
-                    console.log('   To verify 0G broker image integrity:');
-                    console.log('   1. The broker image address has been extracted from the report');
-                    console.log('   2. Visit: https://github.com/0gfoundation/0g-serving-broker/releases');
-                    console.log('   3. Find the compute network broker image with matching Digest (SHA256)');
-                    console.log('   4. Verify the build process at: https://search.sigstore.dev/');
-                    console.log('');
-                }
-                if (otherImages.length > 0) {
-                    console.log(`   Note: Please verify the other images (${otherImages.join(', ')}) according to their respective sources`);
-                    console.log('');
-                }
-            }
-            else {
-                console.log('   No images extracted from Docker Compose');
-                console.log('');
-            }
-            // Step 7: Download and verify the verifier image
-            if (verifierURL) {
-                console.log('🔐 Step 7: Download and Verify the Verifier Image');
-                console.log('');
-                console.log('   The verifier image will be used in Step 8 to perform comprehensive verification.');
-                console.log('   Before using it, we need to ensure the verifier itself has a verifiable build process.');
-                console.log('');
-                console.log(`   Verifier image download URL: ${verifierURL}`);
-                console.log('   To verify the verifier image:');
-                console.log('   1. Download the verifier image from the provided URL');
-                console.log('   2. Get the image hash/digest');
-                console.log('   3. Verify the build process at: https://search.sigstore.dev/');
-                console.log('');
-            }
-            // Step 8: Verifier usage instructions
-            console.log('🛠️  Step 8: Run Verifier for Complete Verification');
-            if (teeVerifier === 'dstack') {
-                console.log('');
-                console.log('   The DStack verifier performs three main verification steps:');
-                console.log('');
-                console.log('   1. Quote Verification:');
-                console.log('      - Validates the TDX quote using dcap-qvl');
-                console.log('      - Checks the quote signature and TCB status');
-                console.log('');
-                console.log('   2. Event Log Verification:');
-                console.log('      - Replays event logs to ensure RTMR values match');
-                console.log('      - Extracts app information from the logs');
-                console.log('');
-                console.log('   3. OS Image Hash Verification:');
-                console.log('      - Automatically downloads OS images if not cached locally');
-                console.log('      - Uses dstack-mr to compute expected measurements');
-                console.log('      - Compares against the verified measurements from the quote');
-                console.log('');
-                console.log('   Usage Instructions:');
-                console.log('');
-                console.log('   1. Start the verifier service locally (example with dstack-verifier:0.5.4):');
-                console.log('      docker run -d -p 8080:8080 docker.io/dstacktee/dstack-verifier:0.5.4');
-                console.log('');
-                console.log('   2. Verify the downloaded attestation report(s):');
-                // Show specific commands based on whether components are separated
-                if (targetSeparated) {
-                    console.log('      # Verify broker attestation report');
-                    console.log(`      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`);
-                    console.log('');
-                    console.log('      # Verify LLM attestation report');
-                    console.log(`      curl -s -d @${outputDir}/llm_attestation_report.json localhost:8080/verify`);
-                }
-                else {
-                    console.log(`      curl -s -d @${outputDir}/attestation_report.json localhost:8080/verify`);
-                }
-                console.log('');
-            }
-            else if (teeVerifier === 'cryptopilot') {
-                console.log('');
-                console.log('   The CryptoPilot verifier verification process:');
-                console.log('   [CryptoPilot verifier details to be implemented]');
-                console.log('');
-            }
-            else {
-                console.log('');
-                console.log('   [Verifier usage instructions for this TEE type]');
-            }
-            return {
-                success: true,
-                teeVerifier,
-                targetSeparated,
-                verifierURL,
-                reportsGenerated: Object.keys(reports),
-                outputDirectory: outputDir,
-                reportsData: reports, // Include report data for browser environment
-            };
-        }
-        catch (error) {
-            console.error('❌ TEE verification failed:', error);
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Extract TEE signer address from attestation report
-     */
-    extractTeeSignerAddress(report) {
-        try {
-            // Check if report_data exists in the report
-            const reportData = report.report_data;
-            if (!reportData) {
-                return null;
-            }
-            // Decode the base64 report_data to get the signer address
-            const decodedData = Buffer.from(reportData, 'base64').toString('utf-8');
-            // Remove NULL characters that pad the address
-            const signingAddress = decodedData.replace(/\0/g, '');
-            return signingAddress || null;
-        }
-        catch {
-            return null;
-        }
-    }
-    /**
-     * Process DStack-specific verification steps
-     */
-    async processDStackVerification(reports) {
-        const allImages = [];
-        let composeVerificationCount = 0;
-        let passedComposeVerifications = 0;
-        for (const [reportType, report] of Object.entries(reports)) {
-            console.log(`   Processing ${reportType} report...`);
-            if (!(report.tcb_info || report.info?.tcb_info) ||
-                !report.event_log) {
-                console.log(`   ⚠️  Warning: ${reportType} report missing tcb_info or event_log`);
-                continue;
-            }
-            try {
-                // Parse tcb_info if it's a string
-                let tcbInfo;
-                if (typeof report.tcb_info === 'string') {
-                    tcbInfo = JSON.parse(report.tcb_info);
-                }
-                else {
-                    tcbInfo =
-                        report.tcb_info ||
-                            report.info?.tcb_info;
-                }
-                // Parse event_log if it's a string
-                let eventLog;
-                if (typeof report.event_log === 'string') {
-                    eventLog = JSON.parse(report.event_log);
-                }
-                else if (Array.isArray(report.event_log)) {
-                    eventLog = report.event_log;
-                }
-                else {
-                    console.log(`   ⚠️  Warning: event_log is not in expected format`);
-                    continue;
-                }
-                // Verify compose hash against event log
-                const composeResult = this.verifyComposeHash(tcbInfo, eventLog);
-                composeVerificationCount++;
-                if (composeResult.isValid) {
-                    passedComposeVerifications++;
-                }
-                console.log(`   Docker Compose Verification:`);
-                if (composeResult.calculatedHash) {
-                    console.log(`     Calculated Hash: ${composeResult.calculatedHash}`);
-                }
-                if (composeResult.eventLogHash) {
-                    console.log(`     Event Log Hash:  ${composeResult.eventLogHash}`);
-                }
-                console.log(`     Status: ${composeResult.isValid ? '✅ VALID' : '❌ INVALID'}`);
-                if (!composeResult.isValid && composeResult.error) {
-                    console.log(`     Error: ${composeResult.error}`);
-                }
-                // Extract all images from tcb_info for later processing
-                const images = this.extractAllImagesFromTcbInfo(tcbInfo);
-                images.forEach((image) => {
-                    if (!allImages.includes(image)) {
-                        allImages.push(image);
-                    }
-                });
-            }
-            catch (error) {
-                console.log(`   ⚠️  Error processing ${reportType} report: ${error}`);
-            }
-        }
-        const composeVerificationPassed = composeVerificationCount > 0 &&
-            passedComposeVerifications === composeVerificationCount;
-        return {
-            images: allImages,
-            composeVerificationPassed,
-        };
-    }
-    /**
-     * Verify compose hash based on the dstack verification logic
-     */
-    verifyComposeHash(tcbInfo, eventLog) {
-        try {
-            if (!tcbInfo.app_compose) {
-                return {
-                    isValid: false,
-                    error: 'app_compose not found in tcb_info',
-                };
-            }
-            // Hash the app_compose JSON string
-            const composeHash = createHash$1('sha256')
-                .update(tcbInfo.app_compose)
-                .digest('hex');
-            // Find compose-hash event in the event log
-            const composeHashEvent = eventLog.find((entry) => entry.event === 'compose-hash');
-            if (!composeHashEvent) {
-                return {
-                    isValid: false,
-                    error: 'No compose-hash event found in event log',
-                    calculatedHash: composeHash,
-                };
-            }
-            const expectedHash = composeHashEvent.event_payload;
-            return {
-                isValid: composeHash === expectedHash,
-                calculatedHash: composeHash,
-                eventLogHash: expectedHash,
-                composeHashEvent,
-            };
-        }
-        catch (error) {
-            return {
-                isValid: false,
-                error: `Compose hash verification failed: ${error}`,
-            };
-        }
-    }
-    /**
-     * Extract all Docker images from tcb_info
-     */
-    extractAllImagesFromTcbInfo(tcbInfo) {
-        try {
-            const images = [];
-            const tcbString = JSON.stringify(tcbInfo);
-            // Match various image patterns in docker-compose format
-            // Pattern 1: image: <image-address>
-            const imageMatches = tcbString.match(/"image"\s*:\s*"([^"]+)"/g);
-            if (imageMatches) {
-                for (const match of imageMatches) {
-                    // Extract the image address from the match
-                    const imageMatch = match.match(/"image"\s*:\s*"([^"]+)"/);
-                    if (imageMatch && imageMatch[1]) {
-                        const imageAddr = imageMatch[1].trim();
-                        // Avoid duplicates
-                        if (!images.includes(imageAddr)) {
-                            images.push(imageAddr);
-                        }
-                    }
-                }
-            }
-            // Also try alternative pattern without quotes around key
-            const altImageMatches = tcbString.match(/image:\s*([^",\s\}]+)/g);
-            if (altImageMatches) {
-                for (const match of altImageMatches) {
-                    const imageAddr = match.replace(/^image:\s*/, '').trim();
-                    // Remove any trailing quotes if present
-                    const cleanAddr = imageAddr.replace(/["']/g, '');
-                    // Avoid duplicates
-                    if (cleanAddr && !images.includes(cleanAddr)) {
-                        images.push(cleanAddr);
-                    }
-                }
-            }
-            return images;
-        }
-        catch {
-            return [];
-        }
-    }
-    /**
-     * Check if running in browser environment
-     */
-    isBrowser() {
-        return typeof window !== 'undefined' && typeof document !== 'undefined';
-    }
-    /**
-     * Save report to file (Node.js only)
-     * In browser environment, this is a no-op
-     */
-    async saveReportToFile(reportContent, filePath) {
-        // Skip file saving in browser environment
-        if (this.isBrowser()) {
-            return;
-        }
-        const fs = await import('fs/promises');
-        await fs.writeFile(filePath, reportContent, 'utf8');
-    }
-    async getSignerRaDownloadLink(providerAddress) {
-        try {
-            const svc = await this.getService(providerAddress);
-            return `${svc.url}/v1/proxy/attestation/report`;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getChatSignatureDownloadLink(providerAddress, chatID) {
-        try {
-            const svc = await this.getService(providerAddress);
-            return `${svc.url}/v1/proxy/signature/${chatID}`;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    static async verifyRA(providerBrokerURL, nvidia_payload) {
-        return fetch(`${providerBrokerURL}/v1/quote/verify/gpu`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-            body: JSON.stringify(nvidia_payload),
-        })
-            .then((response) => {
-            if (response.status === 200) {
-                return true;
-            }
-            if (response.status === 404) {
-                throw new Error('verify RA error: 404');
-            }
-            else {
-                return false;
-            }
-        })
-            .catch((error) => {
-            if (error instanceof Error) {
-                console.error(error.message);
-            }
-            return false;
-        });
-    }
-    async getQuoteInLLMServer(providerBrokerURL, model) {
-        try {
-            const rawReport = await this.fetchText(`${providerBrokerURL}/v1/proxy/attestation/report?model=${model}`, {
-                method: 'GET',
-            });
-            const ret = JSON.parse(rawReport);
-            return {
-                rawReport,
-                signingAddress: ret['signing_address'],
-            };
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    static async fetchSignatureByChatID(providerBrokerURL, chatID, model) {
-        return fetch(`${providerBrokerURL}/v1/proxy/signature/${chatID}?model=${model}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        })
-            .then((response) => {
-            if (!response.ok) {
-                throw new Error('getting signature error');
-            }
-            return response.json();
-        })
-            .then((data) => {
-            return data;
-        })
-            .catch((error) => {
-            throwFormattedError(error);
-        });
-    }
-    static verifySignature(message, signature, expectedAddress) {
-        const messageHash = ethers.hashMessage(message);
-        const recoveredAddress = ethers.recoverAddress(messageHash, signature);
-        return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
-    }
-};
-
-/**
- * ResponseProcessor is a subclass of ZGServingUserBroker.
- * It needs to be initialized with createZGServingUserBroker
- * before use.
- */
-class ResponseProcessor extends ZGServingUserBrokerBase {
-    constructor(contract, ledger, metadata, cache) {
-        super(contract, ledger, metadata, cache);
-    }
-    async processResponse(providerAddress, chatID, content // For chatbot/speech-to-text: usage JSON string with input_tokens/output_tokens; For text-to-image: empty/undefined
-    ) {
-        try {
-            const extractor = await this.getExtractor(providerAddress);
-            if (content) {
-                const fee = await this.calculateFee(extractor, content);
-                logger.debug(`Calculated fee: ${fee.toString()}`);
-                await this.updateCachedFee(providerAddress, fee);
-            }
-            if (!chatID) {
-                // If no chatID provided, skip verifiability check
-                return null;
-            }
-            const svc = await extractor.getSvcInfo();
-            if (!isVerifiability(svc.verifiability)) {
-                console.warn('this service is not verifiable');
-                return false;
-            }
-            if (!svc.teeSignerAcknowledged) {
-                console.warn('TEE Signer is not acknowledged');
-                return false;
-            }
-            if (!chatID) {
-                throw new Error('Chat ID does not exist');
-            }
-            if (!svc.additionalInfo) {
-                console.warn('Service additionalInfo does not exist');
-                return false;
-            }
-            logger.debug('Chat ID:', chatID);
-            // Parse additionalInfo JSON to determine signing address
-            // based on https://github.com/0gfoundation/0g-serving-broker/api/inference/internal/contract/service.go
-            let signingAddress = svc.teeSignerAddress;
-            try {
-                const additionalInfo = JSON.parse(svc.additionalInfo);
-                if (additionalInfo.TargetSeparated === true &&
-                    additionalInfo.TargetTeeAddress) {
-                    signingAddress = additionalInfo.TargetTeeAddress;
-                }
-            }
-            catch (error) {
-                // If JSON parsing fails, fall back to using additionalInfo as the address directly (backward compatibility)
-                logger.warn('Failed to parse additionalInfo as JSON', error);
-                return false;
-            }
-            logger.debug('signing address:', signingAddress);
-            const ResponseSignature = await Verifier$1.fetchSignatureByChatID(svc.url, chatID, svc.model);
-            return Verifier$1.verifySignature(ResponseSignature.text, ResponseSignature.signature, signingAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-}
-
-class InferenceBroker {
-    requestProcessor;
-    responseProcessor;
-    verifier;
-    accountProcessor;
-    modelProcessor;
-    signer;
-    contractAddress;
-    ledger;
-    constructor(signer, contractAddress, ledger) {
-        this.signer = signer;
-        this.contractAddress = contractAddress;
-        this.ledger = ledger;
-    }
-    async initialize() {
-        let userAddress;
-        try {
-            userAddress = await this.signer.getAddress();
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-        const contract = new InferenceServingContract(this.signer, this.contractAddress, userAddress);
-        const metadata = new Metadata();
-        const cache = new Cache();
-        this.requestProcessor = new RequestProcessor(contract, metadata, cache, this.ledger);
-        this.responseProcessor = new ResponseProcessor(contract, this.ledger, metadata, cache);
-        this.accountProcessor = new AccountProcessor(contract, this.ledger, metadata, cache);
-        this.modelProcessor = new ModelProcessor$1(contract, this.ledger, metadata, cache);
-        this.verifier = new Verifier$1(contract, this.ledger, metadata, cache);
-    }
-    /**
-     * Retrieves a list of services from the contract.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
-     * @throws An error if the service list cannot be retrieved.
-     */
-    listService = async (offset = 0, limit = 50, includeUnacknowledged = false) => {
-        try {
-            return await this.modelProcessor.listService(offset, limit, includeUnacknowledged);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Retrieves the account information for a given provider address.
-     *
-     * @param {string} providerAddress - The address of the provider identifying the account.
-     *
-     * @returns A promise that resolves to the account information.
-     *
-     * @throws Will throw an error if the account retrieval process fails.
-     */
-    getAccount = async (providerAddress) => {
-        try {
-            return await this.accountProcessor.getAccount(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    getAccountWithDetail = async (providerAddress) => {
-        try {
-            return await this.accountProcessor.getAccountWithDetail(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * checks if the user has acknowledged the provider signer.
-     *
-     * @param {string} providerAddress - The address of the provider.
-     * @returns {Promise<boolean>} A promise that resolves to a boolean indicating whether the user
-     * has acknowledged the provider signer.
-     * @throws Will throw an error if the acknowledgment check fails.
-     */
-    acknowledged = async (providerAddress) => {
-        try {
-            return await this.requestProcessor.userAcknowledged(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Check Provider Signer Status
-     *
-     * Checks if the provider's TEE signer has been acknowledged by the contract owner.
-     * This replaces the old user-level acknowledgement system.
-     *
-     * @param {string} providerAddress - The address of the provider identifying the account.
-     * @param {number} gasPrice - Optional gas price for the transaction.
-     * @returns Promise<{isAcknowledged: boolean, teeSignerAddress: string, needsAccount: boolean}>
-     *
-     * @throws Will throw an error if failed to check status.
-     */
-    checkProviderSignerStatus = async (providerAddress, gasPrice) => {
-        try {
-            return await this.requestProcessor.checkProviderSignerStatus(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Acknowledge TEE Signer (Contract Owner Only)
-     *
-     * This function allows the contract owner to acknowledge a provider's TEE signer.
-     * The TEE signer address should already be set in the service registration.
-     *
-     * @param {string} providerAddress - The address of the provider
-     * @throws Will throw an error if caller is not the contract owner or if acknowledgement fails.
-     */
-    acknowledgeProviderTEESigner = async (providerAddress, gasPrice) => {
-        try {
-            return await this.requestProcessor.ownerAcknowledgeTEESigner(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Revoke TEE Signer Acknowledgement (Contract Owner Only)
-     *
-     * This function allows the contract owner to revoke a provider's TEE signer acknowledgement.
-     *
-     * @param {string} providerAddress - The address of the provider
-     * @throws Will throw an error if caller is not the contract owner or if revocation fails.
-     */
-    revokeProviderTEESignerAcknowledgement = async (providerAddress, gasPrice) => {
-        try {
-            return await this.requestProcessor.ownerRevokeTEESignerAcknowledgement(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Acknowledge the given provider address.
-     *
-     * @param {string} providerAddress - The address of the provider identifying the account.
-     *
-     *
-     * @throws Will throw an error if failed to acknowledge.
-     */
-    acknowledgeProviderSigner = async (providerAddress, gasPrice) => {
-        try {
-            return await this.requestProcessor.acknowledgeProviderSigner(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Downloads quote report data from the provider service to a specified file.
-     *
-     * @param {string} providerAddress - The address of the provider.
-     * @param {string} outputPath - The file path where the quote report will be saved.
-     *
-     * @throws Will throw an error if failed to download the quote report.
-     */
-    downloadQuoteReport = async (providerAddress, outputPath) => {
-        try {
-            return await this.requestProcessor.downloadQuoteReport(providerAddress, outputPath);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Generates request metadata for the provider service.
-     * Includes:
-     * 1. Request endpoint for the provider service
-     * 2. Model information for the provider service
-     *
-     * @param {string} providerAddress - The address of the provider.
-     *
-     * @returns { endpoint, model } - Object containing endpoint and model.
-     *
-     * @throws An error if errors occur during the processing of the request.
-     */
-    getServiceMetadata = async (providerAddress) => {
-        try {
-            return await this.requestProcessor.getServiceMetadata(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * getRequestHeaders generates billing-related headers for the request
-     * when the user uses the provider service.
-     *
-     * In the 0G Serving system, a request with valid billing headers
-     * is considered a settlement proof and will be used by the provider
-     * for contract settlement.
-     *
-     * @param {string} providerAddress - The address of the provider.
-     * @param {string} content - The content being billed. For example, in a chatbot service, it is the text input by the user.
-     *
-     * @returns headers. Records information such as the request fee and user signature.
-     *
-     * @example
-     *
-     * const { endpoint, model } = await broker.getServiceMetadata(
-     *   providerAddress,
-     *   serviceName,
-     * );
-     *
-     * const headers = await broker.getServiceMetadata(
-     *   providerAddress,
-     *   serviceName,
-     *   content,
-     * );
-     *
-     * const openai = new OpenAI({
-     *   baseURL: endpoint,
-     *   apiKey: "",
-     * });
-     *
-     * const completion = await openai.chat.completions.create(
-     *   {
-     *     messages: [{ role: "system", content }],
-     *     model,
-     *   },
-     *   headers: {
-     *     ...headers,
-     *   },
-     * );
-     *
-     * @throws An error if errors occur during the processing of the request.
-     */
-    getRequestHeaders = async (providerAddress, content) => {
-        try {
-            return await this.requestProcessor.getRequestHeaders(providerAddress, content);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * processResponse is used after the user successfully obtains a response from the provider service.
-     *
-     * It caches the estimated fee based on usage data, which will be used by getRequestHeaders to determine
-     * when to top up the sub-account balance. Additionally, if the service is verifiable, input the chat ID
-     * from the response and processResponse will determine the validity of the returned content by checking
-     * the provider service's response and corresponding signature associated with the chat ID.
-     *
-     * Note: Fee caching is only useful for long-running SDK instances (e.g., web servers). In CLI usage,
-     * the cache is cleared on each invocation, so automatic balance management doesn't apply.
-     *
-     * @param {string} providerAddress - The address of the provider.
-     * @param {string} chatID - Only for verifiable services. The chat session ID returned by the provider
-     * in the `ZG-Res-Key` HTTP response header. Extract this header from the provider's response and pass
-     * it here for signature verification. For providers that don't include this header, fall back to using
-     * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
-     * @param {string} content - Usage data from the response. For chatbot/speech-to-text: JSON string with
-     * token usage; For text-to-image: can be empty. This is used to calculate and cache estimated fees.
-     *
-     * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
-     * null if no chatID provided (verification skipped).
-     *
-     * @throws An error if any issues occur during the processing of the response.
-     */
-    processResponse = async (providerAddress, chatID, content) => {
-        try {
-            return await this.responseProcessor.processResponse(providerAddress, chatID, content);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * verifyService is used to verify the reliability of the service.
-     *
-     * @param {string} providerAddress - The address of the provider.
-     *
-     * @returns A <boolean | null> value. True indicates the service is reliable, otherwise it is unreliable.
-     *
-     * @throws An error if errors occur during the verification process.
-     */
-    verifyService = async (providerAddress, outputDir = '.') => {
-        try {
-            return await this.verifier.verifyService(providerAddress, outputDir);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * getSignerRaDownloadLink returns the download link for the Signer RA.
-     *
-     * It can be provided to users who wish to manually verify the Signer RA.
-     *
-     * @param {string} providerAddress - provider address.
-     *
-     * @returns Download link.
-     */
-    getSignerRaDownloadLink = async (providerAddress) => {
-        try {
-            return await this.verifier.getSignerRaDownloadLink(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * getChatSignatureDownloadLink returns the download link for the signature of a single chat.
-     *
-     * It can be provided to users who wish to manually verify the content of a single chat.
-     *
-     * @param {string} providerAddress - provider address.
-     * @param {string} chatID - ID of the chat.
-     *
-     * @remarks To verify the chat signature, use the following code:
-     *
-     * ```typescript
-     * const messageHash = ethers.hashMessage(messageToBeVerified)
-     * const recoveredAddress = ethers.recoverAddress(messageHash, signature)
-     * const isValid = recoveredAddress.toLowerCase() === signingAddress.toLowerCase()
-     * ```
-     *
-     * @returns Download link.
-     */
-    getChatSignatureDownloadLink = async (providerAddress, chatID) => {
-        try {
-            return await this.verifier.getChatSignatureDownloadLink(providerAddress, chatID);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Remove service (Provider owner only)
-     *
-     * This function allows the provider owner to remove their service from the contract.
-     * Only the provider who registered the service can remove it.
-     *
-     * @param {number} gasPrice - Optional gas price for the transaction.
-     * @throws Will throw an error if the caller is not the service owner or if removal fails.
-     */
-    removeService = async (gasPrice) => {
-        try {
-            return await this.modelProcessor.removeService(gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Update service (Provider owner only)
-     *
-     * This function allows the provider owner to update their existing service.
-     * All parameters are optional - if not provided, the current value is preserved.
-     *
-     * @param options - Update options
-     * @param options.url - New service URL
-     * @param options.model - New model name
-     * @param options.inputPrice - New input price (in neuron, the smallest unit)
-     * @param options.outputPrice - New output price (in neuron, the smallest unit)
-     * @param options.gasPrice - Optional gas price for the transaction
-     * @throws Will throw an error if the caller is not the service owner or if update fails.
-     */
-    updateService = async (options) => {
-        try {
-            return await this.modelProcessor.updateService(options);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Revoke a specific API key (persistent token) by its tokenId.
-     *
-     * Sets the corresponding bit in the revokedBitmap for this tokenId.
-     * The API key will be immediately invalid, but the tokenId slot remains occupied
-     * until revokeAllTokens() is called.
-     *
-     * Note: Ephemeral tokens (tokenId=255) cannot be individually revoked.
-     * Use revokeAllTokens() to revoke ephemeral tokens.
-     *
-     * @param {string} providerAddress - The provider address
-     * @param {number} tokenId - Token ID to revoke (0-254)
-     * @param {number} gasPrice - Optional gas price for the transaction
-     *
-     * @throws Will throw an error if tokenId is 255 (ephemeral token) or if revocation fails.
-     *
-     * @example
-     * ```typescript
-     * // Revoke token ID 5 for a provider
-     * await broker.inference.revokeApiKey('0x123...', 5)
-     * // Token ID 5 is now revoked and the API key is invalid
-     * ```
-     */
-    revokeApiKey = async (providerAddress, tokenId, gasPrice) => {
-        try {
-            return await this.requestProcessor.revokeApiKey(providerAddress, tokenId, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-    /**
-     * Revoke all API keys (both ephemeral and persistent tokens) for a provider.
-     *
-     * Increments the generation counter and resets the revokedBitmap.
-     * All existing API keys (including ephemeral tokens) will be immediately invalid.
-     * Reclaims all 255 tokenId slots for reuse.
-     *
-     * @param {string} providerAddress - The provider address
-     * @param {number} gasPrice - Optional gas price for the transaction
-     *
-     * @throws Will throw an error if revocation fails.
-     *
-     * @example
-     * ```typescript
-     * // Revoke all tokens for a provider
-     * await broker.inference.revokeAllTokens('0x123...')
-     * // All API keys for this provider are now invalid
-     * // All 255 tokenId slots are now available for reuse
-     * ```
-     */
-    revokeAllTokens = async (providerAddress, gasPrice) => {
-        try {
-            return await this.requestProcessor.revokeAllTokens(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    };
-}
-/**
- * createInferenceBroker is used to initialize ZGServingUserBroker
- *
- * @param signer - Signer from ethers.js.
- * @param contractAddress - 0G Serving contract address, use default address if not provided.
- *
- * @returns broker instance.
- *
- * @throws An error if the broker cannot be initialized.
- */
-async function createInferenceBroker(signer, contractAddress, ledger) {
-    const broker = new InferenceBroker(signer, contractAddress, ledger);
-    try {
-        await broker.initialize();
-        return broker;
-    }
-    catch (error) {
-        throw error;
-    }
-}
-
-class BrokerBase {
-    contract;
-    ledger;
-    servingProvider;
-    constructor(contract, ledger, servingProvider) {
-        this.contract = contract;
-        this.ledger = ledger;
-        this.servingProvider = servingProvider;
-    }
-}
-
-const TIMEOUT_MS$1 = 300_000;
-class FineTuningServingContract {
-    serving;
-    signer;
-    _userAddress;
-    _gasPrice;
-    _maxGasPrice;
-    _step;
-    constructor(signer, contractAddress, userAddress, gasPrice, maxGasPrice, step) {
-        this.serving = FineTuningServing__factory.connect(contractAddress, signer);
-        this.signer = signer;
-        this._userAddress = userAddress;
-        this._gasPrice = gasPrice;
-        if (maxGasPrice) {
-            this._maxGasPrice = BigInt(maxGasPrice);
-        }
-        this._step = step || 11;
-    }
-    lockTime() {
-        return this.serving.lockTime();
-    }
-    async sendTx(name, txArgs, txOptions) {
-        if (txOptions.gasPrice === undefined) {
-            txOptions.gasPrice = (await this.signer.provider?.getFeeData())?.gasPrice;
-            // Add a delay to avoid too frequent RPC calls
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-        else {
-            txOptions.gasPrice = BigInt(txOptions.gasPrice);
-        }
-        while (true) {
-            try {
-                console.log('sending tx with gas price', txOptions.gasPrice);
-                const tx = await this.serving.getFunction(name)(...txArgs, txOptions);
-                console.log('tx hash:', tx.hash);
-                const receipt = (await Promise.race([
-                    tx.wait(),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Get Receipt timeout, try set higher gas price')), TIMEOUT_MS$1)),
-                ]));
-                this.checkReceipt(receipt);
-                break;
-            }
-            catch (error) {
-                if (error.message ===
-                    'Get Receipt timeout, try set higher gas price') {
-                    const nonce = await this.signer.getNonce();
-                    const pendingNonce = await this.signer.provider?.getTransactionCount(this._userAddress, 'pending');
-                    if (pendingNonce !== undefined &&
-                        pendingNonce - nonce > 5 &&
-                        txOptions.nonce === undefined) {
-                        console.warn(`Significant gap detected between pending nonce (${pendingNonce}) and current nonce (${nonce}). This may indicate skipped or missing transactions. Using the current confirmed nonce for the transaction.`);
-                        txOptions.nonce = nonce;
-                    }
-                }
-                if (this._maxGasPrice === undefined) {
-                    throwFormattedError(error);
-                }
-                let errorMessage = '';
-                if (error.message) {
-                    errorMessage = error.message;
-                }
-                else if (error.info?.error?.message) {
-                    errorMessage = error.info.error.message;
-                }
-                const shouldRetry = RETRY_ERROR_SUBSTRINGS.some((substr) => errorMessage.includes(substr));
-                if (!shouldRetry) {
-                    throwFormattedError(error);
-                }
-                console.log('Retrying transaction with higher gas price due to:', errorMessage);
-                let currentGasPrice = txOptions.gasPrice;
-                if (currentGasPrice >= this._maxGasPrice) {
-                    throwFormattedError(error);
-                }
-                currentGasPrice =
-                    (currentGasPrice * BigInt(this._step)) / BigInt(10);
-                if (currentGasPrice > this._maxGasPrice) {
-                    currentGasPrice = this._maxGasPrice;
-                }
-                txOptions.gasPrice = currentGasPrice;
-            }
-        }
-    }
-    async listService() {
-        try {
-            const services = await this.serving.getAllServices();
-            return services;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async listAccount(offset = 0, limit = 50) {
-        try {
-            const result = await this.serving.getAllAccounts(offset, limit);
-            return result.accounts;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getAccount(provider) {
-        try {
-            const user = this.getUserAddress();
-            const account = await this.serving.getAccount(user, provider);
-            return account;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async acknowledgeTEESigner(providerAddress, acknowledged, gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice || this._gasPrice) {
-                txOptions.gasPrice = gasPrice || this._gasPrice;
-            }
-            await this.sendTx('acknowledgeTEESigner', [providerAddress, acknowledged], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice || this._gasPrice) {
-                txOptions.gasPrice = gasPrice || this._gasPrice;
-            }
-            await this.sendTx('acknowledgeTEESignerByOwner', [providerAddress], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice || this._gasPrice) {
-                txOptions.gasPrice = gasPrice || this._gasPrice;
-            }
-            await this.sendTx('revokeTEESignerAcknowledgement', [providerAddress], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async removeService(gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice || this._gasPrice) {
-                txOptions.gasPrice = gasPrice || this._gasPrice;
-            }
-            await this.sendTx('removeService', [], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async acknowledgeDeliverable(providerAddress, id, gasPrice) {
-        try {
-            const txOptions = {};
-            if (gasPrice || this._gasPrice) {
-                txOptions.gasPrice = gasPrice || this._gasPrice;
-            }
-            await this.sendTx('acknowledgeDeliverable', [providerAddress, id], txOptions);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getService(providerAddress) {
-        try {
-            return this.serving.getService(providerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getDeliverable(providerAddress, id) {
-        try {
-            const user = this.getUserAddress();
-            return this.serving.getDeliverable(user, providerAddress, id);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    getUserAddress() {
-        return this._userAddress;
-    }
-    checkReceipt(receipt) {
-        if (!receipt) {
-            throw new Error('Transaction failed with no receipt');
-        }
-        if (receipt.status !== 1) {
-            throw new Error('Transaction reverted');
-        }
-    }
-}
-
-async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
-    try {
-        const fileSize = await getFileContentSize(dataPath);
-        return new Promise((resolve, reject) => {
-            const command = path__default.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client');
-            const args = [
-                'upload',
-                '--url',
-                ZG_RPC_ENDPOINT_TESTNET,
-                '--key',
-                privateKey,
-                '--indexer',
-                INDEXER_URL_TURBO,
-                '--file',
-                dataPath,
-                '--skip-tx=false',
-                '--log-level=debug',
-            ];
-            if (gasPrice) {
-                args.push('--gas-price', gasPrice.toString());
-            }
-            if (maxGasPrice) {
-                args.push('--max-gas-price', maxGasPrice.toString());
-            }
-            const process = spawn$1(command, args);
-            process.stdout.on('data', (data) => {
-                console.log(`${data}`);
-            });
-            process.stderr.on('data', (data) => {
-                console.error(`${data}`);
-            });
-            process.on('close', (code) => {
-                if (code !== 0) {
-                    reject(new Error(`Process exited with code ${code}`));
-                }
-                else {
-                    console.log(`File size: ${fileSize} bytes`);
-                    resolve();
-                }
-            });
-            process.on('error', (err) => {
-                reject(err);
-            });
-        });
-    }
-    catch (err) {
-        console.error(err);
-        throw err;
-    }
-}
-async function download(dataPath, dataRoot) {
-    return new Promise((resolve, reject) => {
-        const command = path__default.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client');
-        const args = [
-            'download',
-            '--file',
-            dataPath,
-            '--indexer',
-            INDEXER_URL_TURBO,
-            '--roots',
-            dataRoot,
-        ];
-        const process = spawn$1(command, args);
-        let log = '';
-        process.stdout.on('data', (data) => {
-            const output = data.toString();
-            log += output;
-            console.log(output);
-        });
-        process.stderr.on('data', (data) => {
-            const errorOutput = data.toString();
-            log += errorOutput;
-            console.error(errorOutput);
-        });
-        process.on('close', (code) => {
-            if (code !== 0) {
-                return reject(new Error(`Process exited with code ${code}`));
-            }
-            if (!log
-                .trim()
-                .endsWith('Succeeded to validate the downloaded file')) {
-                return reject(new Error('Failed to download the file'));
-            }
-            resolve();
-        });
-        process.on('error', (err) => {
-            reject(err);
-        });
-    });
-}
-async function getFileContentSize(filePath) {
-    try {
-        const fileHandle = await fs$1.open(filePath, 'r');
-        try {
-            const stats = await fileHandle.stat();
-            return stats.size;
-        }
-        finally {
-            await fileHandle.close();
-        }
-    }
-    catch (err) {
-        throw new Error(`Error processing file: ${err instanceof Error ? err.message : String(err)}`);
-    }
-}
-
-/**
- * ModelProcessor handles model-related operations including listing available models,
- * acknowledging model delivery, and decrypting fine-tuned models.
- */
-class ModelProcessor extends BrokerBase {
-    /**
-     * List all available models including both standard pre-trained models
-     * and customized models from providers.
-     *
-     * @returns A tuple containing two arrays:
-     *   - [0]: Standard pre-trained models with their configurations
-     *   - [1]: Customized models from providers with descriptions
-     *
-     * @example
-     * ```typescript
-     * const [standardModels, customizedModels] = await broker.fineTuning.listModel();
-     *
-     * // Standard models: [['meta-llama/Llama-2-7b-chat-hf', {...}], ...]
-     * // Customized models: [['my-model', { description: '...', provider: '0x...' }], ...]
-     * ```
-     */
-    async listModel() {
-        try {
-            const services = await this.contract.listService();
-            const customizedModels = [];
-            for (const service of services) {
-                if (service.models.length !== 0) {
-                    const url = service.url;
-                    const models = await this.servingProvider.getCustomizedModels(url);
-                    for (const item of models) {
-                        customizedModels.push([
-                            item.name,
-                            {
-                                description: item.description,
-                                provider: service.provider,
-                            },
-                        ]);
-                    }
-                }
-            }
-            return [Object.entries(MODEL_HASH_MAP), customizedModels];
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Acknowledge receipt of a fine-tuned model from a provider.
-     * Downloads the encrypted model from 0G Storage and confirms receipt on-chain.
-     *
-     * @param providerAddress - Address of the provider who trained the model
-     * @param taskId - ID of the fine-tuning task
-     * @param dataPath - Local path where the encrypted model will be saved
-     * @param gasPrice - Optional gas price for the transaction
-     * @throws Error if no deliverable found or download fails
-     *
-     * @example
-     * ```typescript
-     * await broker.fineTuning.acknowledgeModel(
-     *   '0x1234...',
-     *   'task-123',
-     *   './encrypted-model.bin'
-     * );
-     * ```
-     */
-    async acknowledgeModel(providerAddress, taskId, dataPath, gasPrice) {
-        try {
-            const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
-            logger.debug(`deliverable: ${hexToRoots(deliverable.modelRootHash)}`);
-            if (!deliverable) {
-                throw new Error('No deliverable found');
-            }
-            await download(dataPath, hexToRoots(deliverable.modelRootHash));
-            await this.contract.acknowledgeDeliverable(providerAddress, taskId, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Decrypt a fine-tuned model after acknowledgement.
-     * Uses the user's private key to decrypt the model encryption key,
-     * then decrypts the model file.
-     *
-     * @param providerAddress - Address of the provider who trained the model
-     * @param taskId - ID of the fine-tuning task
-     * @param encryptedModelPath - Local path to the encrypted model file
-     * @param decryptedModelPath - Local path where the decrypted model will be saved
-     * @throws Error if deliverable not found, not acknowledged, or decryption fails
-     *
-     * @example
-     * ```typescript
-     * await broker.fineTuning.decryptModel(
-     *   '0x1234...',
-     *   'task-123',
-     *   './encrypted-model.bin',
-     *   './my-model'
-     * );
-     * ```
-     *
-     * @remarks
-     * The model can only be decrypted after:
-     * 1. The provider has delivered the encrypted model
-     * 2. The user has acknowledged the model (called acknowledgeModel)
-     * 3. The provider has shared the encrypted decryption key
-     */
-    async decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath) {
-        try {
-            const [service, deliverable] = await Promise.all([
-                this.contract.getService(providerAddress),
-                this.contract.getDeliverable(providerAddress, taskId),
-            ]);
-            logger.debug(`service, ${service}`);
-            if (!deliverable) {
-                throw new Error('No deliverable found');
-            }
-            if (!deliverable.acknowledged) {
-                throw new Error('Deliverable not acknowledged yet');
-            }
-            if (!deliverable.encryptedSecret) {
-                throw new Error('EncryptedSecret not found');
-            }
-            const secret = await eciesDecrypt(this.contract.signer, deliverable.encryptedSecret);
-            await aesGCMDecryptToFile(secret, encryptedModelPath, decryptedModelPath, service.teeSignerAddress);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-        return;
-    }
-}
-
-// Dynamic imports for Node.js specific modules
-let fs;
-let os;
-let path;
-let AdmZip;
-let spawn;
-let exec;
-let createHash;
-let createReadStream;
-async function initNodeModules() {
-    if (isBrowser()) {
-        throw new Error('Token calculation functions are not available in browser environment. Please use these functions in a Node.js environment.');
-    }
-    if (!fs) {
-        fs =
-            (await import('fs/promises')).default ||
-                (await import('fs/promises'));
-        os = (await import('os')).default || (await import('os'));
-        path = (await import('path')).default || (await import('path'));
-        AdmZip = (await import('./adm-zip-86f30d47.js').then(function (n) { return n.a; })).default;
-        const childProcess = await import('child_process');
-        spawn = childProcess.spawn;
-        exec = childProcess.exec;
-        const crypto = await import('crypto');
-        createHash = crypto.createHash;
-        createReadStream = (await import('fs')).createReadStream;
-    }
-}
-// Re-export download with browser check
-async function safeDynamicImport() {
-    if (isBrowser()) {
-        throw new Error('ZG Storage operations are not available in browser environment.');
-    }
-    const { download } = await import('./index-9a93754a.js');
-    return { download };
-}
-async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
-    await initNodeModules();
-    const { download } = await safeDynamicImport();
-    const executorDir = path.join(__dirname, '..', '..', '..', '..', 'binary');
-    const binaryFile = path.join(executorDir, 'token_counter');
-    let needDownload = false;
-    try {
-        await fs.access(binaryFile);
-        console.log('calculating file Hash');
-        const hash = await calculateFileHash(binaryFile);
-        console.log('file hash: ', hash);
-        if (tokenCounterFileHash !== hash) {
-            console.log(`file hash mismatch, expected: `, tokenCounterFileHash);
-            needDownload = true;
-        }
-    }
-    catch (error) {
-        console.log(`File ${binaryFile} does not exist.`);
-        needDownload = true;
-    }
-    if (needDownload) {
-        try {
-            await fs.unlink(binaryFile);
-        }
-        catch (error) {
-            console.error(`Failed to delete ${binaryFile}:`, error);
-        }
-        console.log(`Downloading ${binaryFile}`);
-        await download(binaryFile, tokenCounterMerkleRoot);
-        await fs.chmod(binaryFile, 0o755);
-    }
-    return await calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, binaryFile, []);
-}
-async function calculateTokenSizeViaPython(tokenizerRootHash, datasetPath, datasetType) {
-    await initNodeModules();
-    const isPythonInstalled = await checkPythonInstalled();
-    if (!isPythonInstalled) {
-        throw new Error('Python is required but not installed. Please install Python first.');
-    }
-    for (const packageName of ['transformers', 'datasets']) {
-        const isPackageInstalled = await checkPackageInstalled(packageName);
-        if (!isPackageInstalled) {
-            console.log(`${packageName} is not installed. Installing...`);
-            try {
-                await installPackage(packageName);
-            }
-            catch (error) {
-                throw new Error(`Failed to install ${packageName}: ${error}`);
-            }
-        }
-    }
-    const projectRoot = path.resolve(__dirname, '../../../../');
-    return await calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, 'python3', [path.join(projectRoot, 'token.counter', 'token_counter.py')]);
-}
-async function calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, executor, args) {
-    const { download } = await safeDynamicImport();
-    const tmpDir = await fs.mkdtemp(`${os.tmpdir()}${path.sep}`);
-    console.log(`current temporary directory ${tmpDir}`);
-    const tokenizerPath = path.join(tmpDir, 'tokenizer.zip');
-    await download(tokenizerPath, tokenizerRootHash);
-    const subDirectories = await getSubdirectories(tmpDir);
-    unzipFile(tokenizerPath, tmpDir);
-    const newDirectories = new Set();
-    for (const item of await getSubdirectories(tmpDir)) {
-        if (!subDirectories.has(item)) {
-            newDirectories.add(item);
-        }
-    }
-    if (newDirectories.size !== 1) {
-        throw new Error('Invalid tokenizer directory');
-    }
-    const tokenizerUnzipPath = path.join(tmpDir, Array.from(newDirectories)[0]);
-    let datasetUnzipPath = datasetPath;
-    if (await isZipFile(datasetPath)) {
-        unzipFile(datasetPath, tmpDir);
-        datasetUnzipPath = path.join(tmpDir, 'data');
-        try {
-            await fs.access(datasetUnzipPath);
-        }
-        catch (error) {
-            await fs.mkdir(datasetUnzipPath, { recursive: true });
-        }
-    }
-    return runExecutor(executor, [
-        ...args,
-        datasetUnzipPath,
-        datasetType,
-        tokenizerUnzipPath,
-    ])
-        .then((output) => {
-        console.log('token_counter script output:', output);
-        if (!output || typeof output !== 'string') {
-            throw new Error('Invalid output from token counter');
-        }
-        const [num1, num2] = output
-            .split(' ')
-            .map((str) => parseInt(str, 10));
-        if (isNaN(num1) || isNaN(num2)) {
-            throw new Error('Invalid number');
-        }
-        return num1;
-    })
-        .catch((error) => {
-        console.error('Error running Python script:', error);
-        throwFormattedError(error);
-    });
-}
-function checkPythonInstalled() {
-    return new Promise((resolve, reject) => {
-        exec('python3 --version', (error, stdout, stderr) => {
-            if (error) {
-                console.error('Python is not installed or not in PATH');
-                resolve(false);
-            }
-            else {
-                resolve(true);
-            }
-        });
-    });
-}
-function checkPackageInstalled(packageName) {
-    return new Promise((resolve, reject) => {
-        exec(`pip show ${packageName}`, (error, stdout, stderr) => {
-            if (error) {
-                resolve(false);
-            }
-            else {
-                resolve(true);
-            }
-        });
-    });
-}
-function installPackage(packageName) {
-    return new Promise((resolve, reject) => {
-        exec(`pip install ${packageName}`, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Failed to install ${packageName}`);
-                reject(error);
-            }
-            else {
-                console.log(`${packageName} installed successfully`);
-                resolve();
-            }
-        });
-    });
-}
-function runExecutor(executor, args) {
-    return new Promise((resolve, reject) => {
-        console.log(`Run ${executor} ${args}`);
-        const pythonProcess = spawn(executor, [...args]);
-        let output = '';
-        let errorOutput = '';
-        pythonProcess.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-        pythonProcess.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-            console.error(`Python error: ${errorOutput}`);
-        });
-        pythonProcess.on('close', (code) => {
-            if (code === 0) {
-                resolve(output.trim());
-            }
-            else {
-                reject(`Python script failed with code ${code}: ${errorOutput.trim()}`);
-            }
-        });
-    });
-}
-function unzipFile(zipFilePath, targetDir) {
-    try {
-        const zip = new AdmZip(zipFilePath);
-        zip.extractAllTo(targetDir, true);
-        console.log(`Successfully unzipped to ${targetDir}`);
-    }
-    catch (error) {
-        console.error('Error during unzipping:', error);
-        throw error;
-    }
-}
-async function isZipFile(targetPath) {
-    try {
-        const stats = await fs.stat(targetPath);
-        return (stats.isFile() && path.extname(targetPath).toLowerCase() === '.zip');
-    }
-    catch (error) {
-        return false;
-    }
-}
-async function getSubdirectories(dirPath) {
-    try {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        const subdirectories = new Set(entries
-            .filter((entry) => entry.isDirectory()) // Only keep directories
-            .map((entry) => entry.name));
-        return subdirectories;
-    }
-    catch (error) {
-        console.error('Error reading directory:', error);
-        return new Set();
-    }
-}
-async function calculateFileHash(filePath, algorithm = 'sha256') {
-    return new Promise((resolve, reject) => {
-        const hash = createHash(algorithm);
-        const stream = createReadStream(filePath);
-        stream.on('data', (chunk) => {
-            hash.update(chunk);
-        });
-        stream.on('end', () => {
-            resolve(hash.digest('hex'));
-        });
-        stream.on('error', (err) => {
-            reject(err);
-        });
-    });
-}
-
-/**
- * DatasetProcessor handles dataset-related operations including upload, download,
- * and token calculation for fine-tuning tasks.
- */
-class DatasetProcessor extends BrokerBase {
-    /**
-     * Upload a dataset to 0G Storage for fine-tuning.
-     *
-     * @param privateKey - Private key for signing the upload transaction
-     * @param dataPath - Local path to the dataset file
-     * @param gasPrice - Optional gas price for the transaction
-     * @param maxGasPrice - Optional maximum gas price
-     * @throws Error if upload fails
-     */
-    async uploadDataset(privateKey, dataPath, gasPrice, maxGasPrice) {
-        try {
-            await upload(privateKey, dataPath, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Download a dataset from 0G Storage.
-     *
-     * @param dataPath - Local path where the dataset will be saved
-     * @param dataRoot - Root hash of the dataset in 0G Storage
-     * @throws Error if download fails
-     */
-    async downloadDataset(dataPath, dataRoot) {
-        try {
-            await download(dataPath, dataRoot);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    /**
-     * Calculate the token size of a dataset for cost estimation.
-     * Supports both Python-based and executable-based token counting.
-     *
-     * @param datasetPath - Local path to the dataset file
-     * @param usePython - Whether to use Python for token counting (true) or executable (false)
-     * @param preTrainedModelName - Name of the pre-trained model (determines tokenizer)
-     * @param providerAddress - Optional provider address (required for customized models)
-     * @returns Token count of the dataset
-     * @throws Error if provider address is not provided for customized models
-     *
-     * @example
-     * ```typescript
-     * // Calculate tokens for a standard model
-     * await broker.fineTuning.calculateToken(
-     *   './dataset.jsonl',
-     *   false,
-     *   'meta-llama/Llama-2-7b-chat-hf'
-     * );
-     *
-     * // Calculate tokens for a customized model
-     * await broker.fineTuning.calculateToken(
-     *   './dataset.jsonl',
-     *   false,
-     *   'my-custom-model',
-     *   '0x1234...'
-     * );
-     * ```
-     */
-    async calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress) {
-        try {
-            let tokenizer;
-            let dataType;
-            // Determine tokenizer and data type from model configuration
-            if (preTrainedModelName in MODEL_HASH_MAP) {
-                tokenizer = MODEL_HASH_MAP[preTrainedModelName].tokenizer;
-                dataType = MODEL_HASH_MAP[preTrainedModelName].type;
-            }
-            else {
-                // Customized model - fetch from provider
-                if (providerAddress === undefined) {
-                    throw new Error('Provider address is required for customized model');
-                }
-                const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
-                tokenizer = model.tokenizer;
-                dataType = model.dataType;
-            }
-            // Calculate token size using specified method
-            let dataSize = 0;
-            if (usePython) {
-                dataSize = await calculateTokenSizeViaPython(tokenizer, datasetPath, dataType);
-            }
-            else {
-                dataSize = await calculateTokenSizeViaExe(tokenizer, datasetPath, dataType, TOKEN_COUNTER_MERKLE_ROOT, TOKEN_COUNTER_FILE_HASH);
-            }
-            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
-            return dataSize;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-}
-
-// Browser-safe function to avoid readline dependency
-async function askUser(question) {
-    if (isBrowser()) {
-        throw new Error('Interactive input operations are not available in browser environment. Please use these functions in a Node.js environment.');
-    }
-    // Only import readline in Node.js environment
-    try {
-        const readline = await import('readline');
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-        });
-        return new Promise((resolve) => {
-            rl.question(question, (answer) => {
-                rl.close();
-                resolve(answer.trim());
-            });
-        });
-    }
-    catch (error) {
-        throw new Error('readline module is not available. This function can only be used in Node.js environment.');
-    }
-}
-// Browser-safe function to avoid fs dependency
-async function readFileContent(filePath) {
-    if (isBrowser()) {
-        throw new Error('File system operations are not available in browser environment. Please use these functions in a Node.js environment.');
-    }
-    try {
-        const fs = await import('fs/promises');
-        return await fs.readFile(filePath, 'utf-8');
-    }
-    catch (error) {
-        throw new Error('fs module is not available. This function can only be used in Node.js environment.');
-    }
-}
-class ServiceProcessor extends BrokerBase {
-    automata;
-    constructor(contract, ledger, servingProvider) {
-        super(contract, ledger, servingProvider);
-        this.automata = new Automata();
-    }
-    async getLockTime() {
-        try {
-            const lockTime = await this.contract.lockTime();
-            return lockTime;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getAccount(provider) {
-        try {
-            const account = await this.contract.getAccount(provider);
-            return account;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getAccountWithDetail(provider) {
-        try {
-            const account = await this.contract.getAccount(provider);
-            const lockTime = await this.getLockTime();
-            const now = BigInt(Math.floor(Date.now() / 1000)); // Converts milliseconds to seconds
-            const refunds = account.refunds
-                .filter((refund) => !refund.processed)
-                .filter((refund) => refund.amount !== BigInt(0))
-                .map((refund) => ({
-                amount: refund.amount,
-                remainTime: lockTime - (now - refund.createdAt),
-            }));
-            return { account, refunds };
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async listService() {
-        try {
-            const services = await this.contract.listService();
-            return services;
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async acknowledgeProviderSigner(providerAddress, gasPrice) {
-        try {
-            try {
-                await this.contract.getAccount(providerAddress);
-            }
-            catch {
-                await this.ledger.transferFund(providerAddress, 'fine-tuning', BigInt(0), gasPrice);
-            }
-            const { rawReport, signingAddress } = await this.servingProvider.getQuote(providerAddress);
-            if (!rawReport || !signingAddress) {
-                throw new Error('Invalid quote');
-            }
-            // TODO: separate automata verification logic
-            // const rpc = process.env.RPC_ENDPOINT
-            // // bypass quote verification if testing on localhost
-            // if (!rpc || !/localhost|127\.0\.0\.1/.test(rpc)) {
-            //     const isVerified = await this.automata.verifyQuote(intel_quote)
-            //     console.log('Quote verification:', isVerified)
-            //     if (!isVerified) {
-            //         throw new Error('Quote verification failed')
-            //     }
-            // }
-            const account = await this.contract.getAccount(providerAddress);
-            if (account.acknowledged) {
-                console.log('Provider signer already acknowledged');
-                return;
-            }
-            await this.contract.acknowledgeTEESigner(providerAddress, true, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
-        try {
-            await this.contract.acknowledgeTEESignerByOwner(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
-        try {
-            await this.contract.revokeTEESignerAcknowledgement(providerAddress, gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async removeService(gasPrice) {
-        try {
-            await this.contract.removeService(gasPrice);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async createTask(providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice) {
-        try {
-            let preTrainedModelHash;
-            if (preTrainedModelName in MODEL_HASH_MAP) {
-                preTrainedModelHash = MODEL_HASH_MAP[preTrainedModelName].turbo;
-            }
-            else {
-                const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
-                preTrainedModelHash = model.hash;
-                console.log(`customized model hash: ${preTrainedModelHash}`);
-            }
-            const service = await this.contract.getService(providerAddress);
-            const trainingParams = await readFileContent(trainingPath);
-            const parsedParams = this.verifyTrainingParams(trainingParams);
-            const trainEpochs = (parsedParams.num_train_epochs || parsedParams.total_steps) ?? 3;
-            const fee = service.pricePerToken * BigInt(dataSize) * BigInt(trainEpochs);
-            console.log(`Estimated fee: ${fee} (neuron), data size: ${dataSize}, train epochs: ${trainEpochs}, price per token: ${service.pricePerToken} (neuron)`);
-            const account = await this.contract.getAccount(providerAddress);
-            if (account.balance - account.pendingRefund < fee) {
-                await this.ledger.transferFund(providerAddress, 'fine-tuning', fee, gasPrice);
-            }
-            const nonce = getNonce();
-            const signature = await signRequest(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash, fee);
-            let wait = false;
-            const counter = await this.servingProvider.getPendingTaskCounter(providerAddress);
-            if (counter > 0) {
-                while (true) {
-                    const answer = await askUser(`There are ${counter} tasks in the queue. Do you want to continue? (yes/no): `);
-                    if (answer.toLowerCase() === 'yes' ||
-                        answer.toLowerCase() === 'y') {
-                        wait = true;
-                        break;
-                    }
-                    else if (['no', 'n'].includes(answer.toLowerCase())) {
-                        throw new Error('User opted not to continue due to pending tasks in the queue.');
-                    }
-                    else {
-                        console.log('Invalid input. Please respond with yes/y or no/n.');
-                    }
-                }
-            }
-            const task = {
-                userAddress: this.contract.getUserAddress(),
-                datasetHash,
-                trainingParams,
-                preTrainedModelHash,
-                fee: fee.toString(),
-                nonce: nonce.toString(),
-                signature,
-                wait,
-            };
-            return await this.servingProvider.createTask(providerAddress, task);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async cancelTask(providerAddress, taskID) {
-        try {
-            const signature = await signTaskID(this.contract.signer, taskID);
-            return await this.servingProvider.cancelTask(providerAddress, signature, taskID);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async listTask(providerAddress) {
-        try {
-            return await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress());
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    async getTask(providerAddress, taskID) {
-        try {
-            if (!taskID) {
-                const tasks = await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress(), true);
-                if (tasks.length === 0) {
-                    throw new Error('No task found');
-                }
-                return tasks[0];
-            }
-            return await this.servingProvider.getTask(providerAddress, this.contract.getUserAddress(), taskID);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    // 8. [`call provider`] call provider task progress api to get task progress
-    async getLog(providerAddress, taskID) {
-        if (!taskID) {
-            const tasks = await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress(), true);
-            taskID = tasks[0].id;
-            if (tasks.length === 0 || !taskID) {
-                throw new Error('No task found');
-            }
-        }
-        return this.servingProvider.getLog(providerAddress, this.contract.getUserAddress(), taskID);
-    }
-    async modelUsage(providerAddress, preTrainedModelName, output) {
-        try {
-            return await this.servingProvider.getCustomizedModelDetailUsage(providerAddress, preTrainedModelName, output);
-        }
-        catch (error) {
-            throwFormattedError(error);
-        }
-    }
-    verifyTrainingParams(trainingParams) {
-        try {
-            return JSON.parse(trainingParams);
-        }
-        catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-            throw new Error(`Invalid JSON in trainingPath file: ${errorMessage}`);
-        }
-    }
-}
-
 function bind(fn, thisArg) {
   return function wrap() {
     return fn.apply(thisArg, arguments);
@@ -21310,6 +19056,2374 @@ axios.default = axios;
 // this module should only have a default export
 var axios$1 = axios;
 
+var VerifiabilityEnum;
+(function (VerifiabilityEnum) {
+    VerifiabilityEnum["OpML"] = "OpML";
+    VerifiabilityEnum["TeeML"] = "TeeML";
+    VerifiabilityEnum["ZKML"] = "ZKML";
+})(VerifiabilityEnum || (VerifiabilityEnum = {}));
+let ModelProcessor$1 = class ModelProcessor extends ZGServingUserBrokerBase {
+    async listService(offset = 0, limit = 50, includeUnacknowledged = false) {
+        try {
+            const services = await this.contract.listService(offset, limit, includeUnacknowledged);
+            return services;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved or health API is unreachable.
+     */
+    async listServiceWithDetail(offset = 0, limit = 50, includeUnacknowledged = false) {
+        try {
+            // Get services from blockchain
+            const services = await this.listService(offset, limit, includeUnacknowledged);
+            // Determine health API endpoint based on chain ID
+            const chainId = await this.contract.signer.provider
+                ?.getNetwork()
+                .then((n) => n.chainId);
+            const healthApiEndpoint = this.getHealthApiEndpoint(chainId);
+            // Fetch health metrics from API
+            let healthMetrics = [];
+            try {
+                const response = await axios$1.get(`${healthApiEndpoint}/health`, {
+                    timeout: 5000, // 5 second timeout
+                });
+                healthMetrics = response.data.services || [];
+            }
+            catch (error) {
+                console.warn('Failed to fetch health metrics:', error);
+                // Continue without health metrics
+            }
+            // Create a map of health metrics by provider address
+            const healthMap = new Map();
+            for (const metric of healthMetrics) {
+                healthMap.set(metric.provider.toLowerCase(), metric);
+            }
+            // Merge health metrics with services
+            // Note: Cannot use spread operator on ethers Result objects as it loses named properties
+            const servicesWithDetail = services.map((service) => {
+                const health = healthMap.get(service.provider.toLowerCase());
+                return {
+                    provider: service.provider,
+                    serviceType: service.serviceType,
+                    url: service.url,
+                    inputPrice: service.inputPrice,
+                    outputPrice: service.outputPrice,
+                    updatedAt: service.updatedAt,
+                    model: service.model,
+                    verifiability: service.verifiability,
+                    additionalInfo: service.additionalInfo,
+                    teeSignerAddress: service.teeSignerAddress,
+                    teeSignerAcknowledged: service.teeSignerAcknowledged,
+                    healthMetrics: health
+                        ? {
+                            status: health.status,
+                            uptime: health.checks.uptime,
+                            avgResponseTime: health.performance.response_time?.avg ?? 0,
+                            lastCheck: health.lastCheck,
+                        }
+                        : undefined,
+                };
+            });
+            return servicesWithDetail;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Get health API endpoint based on chain ID
+     * @param chainId - The chain ID
+     * @returns The health API endpoint URL
+     */
+    getHealthApiEndpoint(chainId) {
+        // Mainnet: 16661n, Testnet: 16602n
+        if (chainId === 16661n) {
+            return 'https://compute-status.0g.ai';
+        }
+        else {
+            // Default to testnet
+            return 'https://compute-status-testnet.0g.ai';
+        }
+    }
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    async removeService(gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice) {
+                txOptions.gasPrice = gasPrice;
+            }
+            await this.contract.sendTx('removeService', [], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Update service (Provider owner only)
+     *
+     * This function allows the provider owner to update their existing service.
+     * All parameters are optional - if not provided, the current value is preserved.
+     *
+     * @param options - Update options
+     * @param options.url - New service URL
+     * @param options.model - New model name
+     * @param options.inputPrice - New input price (in neuron, the smallest unit)
+     * @param options.outputPrice - New output price (in neuron, the smallest unit)
+     * @param options.gasPrice - Optional gas price for the transaction
+     * @throws Will throw an error if the caller is not the service owner or if update fails.
+     */
+    async updateService(options) {
+        try {
+            // Get current service to preserve unchanged fields
+            const userAddress = this.contract.getUserAddress();
+            const currentService = await this.contract.getService(userAddress);
+            if (!currentService || !currentService.provider) {
+                throw new Error('Service not found for the current provider');
+            }
+            // Build ServiceParams with updated values (use new value if provided, otherwise keep current)
+            const params = {
+                serviceType: currentService.serviceType,
+                url: options.url ?? currentService.url,
+                model: options.model ?? currentService.model,
+                verifiability: currentService.verifiability,
+                inputPrice: options.inputPrice ?? currentService.inputPrice,
+                outputPrice: options.outputPrice ?? currentService.outputPrice,
+                additionalInfo: currentService.additionalInfo,
+                teeSignerAddress: currentService.teeSignerAddress,
+            };
+            const txOptions = {};
+            if (options.gasPrice) {
+                txOptions.gasPrice = options.gasPrice;
+            }
+            await this.contract.sendTx('addOrUpdateService', [params], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+};
+function isVerifiability(value) {
+    return Object.values(VerifiabilityEnum).includes(value);
+}
+
+/**
+ * The Verifier class contains methods for verifying service reliability.
+ */
+let Verifier$1 = class Verifier extends ZGServingUserBrokerBase {
+    constructor(contract, ledger, metadata, cache) {
+        super(contract, ledger, metadata, cache);
+    }
+    /**
+     * Comprehensive TEE service verification guide
+     * Guides users through verifying whether a provider is running in TEE
+     *
+     * @param providerAddress - The provider address to verify
+     * @param outputDir - Directory to save attestation reports (default: current directory)
+     * @returns Verification results and user guidance
+     */
+    async verifyService(providerAddress, outputDir = '.') {
+        try {
+            console.log(`🔍 Starting TEE verification for provider: ${providerAddress}`);
+            console.log('');
+            // Step 1: Get service information from contract
+            console.log('📋 Step 1: Retrieving service information from contract...');
+            const svc = await this.getService(providerAddress);
+            if (!svc.additionalInfo) {
+                throw new Error('Service additionalInfo is missing - cannot proceed with verification');
+            }
+            // Step 2: Parse additionalInfo and analyze service configuration
+            console.log('🔧 Step 2: Parsing and analyzing service configuration...');
+            let additionalInfo;
+            try {
+                additionalInfo = JSON.parse(svc.additionalInfo);
+            }
+            catch {
+                throw new Error('Failed to parse service additionalInfo as JSON');
+            }
+            const verifierURL = additionalInfo.VerifierURL;
+            const targetSeparated = additionalInfo.TargetSeparated === true;
+            const teeVerifier = additionalInfo.TEEVerifier || 'dstack'; // default to dstack
+            const imageName = additionalInfo.ImageName;
+            const imageDigest = additionalInfo.ImageDigest;
+            if (teeVerifier === 'dstack' && !verifierURL) {
+                console.warn('⚠️  Warning: VerifierURL not found in additionalInfo');
+            }
+            // Display service verification configuration
+            console.log(`   Provider URL: ${svc.url}`);
+            console.log(`   TEE Verifier: ${teeVerifier}`);
+            if (imageName) {
+                console.log(`   Image Name: ${imageName}`);
+            }
+            if (imageDigest) {
+                console.log(`   Image Digest: ${imageDigest}`);
+            }
+            // TEE verification method information
+            if (teeVerifier === 'dstack') {
+                console.log('   Verification Method: DStack TEE (Intel TDX)');
+                console.log('   Verification includes: Quote validation, Compose hash check, Image integrity');
+            }
+            else if (teeVerifier === 'cryptopilot') {
+                console.log('   Verification Method: CryptoPilot TEE');
+                console.log('   Please follow the official documentation to verify the downloaded attestation report.');
+                console.log('   Official documentation: https://github.com/0gfoundation/0g-tapp-verifier/blob/main/README.md');
+            }
+            else {
+                console.log(`   Verification Method: Unknown (${teeVerifier})`);
+            }
+            // Component architecture information
+            if (targetSeparated) {
+                console.log('   Architecture: Separated (Broker and LLM inference in different TEE nodes)');
+                console.log('   Required Reports: 2 (Broker + LLM inference)');
+            }
+            else {
+                console.log('   Architecture: Combined (Broker and LLM inference in same TEE node)');
+                console.log('   Required Reports: 1 (Combined)');
+            }
+            if (verifierURL) {
+                console.log(`   Verifier Image URL: ${verifierURL}`);
+            }
+            console.log('');
+            // Step 3: Get attestation reports
+            console.log('📥 Step 3: Downloading attestation reports...');
+            const reports = {};
+            if (targetSeparated) {
+                // Get both broker and LLM reports
+                console.log('   Downloading broker attestation report...');
+                const brokerReport = await this.getQuote(providerAddress);
+                const brokerPath = `${outputDir}/broker_attestation_report.json`;
+                await this.saveReportToFile(brokerReport.rawReport, brokerPath);
+                reports.broker = JSON.parse(brokerReport.rawReport);
+                console.log(`   ✅ Broker report saved to: ${brokerPath}`);
+                console.log('   Downloading LLM inference attestation report...');
+                const llmReport = await this.getQuoteInLLMServer(svc.url, svc.model);
+                const llmPath = `${outputDir}/llm_attestation_report.json`;
+                await this.saveReportToFile(llmReport.rawReport, llmPath);
+                reports.llm = JSON.parse(llmReport.rawReport);
+                console.log(`   ✅ LLM report saved to: ${llmPath}`);
+            }
+            else {
+                // Get single combined report via broker
+                console.log('   Downloading combined attestation report...');
+                const combinedReport = await this.getQuote(providerAddress);
+                const combinedPath = `${outputDir}/attestation_report.json`;
+                await this.saveReportToFile(combinedReport.rawReport, combinedPath);
+                reports.combined = JSON.parse(combinedReport.rawReport);
+                console.log(`   ✅ Combined report saved to: ${combinedPath}`);
+            }
+            console.log('');
+            // If cryptopilot, return after step 3
+            if (teeVerifier === 'cryptopilot') {
+                return {
+                    success: true,
+                    teeVerifier,
+                    targetSeparated,
+                    verifierURL,
+                    reportsGenerated: Object.keys(reports),
+                    outputDirectory: outputDir,
+                    reportsData: reports, // Include report data for browser environment
+                };
+            }
+            // Step 4: TEE Signer Address Verification
+            console.log('🔑 Step 4: TEE Signer Address Verification');
+            console.log(`   Contract TEE Signer Address: ${svc.teeSignerAddress}`);
+            // Extract signer addresses from reports and verify
+            let signerMatches = 0;
+            let totalSignerChecks = 0;
+            for (const [reportType, report] of Object.entries(reports)) {
+                if (reportType === 'llm') {
+                    continue;
+                }
+                const reportSignerAddress = this.extractTeeSignerAddress(report);
+                if (reportSignerAddress) {
+                    totalSignerChecks++;
+                    const addressMatch = reportSignerAddress.toLowerCase() ===
+                        svc.teeSignerAddress.toLowerCase();
+                    console.log(`   ${reportType.charAt(0).toUpperCase() +
+                        reportType.slice(1)} Report Signer: ${reportSignerAddress}`);
+                    console.log(`   Address Match: ${addressMatch ? '✅ MATCH' : '❌ MISMATCH'}`);
+                    if (addressMatch) {
+                        signerMatches++;
+                    }
+                    else {
+                        console.log(`   ⚠️  Warning: TEE signer address mismatch detected!`);
+                    }
+                }
+                else {
+                    console.log(`   ${reportType.charAt(0).toUpperCase() +
+                        reportType.slice(1)} Report: No signer address found`);
+                }
+            }
+            console.log('');
+            // Step 5: Process DStack verification if applicable
+            let dockerImages = [];
+            let composeVerificationPassed = false;
+            if (teeVerifier === 'dstack') {
+                console.log('🔍 Step 5: DStack Verification Process');
+                const result = await this.processDStackVerification(reports);
+                dockerImages = result.images;
+                composeVerificationPassed = result.composeVerificationPassed;
+            }
+            else if (teeVerifier === 'cryptopilot') {
+                console.log('🔍 Step 5: CryptoPilot Verification Process');
+                console.log('   ⚠️  CryptoPilot verification is not yet implemented.');
+                console.log('   Please refer to CryptoPilot documentation for manual verification.');
+                composeVerificationPassed = false; // Unknown for cryptopilot
+            }
+            console.log('');
+            // Verification Summary
+            const verificationSummary = {
+                composeVerification: composeVerificationPassed,
+                signerAddressVerification: signerMatches === totalSignerChecks &&
+                    totalSignerChecks > 0,
+                signerAddressMatches: signerMatches,
+                totalReports: totalSignerChecks,
+                allVerificationsPassed: composeVerificationPassed &&
+                    signerMatches === totalSignerChecks &&
+                    totalSignerChecks > 0,
+            };
+            console.log('📋 Automated Verification Summary');
+            console.log(`   Docker Compose Verification: ${verificationSummary.composeVerification
+                ? '✅ PASSED'
+                : '❌ FAILED'}`);
+            console.log(`   TEE Signer Address Verification: ${verificationSummary.signerAddressVerification
+                ? '✅ PASSED'
+                : '❌ FAILED'} (${verificationSummary.signerAddressMatches}/${verificationSummary.totalReports} matches)`);
+            console.log('');
+            console.log('🎯 ============================================================================');
+            console.log('🎯  AUTOMATED VERIFICATION CHECKS HAVE BEEN COMPLETED');
+            console.log('🎯  Please continue with the manual verification steps below to complete');
+            console.log('🎯  the full verification process.');
+            console.log('🎯 ============================================================================');
+            console.log('');
+            // Step 6: Image verification guidance
+            console.log('🖼️  Step 6: Image Verification');
+            // Display found Docker images
+            if (dockerImages.length > 0) {
+                console.log(`   Images Extracted from Docker Compose (${dockerImages.length}):`);
+                const brokerImages = [];
+                const otherImages = [];
+                dockerImages.forEach((image, index) => {
+                    const isBroker = image.includes('broker') || image.includes('0g-serving');
+                    if (isBroker) {
+                        brokerImages.push(image);
+                        console.log(`     ${index + 1}. ${image} (0G Broker)`);
+                    }
+                    else {
+                        otherImages.push(image);
+                        console.log(`     ${index + 1}. ${image}`);
+                    }
+                });
+                console.log('');
+                // Show broker verification guidance only if broker images are found
+                if (brokerImages.length > 0) {
+                    console.log('   To verify 0G broker image integrity:');
+                    console.log('   1. The broker image address has been extracted from the report');
+                    console.log('   2. Visit: https://github.com/0gfoundation/0g-serving-broker/releases');
+                    console.log('   3. Find the compute network broker image with matching Digest (SHA256)');
+                    console.log('   4. Verify the build process at: https://search.sigstore.dev/');
+                    console.log('');
+                }
+                if (otherImages.length > 0) {
+                    console.log(`   Note: Please verify the other images (${otherImages.join(', ')}) according to their respective sources`);
+                    console.log('');
+                }
+            }
+            else {
+                console.log('   No images extracted from Docker Compose');
+                console.log('');
+            }
+            // Step 7: Download and verify the verifier image
+            if (verifierURL) {
+                console.log('🔐 Step 7: Download and Verify the Verifier Image');
+                console.log('');
+                console.log('   The verifier image will be used in Step 8 to perform comprehensive verification.');
+                console.log('   Before using it, we need to ensure the verifier itself has a verifiable build process.');
+                console.log('');
+                console.log(`   Verifier image download URL: ${verifierURL}`);
+                console.log('   To verify the verifier image:');
+                console.log('   1. Download the verifier image from the provided URL');
+                console.log('   2. Get the image hash/digest');
+                console.log('   3. Verify the build process at: https://search.sigstore.dev/');
+                console.log('');
+            }
+            // Step 8: Verifier usage instructions
+            console.log('🛠️  Step 8: Run Verifier for Complete Verification');
+            if (teeVerifier === 'dstack') {
+                console.log('');
+                console.log('   The DStack verifier performs three main verification steps:');
+                console.log('');
+                console.log('   1. Quote Verification:');
+                console.log('      - Validates the TDX quote using dcap-qvl');
+                console.log('      - Checks the quote signature and TCB status');
+                console.log('');
+                console.log('   2. Event Log Verification:');
+                console.log('      - Replays event logs to ensure RTMR values match');
+                console.log('      - Extracts app information from the logs');
+                console.log('');
+                console.log('   3. OS Image Hash Verification:');
+                console.log('      - Automatically downloads OS images if not cached locally');
+                console.log('      - Uses dstack-mr to compute expected measurements');
+                console.log('      - Compares against the verified measurements from the quote');
+                console.log('');
+                console.log('   Usage Instructions:');
+                console.log('');
+                console.log('   1. Start the verifier service locally (example with dstack-verifier:0.5.4):');
+                console.log('      docker run -d -p 8080:8080 docker.io/dstacktee/dstack-verifier:0.5.4');
+                console.log('');
+                console.log('   2. Verify the downloaded attestation report(s):');
+                // Show specific commands based on whether components are separated
+                if (targetSeparated) {
+                    console.log('      # Verify broker attestation report');
+                    console.log(`      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`);
+                    console.log('');
+                    console.log('      # Verify LLM attestation report');
+                    console.log(`      curl -s -d @${outputDir}/llm_attestation_report.json localhost:8080/verify`);
+                }
+                else {
+                    console.log(`      curl -s -d @${outputDir}/attestation_report.json localhost:8080/verify`);
+                }
+                console.log('');
+            }
+            else if (teeVerifier === 'cryptopilot') {
+                console.log('');
+                console.log('   The CryptoPilot verifier verification process:');
+                console.log('   [CryptoPilot verifier details to be implemented]');
+                console.log('');
+            }
+            else {
+                console.log('');
+                console.log('   [Verifier usage instructions for this TEE type]');
+            }
+            return {
+                success: true,
+                teeVerifier,
+                targetSeparated,
+                verifierURL,
+                reportsGenerated: Object.keys(reports),
+                outputDirectory: outputDir,
+                reportsData: reports, // Include report data for browser environment
+            };
+        }
+        catch (error) {
+            console.error('❌ TEE verification failed:', error);
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Extract TEE signer address from attestation report
+     */
+    extractTeeSignerAddress(report) {
+        try {
+            // Check if report_data exists in the report
+            const reportData = report.report_data;
+            if (!reportData) {
+                return null;
+            }
+            // Decode the base64 report_data to get the signer address
+            const decodedData = Buffer.from(reportData, 'base64').toString('utf-8');
+            // Remove NULL characters that pad the address
+            const signingAddress = decodedData.replace(/\0/g, '');
+            return signingAddress || null;
+        }
+        catch {
+            return null;
+        }
+    }
+    /**
+     * Process DStack-specific verification steps
+     */
+    async processDStackVerification(reports) {
+        const allImages = [];
+        let composeVerificationCount = 0;
+        let passedComposeVerifications = 0;
+        for (const [reportType, report] of Object.entries(reports)) {
+            console.log(`   Processing ${reportType} report...`);
+            if (!(report.tcb_info || report.info?.tcb_info) ||
+                !report.event_log) {
+                console.log(`   ⚠️  Warning: ${reportType} report missing tcb_info or event_log`);
+                continue;
+            }
+            try {
+                // Parse tcb_info if it's a string
+                let tcbInfo;
+                if (typeof report.tcb_info === 'string') {
+                    tcbInfo = JSON.parse(report.tcb_info);
+                }
+                else {
+                    tcbInfo =
+                        report.tcb_info ||
+                            report.info?.tcb_info;
+                }
+                // Parse event_log if it's a string
+                let eventLog;
+                if (typeof report.event_log === 'string') {
+                    eventLog = JSON.parse(report.event_log);
+                }
+                else if (Array.isArray(report.event_log)) {
+                    eventLog = report.event_log;
+                }
+                else {
+                    console.log(`   ⚠️  Warning: event_log is not in expected format`);
+                    continue;
+                }
+                // Verify compose hash against event log
+                const composeResult = this.verifyComposeHash(tcbInfo, eventLog);
+                composeVerificationCount++;
+                if (composeResult.isValid) {
+                    passedComposeVerifications++;
+                }
+                console.log(`   Docker Compose Verification:`);
+                if (composeResult.calculatedHash) {
+                    console.log(`     Calculated Hash: ${composeResult.calculatedHash}`);
+                }
+                if (composeResult.eventLogHash) {
+                    console.log(`     Event Log Hash:  ${composeResult.eventLogHash}`);
+                }
+                console.log(`     Status: ${composeResult.isValid ? '✅ VALID' : '❌ INVALID'}`);
+                if (!composeResult.isValid && composeResult.error) {
+                    console.log(`     Error: ${composeResult.error}`);
+                }
+                // Extract all images from tcb_info for later processing
+                const images = this.extractAllImagesFromTcbInfo(tcbInfo);
+                images.forEach((image) => {
+                    if (!allImages.includes(image)) {
+                        allImages.push(image);
+                    }
+                });
+            }
+            catch (error) {
+                console.log(`   ⚠️  Error processing ${reportType} report: ${error}`);
+            }
+        }
+        const composeVerificationPassed = composeVerificationCount > 0 &&
+            passedComposeVerifications === composeVerificationCount;
+        return {
+            images: allImages,
+            composeVerificationPassed,
+        };
+    }
+    /**
+     * Verify compose hash based on the dstack verification logic
+     */
+    verifyComposeHash(tcbInfo, eventLog) {
+        try {
+            if (!tcbInfo.app_compose) {
+                return {
+                    isValid: false,
+                    error: 'app_compose not found in tcb_info',
+                };
+            }
+            // Hash the app_compose JSON string
+            const composeHash = createHash$1('sha256')
+                .update(tcbInfo.app_compose)
+                .digest('hex');
+            // Find compose-hash event in the event log
+            const composeHashEvent = eventLog.find((entry) => entry.event === 'compose-hash');
+            if (!composeHashEvent) {
+                return {
+                    isValid: false,
+                    error: 'No compose-hash event found in event log',
+                    calculatedHash: composeHash,
+                };
+            }
+            const expectedHash = composeHashEvent.event_payload;
+            return {
+                isValid: composeHash === expectedHash,
+                calculatedHash: composeHash,
+                eventLogHash: expectedHash,
+                composeHashEvent,
+            };
+        }
+        catch (error) {
+            return {
+                isValid: false,
+                error: `Compose hash verification failed: ${error}`,
+            };
+        }
+    }
+    /**
+     * Extract all Docker images from tcb_info
+     */
+    extractAllImagesFromTcbInfo(tcbInfo) {
+        try {
+            const images = [];
+            const tcbString = JSON.stringify(tcbInfo);
+            // Match various image patterns in docker-compose format
+            // Pattern 1: image: <image-address>
+            const imageMatches = tcbString.match(/"image"\s*:\s*"([^"]+)"/g);
+            if (imageMatches) {
+                for (const match of imageMatches) {
+                    // Extract the image address from the match
+                    const imageMatch = match.match(/"image"\s*:\s*"([^"]+)"/);
+                    if (imageMatch && imageMatch[1]) {
+                        const imageAddr = imageMatch[1].trim();
+                        // Avoid duplicates
+                        if (!images.includes(imageAddr)) {
+                            images.push(imageAddr);
+                        }
+                    }
+                }
+            }
+            // Also try alternative pattern without quotes around key
+            const altImageMatches = tcbString.match(/image:\s*([^",\s\}]+)/g);
+            if (altImageMatches) {
+                for (const match of altImageMatches) {
+                    const imageAddr = match.replace(/^image:\s*/, '').trim();
+                    // Remove any trailing quotes if present
+                    const cleanAddr = imageAddr.replace(/["']/g, '');
+                    // Avoid duplicates
+                    if (cleanAddr && !images.includes(cleanAddr)) {
+                        images.push(cleanAddr);
+                    }
+                }
+            }
+            return images;
+        }
+        catch {
+            return [];
+        }
+    }
+    /**
+     * Check if running in browser environment
+     */
+    isBrowser() {
+        return typeof window !== 'undefined' && typeof document !== 'undefined';
+    }
+    /**
+     * Save report to file (Node.js only)
+     * In browser environment, this is a no-op
+     */
+    async saveReportToFile(reportContent, filePath) {
+        // Skip file saving in browser environment
+        if (this.isBrowser()) {
+            return;
+        }
+        const fs = await import('fs/promises');
+        await fs.writeFile(filePath, reportContent, 'utf8');
+    }
+    async getSignerRaDownloadLink(providerAddress) {
+        try {
+            const svc = await this.getService(providerAddress);
+            return `${svc.url}/v1/proxy/attestation/report`;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getChatSignatureDownloadLink(providerAddress, chatID) {
+        try {
+            const svc = await this.getService(providerAddress);
+            return `${svc.url}/v1/proxy/signature/${chatID}`;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    static async verifyRA(providerBrokerURL, nvidia_payload) {
+        return fetch(`${providerBrokerURL}/v1/quote/verify/gpu`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify(nvidia_payload),
+        })
+            .then((response) => {
+            if (response.status === 200) {
+                return true;
+            }
+            if (response.status === 404) {
+                throw new Error('verify RA error: 404');
+            }
+            else {
+                return false;
+            }
+        })
+            .catch((error) => {
+            if (error instanceof Error) {
+                console.error(error.message);
+            }
+            return false;
+        });
+    }
+    async getQuoteInLLMServer(providerBrokerURL, model) {
+        try {
+            const rawReport = await this.fetchText(`${providerBrokerURL}/v1/proxy/attestation/report?model=${model}`, {
+                method: 'GET',
+            });
+            const ret = JSON.parse(rawReport);
+            return {
+                rawReport,
+                signingAddress: ret['signing_address'],
+            };
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    static async fetchSignatureByChatID(providerBrokerURL, chatID, model) {
+        return fetch(`${providerBrokerURL}/v1/proxy/signature/${chatID}?model=${model}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+            .then((response) => {
+            if (!response.ok) {
+                throw new Error('getting signature error');
+            }
+            return response.json();
+        })
+            .then((data) => {
+            return data;
+        })
+            .catch((error) => {
+            throwFormattedError(error);
+        });
+    }
+    static verifySignature(message, signature, expectedAddress) {
+        const messageHash = ethers.hashMessage(message);
+        const recoveredAddress = ethers.recoverAddress(messageHash, signature);
+        return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
+    }
+};
+
+/**
+ * ResponseProcessor is a subclass of ZGServingUserBroker.
+ * It needs to be initialized with createZGServingUserBroker
+ * before use.
+ */
+class ResponseProcessor extends ZGServingUserBrokerBase {
+    constructor(contract, ledger, metadata, cache) {
+        super(contract, ledger, metadata, cache);
+    }
+    async processResponse(providerAddress, chatID, content // For chatbot/speech-to-text: usage JSON string with input_tokens/output_tokens; For text-to-image: empty/undefined
+    ) {
+        try {
+            const extractor = await this.getExtractor(providerAddress);
+            if (content) {
+                const fee = await this.calculateFee(extractor, content);
+                logger.debug(`Calculated fee: ${fee.toString()}`);
+                await this.updateCachedFee(providerAddress, fee);
+            }
+            if (!chatID) {
+                // If no chatID provided, skip verifiability check
+                return null;
+            }
+            const svc = await extractor.getSvcInfo();
+            if (!isVerifiability(svc.verifiability)) {
+                console.warn('this service is not verifiable');
+                return false;
+            }
+            if (!svc.teeSignerAcknowledged) {
+                console.warn('TEE Signer is not acknowledged');
+                return false;
+            }
+            if (!chatID) {
+                throw new Error('Chat ID does not exist');
+            }
+            if (!svc.additionalInfo) {
+                console.warn('Service additionalInfo does not exist');
+                return false;
+            }
+            logger.debug('Chat ID:', chatID);
+            // Parse additionalInfo JSON to determine signing address
+            // based on https://github.com/0gfoundation/0g-serving-broker/api/inference/internal/contract/service.go
+            let signingAddress = svc.teeSignerAddress;
+            try {
+                const additionalInfo = JSON.parse(svc.additionalInfo);
+                if (additionalInfo.TargetSeparated === true &&
+                    additionalInfo.TargetTeeAddress) {
+                    signingAddress = additionalInfo.TargetTeeAddress;
+                }
+            }
+            catch (error) {
+                // If JSON parsing fails, fall back to using additionalInfo as the address directly (backward compatibility)
+                logger.warn('Failed to parse additionalInfo as JSON', error);
+                return false;
+            }
+            logger.debug('signing address:', signingAddress);
+            const ResponseSignature = await Verifier$1.fetchSignatureByChatID(svc.url, chatID, svc.model);
+            return Verifier$1.verifySignature(ResponseSignature.text, ResponseSignature.signature, signingAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+}
+
+class InferenceBroker {
+    requestProcessor;
+    responseProcessor;
+    verifier;
+    accountProcessor;
+    modelProcessor;
+    signer;
+    contractAddress;
+    ledger;
+    constructor(signer, contractAddress, ledger) {
+        this.signer = signer;
+        this.contractAddress = contractAddress;
+        this.ledger = ledger;
+    }
+    async initialize() {
+        let userAddress;
+        try {
+            userAddress = await this.signer.getAddress();
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+        const contract = new InferenceServingContract(this.signer, this.contractAddress, userAddress);
+        const metadata = new Metadata();
+        const cache = new Cache();
+        this.requestProcessor = new RequestProcessor(contract, metadata, cache, this.ledger);
+        this.responseProcessor = new ResponseProcessor(contract, this.ledger, metadata, cache);
+        this.accountProcessor = new AccountProcessor(contract, this.ledger, metadata, cache);
+        this.modelProcessor = new ModelProcessor$1(contract, this.ledger, metadata, cache);
+        this.verifier = new Verifier$1(contract, this.ledger, metadata, cache);
+    }
+    /**
+     * Retrieves a list of services from the contract.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
+     * @throws An error if the service list cannot be retrieved.
+     */
+    listService = async (offset = 0, limit = 50, includeUnacknowledged = false) => {
+        try {
+            return await this.modelProcessor.listService(offset, limit, includeUnacknowledged);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * This method combines on-chain service data with real-time health metrics including
+     * uptime percentage and average response time (latency) for each service provider.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved.
+     *
+     * @example
+     * ```typescript
+     * const servicesWithHealth = await broker.inference.listServiceWithDetail();
+     * servicesWithHealth.forEach(service => {
+     *   console.log(`Provider: ${service.provider}`);
+     *   if (service.healthMetrics) {
+     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
+     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
+     *   }
+     * });
+     * ```
+     */
+    listServiceWithDetail = async (offset = 0, limit = 50, includeUnacknowledged = false) => {
+        try {
+            return await this.modelProcessor.listServiceWithDetail(offset, limit, includeUnacknowledged);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Retrieves the account information for a given provider address.
+     *
+     * @param {string} providerAddress - The address of the provider identifying the account.
+     *
+     * @returns A promise that resolves to the account information.
+     *
+     * @throws Will throw an error if the account retrieval process fails.
+     */
+    getAccount = async (providerAddress) => {
+        try {
+            return await this.accountProcessor.getAccount(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    getAccountWithDetail = async (providerAddress) => {
+        try {
+            return await this.accountProcessor.getAccountWithDetail(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * checks if the user has acknowledged the provider signer.
+     *
+     * @param {string} providerAddress - The address of the provider.
+     * @returns {Promise<boolean>} A promise that resolves to a boolean indicating whether the user
+     * has acknowledged the provider signer.
+     * @throws Will throw an error if the acknowledgment check fails.
+     */
+    acknowledged = async (providerAddress) => {
+        try {
+            return await this.requestProcessor.userAcknowledged(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Check Provider Signer Status
+     *
+     * Checks if the provider's TEE signer has been acknowledged by the contract owner.
+     * This replaces the old user-level acknowledgement system.
+     *
+     * @param {string} providerAddress - The address of the provider identifying the account.
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @returns Promise<{isAcknowledged: boolean, teeSignerAddress: string, needsAccount: boolean}>
+     *
+     * @throws Will throw an error if failed to check status.
+     */
+    checkProviderSignerStatus = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.checkProviderSignerStatus(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Acknowledge TEE Signer (Contract Owner Only)
+     *
+     * This function allows the contract owner to acknowledge a provider's TEE signer.
+     * The TEE signer address should already be set in the service registration.
+     *
+     * @param {string} providerAddress - The address of the provider
+     * @throws Will throw an error if caller is not the contract owner or if acknowledgement fails.
+     */
+    acknowledgeProviderTEESigner = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.ownerAcknowledgeTEESigner(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Revoke TEE Signer Acknowledgement (Contract Owner Only)
+     *
+     * This function allows the contract owner to revoke a provider's TEE signer acknowledgement.
+     *
+     * @param {string} providerAddress - The address of the provider
+     * @throws Will throw an error if caller is not the contract owner or if revocation fails.
+     */
+    revokeProviderTEESignerAcknowledgement = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.ownerRevokeTEESignerAcknowledgement(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Acknowledge the given provider address.
+     *
+     * @param {string} providerAddress - The address of the provider identifying the account.
+     *
+     *
+     * @throws Will throw an error if failed to acknowledge.
+     */
+    acknowledgeProviderSigner = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.acknowledgeProviderSigner(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Downloads quote report data from the provider service to a specified file.
+     *
+     * @param {string} providerAddress - The address of the provider.
+     * @param {string} outputPath - The file path where the quote report will be saved.
+     *
+     * @throws Will throw an error if failed to download the quote report.
+     */
+    downloadQuoteReport = async (providerAddress, outputPath) => {
+        try {
+            return await this.requestProcessor.downloadQuoteReport(providerAddress, outputPath);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Generates request metadata for the provider service.
+     * Includes:
+     * 1. Request endpoint for the provider service
+     * 2. Model information for the provider service
+     *
+     * @param {string} providerAddress - The address of the provider.
+     *
+     * @returns { endpoint, model } - Object containing endpoint and model.
+     *
+     * @throws An error if errors occur during the processing of the request.
+     */
+    getServiceMetadata = async (providerAddress) => {
+        try {
+            return await this.requestProcessor.getServiceMetadata(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * getRequestHeaders generates billing-related headers for the request
+     * when the user uses the provider service.
+     *
+     * In the 0G Serving system, a request with valid billing headers
+     * is considered a settlement proof and will be used by the provider
+     * for contract settlement.
+     *
+     * @param {string} providerAddress - The address of the provider.
+     * @param {string} content - The content being billed. For example, in a chatbot service, it is the text input by the user.
+     *
+     * @returns headers. Records information such as the request fee and user signature.
+     *
+     * @example
+     *
+     * const { endpoint, model } = await broker.getServiceMetadata(
+     *   providerAddress,
+     *   serviceName,
+     * );
+     *
+     * const headers = await broker.getServiceMetadata(
+     *   providerAddress,
+     *   serviceName,
+     *   content,
+     * );
+     *
+     * const openai = new OpenAI({
+     *   baseURL: endpoint,
+     *   apiKey: "",
+     * });
+     *
+     * const completion = await openai.chat.completions.create(
+     *   {
+     *     messages: [{ role: "system", content }],
+     *     model,
+     *   },
+     *   headers: {
+     *     ...headers,
+     *   },
+     * );
+     *
+     * @throws An error if errors occur during the processing of the request.
+     */
+    getRequestHeaders = async (providerAddress, content) => {
+        try {
+            return await this.requestProcessor.getRequestHeaders(providerAddress, content);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * processResponse is used after the user successfully obtains a response from the provider service.
+     *
+     * It caches the estimated fee based on usage data, which will be used by getRequestHeaders to determine
+     * when to top up the sub-account balance. Additionally, if the service is verifiable, input the chat ID
+     * from the response and processResponse will determine the validity of the returned content by checking
+     * the provider service's response and corresponding signature associated with the chat ID.
+     *
+     * Note: Fee caching is only useful for long-running SDK instances (e.g., web servers). In CLI usage,
+     * the cache is cleared on each invocation, so automatic balance management doesn't apply.
+     *
+     * @param {string} providerAddress - The address of the provider.
+     * @param {string} chatID - Only for verifiable services. The chat session ID returned by the provider
+     * in the `ZG-Res-Key` HTTP response header. Extract this header from the provider's response and pass
+     * it here for signature verification. For providers that don't include this header, fall back to using
+     * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
+     * @param {string} content - Usage data from the response. For chatbot/speech-to-text: JSON string with
+     * token usage; For text-to-image: can be empty. This is used to calculate and cache estimated fees.
+     *
+     * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
+     * null if no chatID provided (verification skipped).
+     *
+     * @throws An error if any issues occur during the processing of the response.
+     */
+    processResponse = async (providerAddress, chatID, content) => {
+        try {
+            return await this.responseProcessor.processResponse(providerAddress, chatID, content);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * verifyService is used to verify the reliability of the service.
+     *
+     * @param {string} providerAddress - The address of the provider.
+     *
+     * @returns A <boolean | null> value. True indicates the service is reliable, otherwise it is unreliable.
+     *
+     * @throws An error if errors occur during the verification process.
+     */
+    verifyService = async (providerAddress, outputDir = '.') => {
+        try {
+            return await this.verifier.verifyService(providerAddress, outputDir);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * getSignerRaDownloadLink returns the download link for the Signer RA.
+     *
+     * It can be provided to users who wish to manually verify the Signer RA.
+     *
+     * @param {string} providerAddress - provider address.
+     *
+     * @returns Download link.
+     */
+    getSignerRaDownloadLink = async (providerAddress) => {
+        try {
+            return await this.verifier.getSignerRaDownloadLink(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * getChatSignatureDownloadLink returns the download link for the signature of a single chat.
+     *
+     * It can be provided to users who wish to manually verify the content of a single chat.
+     *
+     * @param {string} providerAddress - provider address.
+     * @param {string} chatID - ID of the chat.
+     *
+     * @remarks To verify the chat signature, use the following code:
+     *
+     * ```typescript
+     * const messageHash = ethers.hashMessage(messageToBeVerified)
+     * const recoveredAddress = ethers.recoverAddress(messageHash, signature)
+     * const isValid = recoveredAddress.toLowerCase() === signingAddress.toLowerCase()
+     * ```
+     *
+     * @returns Download link.
+     */
+    getChatSignatureDownloadLink = async (providerAddress, chatID) => {
+        try {
+            return await this.verifier.getChatSignatureDownloadLink(providerAddress, chatID);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Remove service (Provider owner only)
+     *
+     * This function allows the provider owner to remove their service from the contract.
+     * Only the provider who registered the service can remove it.
+     *
+     * @param {number} gasPrice - Optional gas price for the transaction.
+     * @throws Will throw an error if the caller is not the service owner or if removal fails.
+     */
+    removeService = async (gasPrice) => {
+        try {
+            return await this.modelProcessor.removeService(gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Update service (Provider owner only)
+     *
+     * This function allows the provider owner to update their existing service.
+     * All parameters are optional - if not provided, the current value is preserved.
+     *
+     * @param options - Update options
+     * @param options.url - New service URL
+     * @param options.model - New model name
+     * @param options.inputPrice - New input price (in neuron, the smallest unit)
+     * @param options.outputPrice - New output price (in neuron, the smallest unit)
+     * @param options.gasPrice - Optional gas price for the transaction
+     * @throws Will throw an error if the caller is not the service owner or if update fails.
+     */
+    updateService = async (options) => {
+        try {
+            return await this.modelProcessor.updateService(options);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Revoke a specific API key (persistent token) by its tokenId.
+     *
+     * Sets the corresponding bit in the revokedBitmap for this tokenId.
+     * The API key will be immediately invalid, but the tokenId slot remains occupied
+     * until revokeAllTokens() is called.
+     *
+     * Note: Ephemeral tokens (tokenId=255) cannot be individually revoked.
+     * Use revokeAllTokens() to revoke ephemeral tokens.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} tokenId - Token ID to revoke (0-254)
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if tokenId is 255 (ephemeral token) or if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke token ID 5 for a provider
+     * await broker.inference.revokeApiKey('0x123...', 5)
+     * // Token ID 5 is now revoked and the API key is invalid
+     * ```
+     */
+    revokeApiKey = async (providerAddress, tokenId, gasPrice) => {
+        try {
+            return await this.requestProcessor.revokeApiKey(providerAddress, tokenId, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+    /**
+     * Revoke all API keys (both ephemeral and persistent tokens) for a provider.
+     *
+     * Increments the generation counter and resets the revokedBitmap.
+     * All existing API keys (including ephemeral tokens) will be immediately invalid.
+     * Reclaims all 255 tokenId slots for reuse.
+     *
+     * @param {string} providerAddress - The provider address
+     * @param {number} gasPrice - Optional gas price for the transaction
+     *
+     * @throws Will throw an error if revocation fails.
+     *
+     * @example
+     * ```typescript
+     * // Revoke all tokens for a provider
+     * await broker.inference.revokeAllTokens('0x123...')
+     * // All API keys for this provider are now invalid
+     * // All 255 tokenId slots are now available for reuse
+     * ```
+     */
+    revokeAllTokens = async (providerAddress, gasPrice) => {
+        try {
+            return await this.requestProcessor.revokeAllTokens(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    };
+}
+/**
+ * createInferenceBroker is used to initialize ZGServingUserBroker
+ *
+ * @param signer - Signer from ethers.js.
+ * @param contractAddress - 0G Serving contract address, use default address if not provided.
+ *
+ * @returns broker instance.
+ *
+ * @throws An error if the broker cannot be initialized.
+ */
+async function createInferenceBroker(signer, contractAddress, ledger) {
+    const broker = new InferenceBroker(signer, contractAddress, ledger);
+    try {
+        await broker.initialize();
+        return broker;
+    }
+    catch (error) {
+        throw error;
+    }
+}
+
+class BrokerBase {
+    contract;
+    ledger;
+    servingProvider;
+    constructor(contract, ledger, servingProvider) {
+        this.contract = contract;
+        this.ledger = ledger;
+        this.servingProvider = servingProvider;
+    }
+}
+
+const TIMEOUT_MS$1 = 300_000;
+class FineTuningServingContract {
+    serving;
+    signer;
+    _userAddress;
+    _gasPrice;
+    _maxGasPrice;
+    _step;
+    constructor(signer, contractAddress, userAddress, gasPrice, maxGasPrice, step) {
+        this.serving = FineTuningServing__factory.connect(contractAddress, signer);
+        this.signer = signer;
+        this._userAddress = userAddress;
+        this._gasPrice = gasPrice;
+        if (maxGasPrice) {
+            this._maxGasPrice = BigInt(maxGasPrice);
+        }
+        this._step = step || 11;
+    }
+    lockTime() {
+        return this.serving.lockTime();
+    }
+    async sendTx(name, txArgs, txOptions) {
+        if (txOptions.gasPrice === undefined) {
+            txOptions.gasPrice = (await this.signer.provider?.getFeeData())?.gasPrice;
+            // Add a delay to avoid too frequent RPC calls
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        else {
+            txOptions.gasPrice = BigInt(txOptions.gasPrice);
+        }
+        while (true) {
+            try {
+                console.log('sending tx with gas price', txOptions.gasPrice);
+                const tx = await this.serving.getFunction(name)(...txArgs, txOptions);
+                console.log('tx hash:', tx.hash);
+                const receipt = (await Promise.race([
+                    tx.wait(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Get Receipt timeout, try set higher gas price')), TIMEOUT_MS$1)),
+                ]));
+                this.checkReceipt(receipt);
+                break;
+            }
+            catch (error) {
+                if (error.message ===
+                    'Get Receipt timeout, try set higher gas price') {
+                    const nonce = await this.signer.getNonce();
+                    const pendingNonce = await this.signer.provider?.getTransactionCount(this._userAddress, 'pending');
+                    if (pendingNonce !== undefined &&
+                        pendingNonce - nonce > 5 &&
+                        txOptions.nonce === undefined) {
+                        console.warn(`Significant gap detected between pending nonce (${pendingNonce}) and current nonce (${nonce}). This may indicate skipped or missing transactions. Using the current confirmed nonce for the transaction.`);
+                        txOptions.nonce = nonce;
+                    }
+                }
+                if (this._maxGasPrice === undefined) {
+                    throwFormattedError(error);
+                }
+                let errorMessage = '';
+                if (error.message) {
+                    errorMessage = error.message;
+                }
+                else if (error.info?.error?.message) {
+                    errorMessage = error.info.error.message;
+                }
+                const shouldRetry = RETRY_ERROR_SUBSTRINGS.some((substr) => errorMessage.includes(substr));
+                if (!shouldRetry) {
+                    throwFormattedError(error);
+                }
+                console.log('Retrying transaction with higher gas price due to:', errorMessage);
+                let currentGasPrice = txOptions.gasPrice;
+                if (currentGasPrice >= this._maxGasPrice) {
+                    throwFormattedError(error);
+                }
+                currentGasPrice =
+                    (currentGasPrice * BigInt(this._step)) / BigInt(10);
+                if (currentGasPrice > this._maxGasPrice) {
+                    currentGasPrice = this._maxGasPrice;
+                }
+                txOptions.gasPrice = currentGasPrice;
+            }
+        }
+    }
+    async listService() {
+        try {
+            const services = await this.serving.getAllServices();
+            return services;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async listAccount(offset = 0, limit = 50) {
+        try {
+            const result = await this.serving.getAllAccounts(offset, limit);
+            return result.accounts;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getAccount(provider) {
+        try {
+            const user = this.getUserAddress();
+            const account = await this.serving.getAccount(user, provider);
+            return account;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async acknowledgeTEESigner(providerAddress, acknowledged, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('acknowledgeTEESigner', [providerAddress, acknowledged], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('acknowledgeTEESignerByOwner', [providerAddress], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('revokeTEESignerAcknowledgement', [providerAddress], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async removeService(gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('removeService', [], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async acknowledgeDeliverable(providerAddress, id, gasPrice) {
+        try {
+            const txOptions = {};
+            if (gasPrice || this._gasPrice) {
+                txOptions.gasPrice = gasPrice || this._gasPrice;
+            }
+            await this.sendTx('acknowledgeDeliverable', [providerAddress, id], txOptions);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getService(providerAddress) {
+        try {
+            return this.serving.getService(providerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getDeliverable(providerAddress, id) {
+        try {
+            const user = this.getUserAddress();
+            return this.serving.getDeliverable(user, providerAddress, id);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    getUserAddress() {
+        return this._userAddress;
+    }
+    checkReceipt(receipt) {
+        if (!receipt) {
+            throw new Error('Transaction failed with no receipt');
+        }
+        if (receipt.status !== 1) {
+            throw new Error('Transaction reverted');
+        }
+    }
+}
+
+async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
+    try {
+        const fileSize = await getFileContentSize(dataPath);
+        return new Promise((resolve, reject) => {
+            const command = path__default.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client');
+            const args = [
+                'upload',
+                '--url',
+                ZG_RPC_ENDPOINT_TESTNET,
+                '--key',
+                privateKey,
+                '--indexer',
+                INDEXER_URL_TURBO,
+                '--file',
+                dataPath,
+                '--skip-tx=false',
+                '--log-level=debug',
+            ];
+            if (gasPrice) {
+                args.push('--gas-price', gasPrice.toString());
+            }
+            if (maxGasPrice) {
+                args.push('--max-gas-price', maxGasPrice.toString());
+            }
+            const process = spawn$1(command, args);
+            process.stdout.on('data', (data) => {
+                console.log(`${data}`);
+            });
+            process.stderr.on('data', (data) => {
+                console.error(`${data}`);
+            });
+            process.on('close', (code) => {
+                if (code !== 0) {
+                    reject(new Error(`Process exited with code ${code}`));
+                }
+                else {
+                    console.log(`File size: ${fileSize} bytes`);
+                    resolve();
+                }
+            });
+            process.on('error', (err) => {
+                reject(err);
+            });
+        });
+    }
+    catch (err) {
+        console.error(err);
+        throw err;
+    }
+}
+async function download(dataPath, dataRoot) {
+    return new Promise((resolve, reject) => {
+        const command = path__default.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client');
+        const args = [
+            'download',
+            '--file',
+            dataPath,
+            '--indexer',
+            INDEXER_URL_TURBO,
+            '--roots',
+            dataRoot,
+        ];
+        const process = spawn$1(command, args);
+        let log = '';
+        process.stdout.on('data', (data) => {
+            const output = data.toString();
+            log += output;
+            console.log(output);
+        });
+        process.stderr.on('data', (data) => {
+            const errorOutput = data.toString();
+            log += errorOutput;
+            console.error(errorOutput);
+        });
+        process.on('close', (code) => {
+            if (code !== 0) {
+                return reject(new Error(`Process exited with code ${code}`));
+            }
+            if (!log
+                .trim()
+                .endsWith('Succeeded to validate the downloaded file')) {
+                return reject(new Error('Failed to download the file'));
+            }
+            resolve();
+        });
+        process.on('error', (err) => {
+            reject(err);
+        });
+    });
+}
+async function getFileContentSize(filePath) {
+    try {
+        const fileHandle = await fs$1.open(filePath, 'r');
+        try {
+            const stats = await fileHandle.stat();
+            return stats.size;
+        }
+        finally {
+            await fileHandle.close();
+        }
+    }
+    catch (err) {
+        throw new Error(`Error processing file: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+
+/**
+ * ModelProcessor handles model-related operations including listing available models,
+ * acknowledging model delivery, and decrypting fine-tuned models.
+ */
+class ModelProcessor extends BrokerBase {
+    /**
+     * List all available models including both standard pre-trained models
+     * and customized models from providers.
+     *
+     * @returns A tuple containing two arrays:
+     *   - [0]: Standard pre-trained models with their configurations
+     *   - [1]: Customized models from providers with descriptions
+     *
+     * @example
+     * ```typescript
+     * const [standardModels, customizedModels] = await broker.fineTuning.listModel();
+     *
+     * // Standard models: [['meta-llama/Llama-2-7b-chat-hf', {...}], ...]
+     * // Customized models: [['my-model', { description: '...', provider: '0x...' }], ...]
+     * ```
+     */
+    async listModel() {
+        try {
+            const services = await this.contract.listService();
+            const customizedModels = [];
+            for (const service of services) {
+                if (service.models.length !== 0) {
+                    const url = service.url;
+                    const models = await this.servingProvider.getCustomizedModels(url);
+                    for (const item of models) {
+                        customizedModels.push([
+                            item.name,
+                            {
+                                description: item.description,
+                                provider: service.provider,
+                            },
+                        ]);
+                    }
+                }
+            }
+            return [Object.entries(MODEL_HASH_MAP), customizedModels];
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Acknowledge receipt of a fine-tuned model from a provider.
+     * Downloads the encrypted model from 0G Storage and confirms receipt on-chain.
+     *
+     * @param providerAddress - Address of the provider who trained the model
+     * @param taskId - ID of the fine-tuning task
+     * @param dataPath - Local path where the encrypted model will be saved
+     * @param gasPrice - Optional gas price for the transaction
+     * @throws Error if no deliverable found or download fails
+     *
+     * @example
+     * ```typescript
+     * await broker.fineTuning.acknowledgeModel(
+     *   '0x1234...',
+     *   'task-123',
+     *   './encrypted-model.bin'
+     * );
+     * ```
+     */
+    async acknowledgeModel(providerAddress, taskId, dataPath, gasPrice) {
+        try {
+            const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
+            logger.debug(`deliverable: ${hexToRoots(deliverable.modelRootHash)}`);
+            if (!deliverable) {
+                throw new Error('No deliverable found');
+            }
+            await download(dataPath, hexToRoots(deliverable.modelRootHash));
+            await this.contract.acknowledgeDeliverable(providerAddress, taskId, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Decrypt a fine-tuned model after acknowledgement.
+     * Uses the user's private key to decrypt the model encryption key,
+     * then decrypts the model file.
+     *
+     * @param providerAddress - Address of the provider who trained the model
+     * @param taskId - ID of the fine-tuning task
+     * @param encryptedModelPath - Local path to the encrypted model file
+     * @param decryptedModelPath - Local path where the decrypted model will be saved
+     * @throws Error if deliverable not found, not acknowledged, or decryption fails
+     *
+     * @example
+     * ```typescript
+     * await broker.fineTuning.decryptModel(
+     *   '0x1234...',
+     *   'task-123',
+     *   './encrypted-model.bin',
+     *   './my-model'
+     * );
+     * ```
+     *
+     * @remarks
+     * The model can only be decrypted after:
+     * 1. The provider has delivered the encrypted model
+     * 2. The user has acknowledged the model (called acknowledgeModel)
+     * 3. The provider has shared the encrypted decryption key
+     */
+    async decryptModel(providerAddress, taskId, encryptedModelPath, decryptedModelPath) {
+        try {
+            const [service, deliverable] = await Promise.all([
+                this.contract.getService(providerAddress),
+                this.contract.getDeliverable(providerAddress, taskId),
+            ]);
+            logger.debug(`service, ${service}`);
+            if (!deliverable) {
+                throw new Error('No deliverable found');
+            }
+            if (!deliverable.acknowledged) {
+                throw new Error('Deliverable not acknowledged yet');
+            }
+            if (!deliverable.encryptedSecret) {
+                throw new Error('EncryptedSecret not found');
+            }
+            const secret = await eciesDecrypt(this.contract.signer, deliverable.encryptedSecret);
+            await aesGCMDecryptToFile(secret, encryptedModelPath, decryptedModelPath, service.teeSignerAddress);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+        return;
+    }
+}
+
+// Dynamic imports for Node.js specific modules
+let fs;
+let os;
+let path;
+let AdmZip;
+let spawn;
+let exec;
+let createHash;
+let createReadStream;
+async function initNodeModules() {
+    if (isBrowser()) {
+        throw new Error('Token calculation functions are not available in browser environment. Please use these functions in a Node.js environment.');
+    }
+    if (!fs) {
+        fs =
+            (await import('fs/promises')).default ||
+                (await import('fs/promises'));
+        os = (await import('os')).default || (await import('os'));
+        path = (await import('path')).default || (await import('path'));
+        AdmZip = (await import('./adm-zip-86f30d47.js').then(function (n) { return n.a; })).default;
+        const childProcess = await import('child_process');
+        spawn = childProcess.spawn;
+        exec = childProcess.exec;
+        const crypto = await import('crypto');
+        createHash = crypto.createHash;
+        createReadStream = (await import('fs')).createReadStream;
+    }
+}
+// Re-export download with browser check
+async function safeDynamicImport() {
+    if (isBrowser()) {
+        throw new Error('ZG Storage operations are not available in browser environment.');
+    }
+    const { download } = await import('./index-b1a4c777.js');
+    return { download };
+}
+async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
+    await initNodeModules();
+    const { download } = await safeDynamicImport();
+    const executorDir = path.join(__dirname, '..', '..', '..', '..', 'binary');
+    const binaryFile = path.join(executorDir, 'token_counter');
+    let needDownload = false;
+    try {
+        await fs.access(binaryFile);
+        console.log('calculating file Hash');
+        const hash = await calculateFileHash(binaryFile);
+        console.log('file hash: ', hash);
+        if (tokenCounterFileHash !== hash) {
+            console.log(`file hash mismatch, expected: `, tokenCounterFileHash);
+            needDownload = true;
+        }
+    }
+    catch (error) {
+        console.log(`File ${binaryFile} does not exist.`);
+        needDownload = true;
+    }
+    if (needDownload) {
+        try {
+            await fs.unlink(binaryFile);
+        }
+        catch (error) {
+            console.error(`Failed to delete ${binaryFile}:`, error);
+        }
+        console.log(`Downloading ${binaryFile}`);
+        await download(binaryFile, tokenCounterMerkleRoot);
+        await fs.chmod(binaryFile, 0o755);
+    }
+    return await calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, binaryFile, []);
+}
+async function calculateTokenSizeViaPython(tokenizerRootHash, datasetPath, datasetType) {
+    await initNodeModules();
+    const isPythonInstalled = await checkPythonInstalled();
+    if (!isPythonInstalled) {
+        throw new Error('Python is required but not installed. Please install Python first.');
+    }
+    for (const packageName of ['transformers', 'datasets']) {
+        const isPackageInstalled = await checkPackageInstalled(packageName);
+        if (!isPackageInstalled) {
+            console.log(`${packageName} is not installed. Installing...`);
+            try {
+                await installPackage(packageName);
+            }
+            catch (error) {
+                throw new Error(`Failed to install ${packageName}: ${error}`);
+            }
+        }
+    }
+    const projectRoot = path.resolve(__dirname, '../../../../');
+    return await calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, 'python3', [path.join(projectRoot, 'token.counter', 'token_counter.py')]);
+}
+async function calculateTokenSize(tokenizerRootHash, datasetPath, datasetType, executor, args) {
+    const { download } = await safeDynamicImport();
+    const tmpDir = await fs.mkdtemp(`${os.tmpdir()}${path.sep}`);
+    console.log(`current temporary directory ${tmpDir}`);
+    const tokenizerPath = path.join(tmpDir, 'tokenizer.zip');
+    await download(tokenizerPath, tokenizerRootHash);
+    const subDirectories = await getSubdirectories(tmpDir);
+    unzipFile(tokenizerPath, tmpDir);
+    const newDirectories = new Set();
+    for (const item of await getSubdirectories(tmpDir)) {
+        if (!subDirectories.has(item)) {
+            newDirectories.add(item);
+        }
+    }
+    if (newDirectories.size !== 1) {
+        throw new Error('Invalid tokenizer directory');
+    }
+    const tokenizerUnzipPath = path.join(tmpDir, Array.from(newDirectories)[0]);
+    let datasetUnzipPath = datasetPath;
+    if (await isZipFile(datasetPath)) {
+        unzipFile(datasetPath, tmpDir);
+        datasetUnzipPath = path.join(tmpDir, 'data');
+        try {
+            await fs.access(datasetUnzipPath);
+        }
+        catch (error) {
+            await fs.mkdir(datasetUnzipPath, { recursive: true });
+        }
+    }
+    return runExecutor(executor, [
+        ...args,
+        datasetUnzipPath,
+        datasetType,
+        tokenizerUnzipPath,
+    ])
+        .then((output) => {
+        console.log('token_counter script output:', output);
+        if (!output || typeof output !== 'string') {
+            throw new Error('Invalid output from token counter');
+        }
+        const [num1, num2] = output
+            .split(' ')
+            .map((str) => parseInt(str, 10));
+        if (isNaN(num1) || isNaN(num2)) {
+            throw new Error('Invalid number');
+        }
+        return num1;
+    })
+        .catch((error) => {
+        console.error('Error running Python script:', error);
+        throwFormattedError(error);
+    });
+}
+function checkPythonInstalled() {
+    return new Promise((resolve, reject) => {
+        exec('python3 --version', (error, stdout, stderr) => {
+            if (error) {
+                console.error('Python is not installed or not in PATH');
+                resolve(false);
+            }
+            else {
+                resolve(true);
+            }
+        });
+    });
+}
+function checkPackageInstalled(packageName) {
+    return new Promise((resolve, reject) => {
+        exec(`pip show ${packageName}`, (error, stdout, stderr) => {
+            if (error) {
+                resolve(false);
+            }
+            else {
+                resolve(true);
+            }
+        });
+    });
+}
+function installPackage(packageName) {
+    return new Promise((resolve, reject) => {
+        exec(`pip install ${packageName}`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Failed to install ${packageName}`);
+                reject(error);
+            }
+            else {
+                console.log(`${packageName} installed successfully`);
+                resolve();
+            }
+        });
+    });
+}
+function runExecutor(executor, args) {
+    return new Promise((resolve, reject) => {
+        console.log(`Run ${executor} ${args}`);
+        const pythonProcess = spawn(executor, [...args]);
+        let output = '';
+        let errorOutput = '';
+        pythonProcess.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+        pythonProcess.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+            console.error(`Python error: ${errorOutput}`);
+        });
+        pythonProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve(output.trim());
+            }
+            else {
+                reject(`Python script failed with code ${code}: ${errorOutput.trim()}`);
+            }
+        });
+    });
+}
+function unzipFile(zipFilePath, targetDir) {
+    try {
+        const zip = new AdmZip(zipFilePath);
+        zip.extractAllTo(targetDir, true);
+        console.log(`Successfully unzipped to ${targetDir}`);
+    }
+    catch (error) {
+        console.error('Error during unzipping:', error);
+        throw error;
+    }
+}
+async function isZipFile(targetPath) {
+    try {
+        const stats = await fs.stat(targetPath);
+        return (stats.isFile() && path.extname(targetPath).toLowerCase() === '.zip');
+    }
+    catch (error) {
+        return false;
+    }
+}
+async function getSubdirectories(dirPath) {
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        const subdirectories = new Set(entries
+            .filter((entry) => entry.isDirectory()) // Only keep directories
+            .map((entry) => entry.name));
+        return subdirectories;
+    }
+    catch (error) {
+        console.error('Error reading directory:', error);
+        return new Set();
+    }
+}
+async function calculateFileHash(filePath, algorithm = 'sha256') {
+    return new Promise((resolve, reject) => {
+        const hash = createHash(algorithm);
+        const stream = createReadStream(filePath);
+        stream.on('data', (chunk) => {
+            hash.update(chunk);
+        });
+        stream.on('end', () => {
+            resolve(hash.digest('hex'));
+        });
+        stream.on('error', (err) => {
+            reject(err);
+        });
+    });
+}
+
+/**
+ * DatasetProcessor handles dataset-related operations including upload, download,
+ * and token calculation for fine-tuning tasks.
+ */
+class DatasetProcessor extends BrokerBase {
+    /**
+     * Upload a dataset to 0G Storage for fine-tuning.
+     *
+     * @param privateKey - Private key for signing the upload transaction
+     * @param dataPath - Local path to the dataset file
+     * @param gasPrice - Optional gas price for the transaction
+     * @param maxGasPrice - Optional maximum gas price
+     * @throws Error if upload fails
+     */
+    async uploadDataset(privateKey, dataPath, gasPrice, maxGasPrice) {
+        try {
+            await upload(privateKey, dataPath, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Download a dataset from 0G Storage.
+     *
+     * @param dataPath - Local path where the dataset will be saved
+     * @param dataRoot - Root hash of the dataset in 0G Storage
+     * @throws Error if download fails
+     */
+    async downloadDataset(dataPath, dataRoot) {
+        try {
+            await download(dataPath, dataRoot);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    /**
+     * Calculate the token size of a dataset for cost estimation.
+     * Supports both Python-based and executable-based token counting.
+     *
+     * @param datasetPath - Local path to the dataset file
+     * @param usePython - Whether to use Python for token counting (true) or executable (false)
+     * @param preTrainedModelName - Name of the pre-trained model (determines tokenizer)
+     * @param providerAddress - Optional provider address (required for customized models)
+     * @returns Token count of the dataset
+     * @throws Error if provider address is not provided for customized models
+     *
+     * @example
+     * ```typescript
+     * // Calculate tokens for a standard model
+     * await broker.fineTuning.calculateToken(
+     *   './dataset.jsonl',
+     *   false,
+     *   'meta-llama/Llama-2-7b-chat-hf'
+     * );
+     *
+     * // Calculate tokens for a customized model
+     * await broker.fineTuning.calculateToken(
+     *   './dataset.jsonl',
+     *   false,
+     *   'my-custom-model',
+     *   '0x1234...'
+     * );
+     * ```
+     */
+    async calculateToken(datasetPath, usePython, preTrainedModelName, providerAddress) {
+        try {
+            let tokenizer;
+            let dataType;
+            // Determine tokenizer and data type from model configuration
+            if (preTrainedModelName in MODEL_HASH_MAP) {
+                tokenizer = MODEL_HASH_MAP[preTrainedModelName].tokenizer;
+                dataType = MODEL_HASH_MAP[preTrainedModelName].type;
+            }
+            else {
+                // Customized model - fetch from provider
+                if (providerAddress === undefined) {
+                    throw new Error('Provider address is required for customized model');
+                }
+                const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
+                tokenizer = model.tokenizer;
+                dataType = model.dataType;
+            }
+            // Calculate token size using specified method
+            let dataSize = 0;
+            if (usePython) {
+                dataSize = await calculateTokenSizeViaPython(tokenizer, datasetPath, dataType);
+            }
+            else {
+                dataSize = await calculateTokenSizeViaExe(tokenizer, datasetPath, dataType, TOKEN_COUNTER_MERKLE_ROOT, TOKEN_COUNTER_FILE_HASH);
+            }
+            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
+            return dataSize;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+}
+
+// Browser-safe function to avoid readline dependency
+async function askUser(question) {
+    if (isBrowser()) {
+        throw new Error('Interactive input operations are not available in browser environment. Please use these functions in a Node.js environment.');
+    }
+    // Only import readline in Node.js environment
+    try {
+        const readline = await import('readline');
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+        return new Promise((resolve) => {
+            rl.question(question, (answer) => {
+                rl.close();
+                resolve(answer.trim());
+            });
+        });
+    }
+    catch (error) {
+        throw new Error('readline module is not available. This function can only be used in Node.js environment.');
+    }
+}
+// Browser-safe function to avoid fs dependency
+async function readFileContent(filePath) {
+    if (isBrowser()) {
+        throw new Error('File system operations are not available in browser environment. Please use these functions in a Node.js environment.');
+    }
+    try {
+        const fs = await import('fs/promises');
+        return await fs.readFile(filePath, 'utf-8');
+    }
+    catch (error) {
+        throw new Error('fs module is not available. This function can only be used in Node.js environment.');
+    }
+}
+class ServiceProcessor extends BrokerBase {
+    automata;
+    constructor(contract, ledger, servingProvider) {
+        super(contract, ledger, servingProvider);
+        this.automata = new Automata();
+    }
+    async getLockTime() {
+        try {
+            const lockTime = await this.contract.lockTime();
+            return lockTime;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getAccount(provider) {
+        try {
+            const account = await this.contract.getAccount(provider);
+            return account;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getAccountWithDetail(provider) {
+        try {
+            const account = await this.contract.getAccount(provider);
+            const lockTime = await this.getLockTime();
+            const now = BigInt(Math.floor(Date.now() / 1000)); // Converts milliseconds to seconds
+            const refunds = account.refunds
+                .filter((refund) => !refund.processed)
+                .filter((refund) => refund.amount !== BigInt(0))
+                .map((refund) => ({
+                amount: refund.amount,
+                remainTime: lockTime - (now - refund.createdAt),
+            }));
+            return { account, refunds };
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async listService() {
+        try {
+            const services = await this.contract.listService();
+            return services;
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async acknowledgeProviderSigner(providerAddress, gasPrice) {
+        try {
+            try {
+                await this.contract.getAccount(providerAddress);
+            }
+            catch {
+                await this.ledger.transferFund(providerAddress, 'fine-tuning', BigInt(0), gasPrice);
+            }
+            const { rawReport, signingAddress } = await this.servingProvider.getQuote(providerAddress);
+            if (!rawReport || !signingAddress) {
+                throw new Error('Invalid quote');
+            }
+            // TODO: separate automata verification logic
+            // const rpc = process.env.RPC_ENDPOINT
+            // // bypass quote verification if testing on localhost
+            // if (!rpc || !/localhost|127\.0\.0\.1/.test(rpc)) {
+            //     const isVerified = await this.automata.verifyQuote(intel_quote)
+            //     console.log('Quote verification:', isVerified)
+            //     if (!isVerified) {
+            //         throw new Error('Quote verification failed')
+            //     }
+            // }
+            const account = await this.contract.getAccount(providerAddress);
+            if (account.acknowledged) {
+                console.log('Provider signer already acknowledged');
+                return;
+            }
+            await this.contract.acknowledgeTEESigner(providerAddress, true, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async acknowledgeTEESignerByOwner(providerAddress, gasPrice) {
+        try {
+            await this.contract.acknowledgeTEESignerByOwner(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async revokeTEESignerAcknowledgement(providerAddress, gasPrice) {
+        try {
+            await this.contract.revokeTEESignerAcknowledgement(providerAddress, gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async removeService(gasPrice) {
+        try {
+            await this.contract.removeService(gasPrice);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async createTask(providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice) {
+        try {
+            let preTrainedModelHash;
+            if (preTrainedModelName in MODEL_HASH_MAP) {
+                preTrainedModelHash = MODEL_HASH_MAP[preTrainedModelName].turbo;
+            }
+            else {
+                const model = await this.servingProvider.getCustomizedModel(providerAddress, preTrainedModelName);
+                preTrainedModelHash = model.hash;
+                console.log(`customized model hash: ${preTrainedModelHash}`);
+            }
+            const service = await this.contract.getService(providerAddress);
+            const trainingParams = await readFileContent(trainingPath);
+            const parsedParams = this.verifyTrainingParams(trainingParams);
+            const trainEpochs = (parsedParams.num_train_epochs || parsedParams.total_steps) ?? 3;
+            const fee = service.pricePerToken * BigInt(dataSize) * BigInt(trainEpochs);
+            console.log(`Estimated fee: ${fee} (neuron), data size: ${dataSize}, train epochs: ${trainEpochs}, price per token: ${service.pricePerToken} (neuron)`);
+            const account = await this.contract.getAccount(providerAddress);
+            if (account.balance - account.pendingRefund < fee) {
+                await this.ledger.transferFund(providerAddress, 'fine-tuning', fee, gasPrice);
+            }
+            const nonce = getNonce();
+            const signature = await signRequest(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash, fee);
+            let wait = false;
+            const counter = await this.servingProvider.getPendingTaskCounter(providerAddress);
+            if (counter > 0) {
+                while (true) {
+                    const answer = await askUser(`There are ${counter} tasks in the queue. Do you want to continue? (yes/no): `);
+                    if (answer.toLowerCase() === 'yes' ||
+                        answer.toLowerCase() === 'y') {
+                        wait = true;
+                        break;
+                    }
+                    else if (['no', 'n'].includes(answer.toLowerCase())) {
+                        throw new Error('User opted not to continue due to pending tasks in the queue.');
+                    }
+                    else {
+                        console.log('Invalid input. Please respond with yes/y or no/n.');
+                    }
+                }
+            }
+            const task = {
+                userAddress: this.contract.getUserAddress(),
+                datasetHash,
+                trainingParams,
+                preTrainedModelHash,
+                fee: fee.toString(),
+                nonce: nonce.toString(),
+                signature,
+                wait,
+            };
+            return await this.servingProvider.createTask(providerAddress, task);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async cancelTask(providerAddress, taskID) {
+        try {
+            const signature = await signTaskID(this.contract.signer, taskID);
+            return await this.servingProvider.cancelTask(providerAddress, signature, taskID);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async listTask(providerAddress) {
+        try {
+            return await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress());
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    async getTask(providerAddress, taskID) {
+        try {
+            if (!taskID) {
+                const tasks = await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress(), true);
+                if (tasks.length === 0) {
+                    throw new Error('No task found');
+                }
+                return tasks[0];
+            }
+            return await this.servingProvider.getTask(providerAddress, this.contract.getUserAddress(), taskID);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    // 8. [`call provider`] call provider task progress api to get task progress
+    async getLog(providerAddress, taskID) {
+        if (!taskID) {
+            const tasks = await this.servingProvider.listTask(providerAddress, this.contract.getUserAddress(), true);
+            taskID = tasks[0].id;
+            if (tasks.length === 0 || !taskID) {
+                throw new Error('No task found');
+            }
+        }
+        return this.servingProvider.getLog(providerAddress, this.contract.getUserAddress(), taskID);
+    }
+    async modelUsage(providerAddress, preTrainedModelName, output) {
+        try {
+            return await this.servingProvider.getCustomizedModelDetailUsage(providerAddress, preTrainedModelName, output);
+        }
+        catch (error) {
+            throwFormattedError(error);
+        }
+    }
+    verifyTrainingParams(trainingParams) {
+        try {
+            return JSON.parse(trainingParams);
+        }
+        catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            throw new Error(`Invalid JSON in trainingPath file: ${errorMessage}`);
+        }
+    }
+}
+
 class Provider {
     contract;
     constructor(contract) {
@@ -22941,4 +23055,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-5c02b8ac.js.map
+//# sourceMappingURL=index-042c43e4.js.map

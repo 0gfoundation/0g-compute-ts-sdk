@@ -148,6 +148,9 @@ export default function inference(program: Command) {
             'Include all services, even those without valid teeSignerAddress'
         )
         .action((options: any) => {
+            const table = new Table({
+                colWidths: [50, 50],
+            })
             withBroker(options, async (broker) => {
                 // TODO: Support pagination for listing services
                 const services = await broker.inference.listServiceWithDetail(
@@ -155,46 +158,89 @@ export default function inference(program: Command) {
                     50,
                     options.includeInvalid
                 )
-
-                const table = new Table({
-                    head: [
-                        chalk.cyan('Provider'),
-                        chalk.cyan('Model'),
-                        chalk.cyan('Service Type'),
-                        chalk.cyan('Status'),
-                        chalk.cyan('Uptime %'),
-                        chalk.cyan('Latency (ms)'),
-                    ],
-                    colWidths: [44, 35, 18, 12, 12, 15],
-                })
-
-                services.forEach((service) => {
+                services.forEach((service, index) => {
                     const health = service.healthMetrics
-                    table.push([
-                        service.provider,
-                        service.model || 'N/A',
-                        service.serviceType || 'N/A',
-                        health?.status
-                            ? health.status === 'healthy'
-                                ? chalk.green('healthy')
-                                : chalk.red(health.status)
-                            : chalk.gray('N/A'),
-                        health?.uptime !== undefined
-                            ? health.uptime === 100
-                                ? chalk.green(health.uptime.toString())
-                                : chalk.yellow(health.uptime.toString())
-                            : chalk.gray('N/A'),
-                        health?.avgResponseTime !== undefined
-                            ? health.avgResponseTime < 1000
-                                ? chalk.green(health.avgResponseTime.toString())
-                                : chalk.yellow(
-                                      health.avgResponseTime.toString()
-                                  )
-                            : chalk.gray('N/A'),
-                    ])
-                })
 
-                console.log('\n' + table.toString())
+                    table.push([
+                        chalk.blue(`Provider ${index + 1}`),
+                        chalk.blue(service.provider),
+                    ])
+                    table.push(['Model', service.model || 'N/A'])
+
+                    // Only show input price for non text-to-image and non image-editing services
+                    if (
+                        service.serviceType !== 'text-to-image' &&
+                        service.serviceType !== 'image-editing'
+                    ) {
+                        table.push([
+                            'Input Price Per Token (0G)',
+                            service.inputPrice
+                                ? neuronToA0gi(
+                                      BigInt(service.inputPrice)
+                                  ).toFixed(18)
+                                : 'N/A',
+                        ])
+                    }
+
+                    // Change output price label for text-to-image and image-editing services
+                    const outputPriceLabel =
+                        service.serviceType === 'text-to-image' ||
+                        service.serviceType === 'image-editing'
+                            ? 'Price Per Image (OG)'
+                            : 'Output Price Per Token (0G)'
+
+                    table.push([
+                        outputPriceLabel,
+                        service.outputPrice
+                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
+                                  18
+                              )
+                            : 'N/A',
+                    ])
+                    table.push([
+                        'Verifiability',
+                        service.verifiability || 'N/A',
+                    ])
+
+                    // Add health metrics
+                    if (health?.status) {
+                        let statusDisplay = ''
+                        if (health.status === 'healthy') {
+                            statusDisplay = chalk.green('✓ Healthy')
+                        } else if (health.status === 'warning') {
+                            statusDisplay = chalk.yellow('⚠ Warning')
+                        } else {
+                            statusDisplay = chalk.red('✗ Critical')
+                        }
+                        table.push(['Health Status', statusDisplay])
+
+                        if (health.uptime !== undefined) {
+                            const uptimeDisplay =
+                                health.uptime === 100
+                                    ? chalk.green(`${health.uptime}%`)
+                                    : health.uptime >= 80
+                                    ? chalk.yellow(`${health.uptime}%`)
+                                    : chalk.red(`${health.uptime}%`)
+                            table.push(['Uptime', uptimeDisplay])
+                        }
+
+                        if (health.avgResponseTime !== undefined) {
+                            const latencyDisplay =
+                                health.avgResponseTime < 1000
+                                    ? chalk.green(`${health.avgResponseTime}ms`)
+                                    : health.avgResponseTime < 5000
+                                    ? chalk.yellow(`${health.avgResponseTime}ms`)
+                                    : chalk.red(`${health.avgResponseTime}ms`)
+                            table.push(['Avg Response Time', latencyDisplay])
+                        }
+                    } else {
+                        table.push([
+                            'Health Status',
+                            chalk.gray('No metrics available'),
+                        ])
+                    }
+                })
+                console.log(table.toString())
                 console.log(
                     chalk.gray(
                         '\nNote: Health metrics are fetched from the monitoring API. ' +
