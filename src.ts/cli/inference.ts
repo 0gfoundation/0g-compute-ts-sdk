@@ -867,7 +867,10 @@ export default function inference(program: Command) {
             'Generate an authentication secret (API Key) for API access'
         )
         .requiredOption('--provider <address>', 'Provider address')
-        .option('--token-id <id>', 'Specific token ID to use (0-254). If not provided, will find the first available slot')
+        .option(
+            '--token-id <id>',
+            'Specific token ID to use (0-254). If not provided, will find the first available slot'
+        )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -913,7 +916,7 @@ export default function inference(program: Command) {
                             options.provider,
                             {
                                 expiresIn: duration,
-                                tokenId: tokenId
+                                tokenId: tokenId,
                             }
                         )
 

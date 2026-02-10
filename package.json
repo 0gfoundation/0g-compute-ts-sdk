@@ -103,6 +103,7 @@
         "dotenv": "16.4.7",
         "eciesjs": "^0.4.13",
         "express": "5.1.0",
+        "form-data": "^4.0.1",
         "node-fetch": "^3.3.2",
         "open-jsonrpc-provider": "^0.2.1",
         "openai": "^4.78.1",

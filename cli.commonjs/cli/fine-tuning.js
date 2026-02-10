@@ -123,7 +123,7 @@ function fineTuning(program) {
     });
     program
         .command('calculate-token')
-        .description('Download token-counter')
+        .description('Calculate token count (optional - for cost estimation only, no longer required for task creation)')
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .requiredOption('--dataset-path <path>', 'Path to the zip file containing the fine-tuning dataset')
         .option('--provider <address>', 'Provider address for the task')
@@ -134,11 +134,11 @@ function fineTuning(program) {
     });
     program
         .command('create-task')
-        .description('Create a fine-tuning task')
+        .description('Create a fine-tuning task (fee calculated automatically by broker)')
         .requiredOption('--provider <address>', 'Provider address for the task')
         .requiredOption('--model <name>', 'Pre-trained model name to use')
-        .requiredOption('--data-size <size>', 'Token number of the dataset. Use calculate-token command for the calculation')
-        .requiredOption('--dataset <hash>', 'Hash of the dataset')
+        .option('--dataset <hash>', 'Hash of the dataset (from 0G Storage)')
+        .option('--dataset-path <path>', 'Path to the dataset file (will be uploaded directly to TEE)')
         .requiredOption('--config-path <path>', 'Fine-tuning configuration path')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -148,11 +148,41 @@ function fineTuning(program) {
         .option('--step <step>', 'Step for gas price adjustment')
         .action((options) => {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
+            // Validate: exactly one of --dataset or --dataset-path must be provided
+            if (!options.dataset && !options.datasetPath) {
+                console.error(chalk_1.default.red('Error: Either --dataset (hash) or --dataset-path (file path) must be provided'));
+                process.exit(1);
+            }
+            if (options.dataset && options.datasetPath) {
+                console.error(chalk_1.default.red('Error: --dataset and --dataset-path are mutually exclusive. Please provide only one.'));
+                process.exit(1);
+            }
+            let datasetHash = options.dataset;
+            // If dataset-path is provided, upload to TEE first
+            if (options.datasetPath) {
+                console.log('Uploading dataset to TEE...');
+                const result = await broker.fineTuning.uploadDatasetToTEE(options.provider, options.datasetPath);
+                datasetHash = result.datasetHash;
+                console.log('Dataset uploaded, hash:', datasetHash);
+            }
             console.log('Verify provider...');
             await broker.fineTuning.acknowledgeProviderSigner(options.provider, options.gasPrice);
             console.log('Provider verified');
-            console.log('Creating task...');
-            const taskId = await broker.fineTuning.createTask(options.provider, options.model, parseInt(options.dataSize, 10), options.dataset, options.configPath, options.gasPrice);
+            // Check account balance and warn if insufficient
+            try {
+                const accountDetail = await broker.fineTuning.getAccountWithDetail(options.provider);
+                const availableBalance = accountDetail.account.balance - accountDetail.account.pendingRefund;
+                if (availableBalance <= BigInt(0)) {
+                    console.warn(chalk_1.default.yellow('\n⚠️  Warning: Your fine-tuning account balance is 0 or negative'));
+                    console.warn(chalk_1.default.yellow('   Please deposit funds before creating a task:'));
+                    console.warn(chalk_1.default.cyan(`   0g-compute-cli transfer-fund --provider ${options.provider} --service fine-tuning --amount <amount>\n`));
+                }
+            }
+            catch (err) {
+                // Ignore balance check errors, proceed with task creation
+            }
+            console.log('Creating task (fee will be calculated automatically)...');
+            const taskId = await broker.fineTuning.createTask(options.provider, options.model, datasetHash, options.configPath, options.gasPrice);
             console.log('Created Task ID:', taskId);
         });
     });
@@ -248,9 +278,13 @@ function fineTuning(program) {
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price adjustment')
+        .option('--download-method <method>', 'Download method: tee or 0g-storage (default: tee)')
         .action((options) => {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
-            await broker.fineTuning.acknowledgeModel(options.provider, options.taskId, options.dataPath, options.gasPrice);
+            await broker.fineTuning.acknowledgeModel(options.provider, options.taskId, options.dataPath, {
+                gasPrice: options.gasPrice,
+                downloadMethod: options.downloadMethod,
+            });
             console.log('Acknowledged model');
         });
     });

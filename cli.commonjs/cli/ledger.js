@@ -8,7 +8,6 @@ const util_1 = require("./util");
 const cli_table3_1 = tslib_1.__importDefault(require("cli-table3"));
 const sdk_1 = require("../sdk");
 const chalk_1 = tslib_1.__importDefault(require("chalk"));
-const utils_1 = require("../sdk/common/utils");
 const interactive_selection_1 = require("./interactive-selection");
 const network_setup_1 = require("./network-setup");
 const ethers_1 = require("ethers");
@@ -338,7 +337,7 @@ function renderDeliverables(deliverables) {
     deliverables.forEach((d) => {
         table.push([
             d.id,
-            (0, util_1.splitIntoChunks)((0, utils_1.hexToRoots)(d.modelRootHash), 60),
+            (0, util_1.splitIntoChunks)(d.modelRootHash, 60),
             d.acknowledged ? chalk_1.default.greenBright.bold('\u2713') : '',
         ]);
     });

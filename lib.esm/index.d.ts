@@ -1708,25 +1708,27 @@ type RefundStructOutput = [
     index: bigint,
     amount: bigint,
     createdAt: bigint,
-    processed: boolean
+    _deprecated_processed: boolean
 ] & {
     index: bigint;
     amount: bigint;
     createdAt: bigint;
-    processed: boolean;
+    _deprecated_processed: boolean;
 };
 type DeliverableStructOutput = [
     id: string,
     modelRootHash: string,
     encryptedSecret: string,
     acknowledged: boolean,
-    timestamp: bigint
+    timestamp: bigint,
+    settled: boolean
 ] & {
     id: string;
     modelRootHash: string;
     encryptedSecret: string;
     acknowledged: boolean;
     timestamp: bigint;
+    settled: boolean;
 };
 type AccountDetailsStructOutput = [
     user: string,
@@ -1806,7 +1808,7 @@ type VerifierInputStruct = {
 };
 interface FineTuningServingInterface extends Interface {
     getFunction(nameOrSignature: 'MAX_LOCKTIME' | 'MIN_LOCKTIME' | 'MIN_PROVIDER_STAKE' | 'accountExists' | 'acknowledgeDeliverable' | 'acknowledgeTEESigner' | 'acknowledgeTEESignerByOwner' | 'addAccount' | 'addDeliverable' | 'addOrUpdateService' | 'deleteAccount' | 'depositFund' | 'getAccount' | 'getAccountsByProvider' | 'getAccountsByUser' | 'getAllAccounts' | 'getAllServices' | 'getBatchAccountsByUsers' | 'getDeliverable' | 'getDeliverables' | 'getPendingRefund' | 'getService' | 'initialize' | 'initialized' | 'ledgerAddress' | 'lockTime' | 'owner' | 'penaltyPercentage' | 'processRefund' | 'removeService' | 'renounceOwnership' | 'requestRefundAll' | 'revokeTEESignerAcknowledgement' | 'settleFees' | 'supportsInterface' | 'transferOwnership' | 'updateLockTime' | 'updatePenaltyPercentage'): FunctionFragment;
-    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'BalanceUpdated' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'AccountDeleted' | 'BalanceUpdated' | 'DeliverableAcknowledged' | 'DeliverableAdded' | 'DeliverableEvicted' | 'FeesSettled' | 'Initialized' | 'LockTimeUpdated' | 'OwnershipTransferred' | 'ProviderStakeReturned' | 'ProviderStaked' | 'ProviderTEESignerAcknowledged' | 'RefundRequested' | 'ServiceRemoved' | 'ServiceUpdated'): EventFragment;
     encodeFunctionData(functionFragment: 'MAX_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_LOCKTIME', values?: undefined): string;
     encodeFunctionData(functionFragment: 'MIN_PROVIDER_STAKE', values?: undefined): string;
@@ -1936,6 +1938,114 @@ declare namespace BalanceUpdatedEvent {
     type Log = TypedEventLog<Event>;
     type LogDescription = TypedLogDescription<Event>;
 }
+declare namespace DeliverableAcknowledgedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        deliverableId: string,
+        timestamp: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        deliverableId: string,
+        timestamp: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        deliverableId: string;
+        timestamp: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace DeliverableAddedEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        deliverableId: string,
+        modelRootHash: BytesLike,
+        timestamp: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        deliverableId: string,
+        modelRootHash: string,
+        timestamp: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        deliverableId: string;
+        modelRootHash: string;
+        timestamp: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace DeliverableEvictedEvent {
+    type InputTuple = [
+        provider: AddressLike,
+        user: AddressLike,
+        evictedDeliverableId: string,
+        newDeliverableId: string,
+        timestamp: BigNumberish
+    ];
+    type OutputTuple = [
+        provider: string,
+        user: string,
+        evictedDeliverableId: string,
+        newDeliverableId: string,
+        timestamp: bigint
+    ];
+    interface OutputObject {
+        provider: string;
+        user: string;
+        evictedDeliverableId: string;
+        newDeliverableId: string;
+        timestamp: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+declare namespace FeesSettledEvent {
+    type InputTuple = [
+        user: AddressLike,
+        provider: AddressLike,
+        deliverableId: string,
+        fee: BigNumberish,
+        acknowledged: boolean,
+        nonce: BigNumberish
+    ];
+    type OutputTuple = [
+        user: string,
+        provider: string,
+        deliverableId: string,
+        fee: bigint,
+        acknowledged: boolean,
+        nonce: bigint
+    ];
+    interface OutputObject {
+        user: string;
+        provider: string;
+        deliverableId: string;
+        fee: bigint;
+        acknowledged: boolean;
+        nonce: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
 declare namespace InitializedEvent {
     type InputTuple = [version: BigNumberish];
     type OutputTuple = [version: bigint];
@@ -2044,10 +2154,10 @@ declare namespace RefundRequestedEvent {
     type LogDescription = TypedLogDescription<Event>;
 }
 declare namespace ServiceRemovedEvent {
-    type InputTuple = [user: AddressLike];
-    type OutputTuple = [user: string];
+    type InputTuple = [provider: AddressLike];
+    type OutputTuple = [provider: string];
     interface OutputObject {
-        user: string;
+        provider: string;
     }
     type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
     type Filter = TypedDeferredTopicFilter<Event>;
@@ -2056,7 +2166,7 @@ declare namespace ServiceRemovedEvent {
 }
 declare namespace ServiceUpdatedEvent {
     type InputTuple = [
-        user: AddressLike,
+        provider: AddressLike,
         url: string,
         quota: QuotaStruct,
         pricePerToken: BigNumberish,
@@ -2064,7 +2174,7 @@ declare namespace ServiceUpdatedEvent {
         occupied: boolean
     ];
     type OutputTuple = [
-        user: string,
+        provider: string,
         url: string,
         quota: QuotaStructOutput,
         pricePerToken: bigint,
@@ -2072,7 +2182,7 @@ declare namespace ServiceUpdatedEvent {
         occupied: boolean
     ];
     interface OutputObject {
-        user: string;
+        provider: string;
         url: string;
         quota: QuotaStructOutput;
         pricePerToken: bigint;
@@ -2484,6 +2594,10 @@ interface FineTuningServing extends BaseContract {
     ], 'nonpayable'>;
     getEvent(key: 'AccountDeleted'): TypedContractEvent<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
     getEvent(key: 'BalanceUpdated'): TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
+    getEvent(key: 'DeliverableAcknowledged'): TypedContractEvent<DeliverableAcknowledgedEvent.InputTuple, DeliverableAcknowledgedEvent.OutputTuple, DeliverableAcknowledgedEvent.OutputObject>;
+    getEvent(key: 'DeliverableAdded'): TypedContractEvent<DeliverableAddedEvent.InputTuple, DeliverableAddedEvent.OutputTuple, DeliverableAddedEvent.OutputObject>;
+    getEvent(key: 'DeliverableEvicted'): TypedContractEvent<DeliverableEvictedEvent.InputTuple, DeliverableEvictedEvent.OutputTuple, DeliverableEvictedEvent.OutputObject>;
+    getEvent(key: 'FeesSettled'): TypedContractEvent<FeesSettledEvent.InputTuple, FeesSettledEvent.OutputTuple, FeesSettledEvent.OutputObject>;
     getEvent(key: 'Initialized'): TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
     getEvent(key: 'LockTimeUpdated'): TypedContractEvent<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
     getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
@@ -2498,6 +2612,14 @@ interface FineTuningServing extends BaseContract {
         AccountDeleted: TypedContractEvent<AccountDeletedEvent.InputTuple, AccountDeletedEvent.OutputTuple, AccountDeletedEvent.OutputObject>;
         'BalanceUpdated(address,address,uint256,uint256)': TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
         BalanceUpdated: TypedContractEvent<BalanceUpdatedEvent.InputTuple, BalanceUpdatedEvent.OutputTuple, BalanceUpdatedEvent.OutputObject>;
+        'DeliverableAcknowledged(address,address,string,uint256)': TypedContractEvent<DeliverableAcknowledgedEvent.InputTuple, DeliverableAcknowledgedEvent.OutputTuple, DeliverableAcknowledgedEvent.OutputObject>;
+        DeliverableAcknowledged: TypedContractEvent<DeliverableAcknowledgedEvent.InputTuple, DeliverableAcknowledgedEvent.OutputTuple, DeliverableAcknowledgedEvent.OutputObject>;
+        'DeliverableAdded(address,address,string,bytes,uint256)': TypedContractEvent<DeliverableAddedEvent.InputTuple, DeliverableAddedEvent.OutputTuple, DeliverableAddedEvent.OutputObject>;
+        DeliverableAdded: TypedContractEvent<DeliverableAddedEvent.InputTuple, DeliverableAddedEvent.OutputTuple, DeliverableAddedEvent.OutputObject>;
+        'DeliverableEvicted(address,address,string,string,uint256)': TypedContractEvent<DeliverableEvictedEvent.InputTuple, DeliverableEvictedEvent.OutputTuple, DeliverableEvictedEvent.OutputObject>;
+        DeliverableEvicted: TypedContractEvent<DeliverableEvictedEvent.InputTuple, DeliverableEvictedEvent.OutputTuple, DeliverableEvictedEvent.OutputObject>;
+        'FeesSettled(address,address,string,uint256,bool,uint256)': TypedContractEvent<FeesSettledEvent.InputTuple, FeesSettledEvent.OutputTuple, FeesSettledEvent.OutputObject>;
+        FeesSettled: TypedContractEvent<FeesSettledEvent.InputTuple, FeesSettledEvent.OutputTuple, FeesSettledEvent.OutputObject>;
         'Initialized(uint8)': TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
         Initialized: TypedContractEvent<InitializedEvent.InputTuple, InitializedEvent.OutputTuple, InitializedEvent.OutputObject>;
         'LockTimeUpdated(uint256,uint256)': TypedContractEvent<LockTimeUpdatedEvent.InputTuple, LockTimeUpdatedEvent.OutputTuple, LockTimeUpdatedEvent.OutputObject>;
@@ -3477,12 +3599,32 @@ declare class FineTuningBroker {
     uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<void>;
     downloadDataset: (dataPath: string, dataRoot: string) => Promise<void>;
     calculateToken: (datasetPath: string, preTrainedModelName: string, usePython: boolean, providerAddress?: string) => Promise<void>;
-    createTask: (providerAddress: string, preTrainedModelName: string, dataSize: number, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
+    createTask: (providerAddress: string, preTrainedModelName: string, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
     cancelTask: (providerAddress: string, taskID: string) => Promise<string>;
     listTask: (providerAddress: string) => Promise<Task[]>;
     getTask: (providerAddress: string, taskID?: string) => Promise<Task>;
     getLog: (providerAddress: string, taskID?: string) => Promise<string>;
-    acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, gasPrice?: number) => Promise<void>;
+    acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, options?: {
+        gasPrice?: number;
+        downloadMethod?: "tee" | "0g-storage";
+    }) => Promise<void>;
+    /**
+     * Download LoRA model directly from TEE
+     */
+    downloadLoRAFromTEE: (providerAddress: string, taskId: string, outputPath: string) => Promise<void>;
+    /**
+     * Upload dataset directly to TEE (broker)
+     * Returns the dataset hash for use in task creation
+     * This is the preferred method for testing
+     */
+    uploadDatasetToTEE: (providerAddress: string, datasetPath: string) => Promise<{
+        datasetHash: string;
+        message: string;
+    }>;
+    /**
+     * Download encrypted model from 0G Storage (for advanced use cases)
+     */
+    downloadModelFrom0GStorage: (providerAddress: string, taskId: string, dataPath: string) => Promise<void>;
     decryptModel: (providerAddress: string, taskId: string, encryptedModelPath: string, decryptedModelPath: string) => Promise<void>;
     /**
      * Verify fine-tuning service TEE attestation (DStack only)
