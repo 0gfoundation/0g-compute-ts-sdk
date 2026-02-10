@@ -23,12 +23,11 @@ export async function signRequest(
     signer: Wallet,
     userAddress: AddressLike,
     nonce: BigNumberish,
-    datasetRootHash: string,
-    fee: BigNumberish
+    datasetRootHash: string
 ): Promise<string> {
     const hash = ethers.solidityPackedKeccak256(
-        ['address', 'uint256', 'string', 'uint256'],
-        [userAddress, nonce, datasetRootHash, fee]
+        ['address', 'uint256', 'string'],
+        [userAddress, nonce, datasetRootHash]
     )
 
     return await signer.signMessage(ethers.toBeArray(hash))

@@ -55,8 +55,8 @@ function hexToRoots(hexString) {
     }
     return Buffer.from(hexString, 'hex').toString('utf8');
 }
-async function signRequest(signer, userAddress, nonce, datasetRootHash, fee) {
-    const hash = ethers_1.ethers.solidityPackedKeccak256(['address', 'uint256', 'string', 'uint256'], [userAddress, nonce, datasetRootHash, fee]);
+async function signRequest(signer, userAddress, nonce, datasetRootHash) {
+    const hash = ethers_1.ethers.solidityPackedKeccak256(['address', 'uint256', 'string'], [userAddress, nonce, datasetRootHash]);
     return await signer.signMessage(ethers_1.ethers.toBeArray(hash));
 }
 async function signTaskID(signer, taskID) {

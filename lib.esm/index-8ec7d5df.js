@@ -8582,8 +8582,8 @@ const ivLength = 12;
 const tagLength = 16;
 const sigLength = 65;
 const chunkLength = 64 * 1024 * 1024 + tagLength;
-async function signRequest(signer, userAddress, nonce, datasetRootHash, fee) {
-    const hash = ethers.solidityPackedKeccak256(['address', 'uint256', 'string', 'uint256'], [userAddress, nonce, datasetRootHash, fee]);
+async function signRequest(signer, userAddress, nonce, datasetRootHash) {
+    const hash = ethers.solidityPackedKeccak256(['address', 'uint256', 'string'], [userAddress, nonce, datasetRootHash]);
     return await signer.signMessage(ethers.toBeArray(hash));
 }
 async function signTaskID(signer, taskID) {
@@ -17263,7 +17263,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-ff934648.js');
+    const { download } = await import('./index-3c6fc7f2.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -17732,7 +17732,7 @@ class ServiceProcessor extends BrokerBase {
             throwFormattedError(error);
         }
     }
-    async createTask(providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice) {
+    async createTask(providerAddress, preTrainedModelName, datasetHash, trainingPath, gasPrice) {
         try {
             let preTrainedModelHash;
             if (preTrainedModelName in MODEL_HASH_MAP) {
@@ -17743,18 +17743,11 @@ class ServiceProcessor extends BrokerBase {
                 preTrainedModelHash = model.hash;
                 console.log(`customized model hash: ${preTrainedModelHash}`);
             }
-            const service = await this.contract.getService(providerAddress);
             const trainingParams = await readFileContent(trainingPath);
-            const parsedParams = this.verifyTrainingParams(trainingParams);
-            const trainEpochs = (parsedParams.num_train_epochs || parsedParams.total_steps) ?? 3;
-            const fee = service.pricePerToken * BigInt(dataSize) * BigInt(trainEpochs);
-            console.log(`Estimated fee: ${fee} (neuron), data size: ${dataSize}, train epochs: ${trainEpochs}, price per token: ${service.pricePerToken} (neuron)`);
-            const account = await this.contract.getAccount(providerAddress);
-            if (account.balance - account.pendingRefund < fee) {
-                await this.ledger.transferFund(providerAddress, 'fine-tuning', fee, gasPrice);
-            }
+            this.verifyTrainingParams(trainingParams);
+            console.log('Fee will be automatically calculated by the broker based on actual token count');
             const nonce = getNonce();
-            const signature = await signRequest(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash, fee);
+            const signature = await signRequest(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash);
             let wait = false;
             const counter = await this.servingProvider.getPendingTaskCounter(providerAddress);
             if (counter > 0) {
@@ -17778,7 +17771,7 @@ class ServiceProcessor extends BrokerBase {
                 datasetHash,
                 trainingParams,
                 preTrainedModelHash,
-                fee: fee.toString(),
+                fee: '0', // Fee will be calculated by broker
                 nonce: nonce.toString(),
                 signature,
                 wait,
@@ -22394,9 +22387,9 @@ class FineTuningBroker {
             throwFormattedError(error);
         }
     };
-    createTask = async (providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice) => {
+    createTask = async (providerAddress, preTrainedModelName, datasetHash, trainingPath, gasPrice) => {
         try {
-            return await this.serviceProcessor.createTask(providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice);
+            return await this.serviceProcessor.createTask(providerAddress, preTrainedModelName, datasetHash, trainingPath, gasPrice);
         }
         catch (error) {
             throwFormattedError(error);
@@ -23368,4 +23361,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-0bbc060a.js.map
+//# sourceMappingURL=index-8ec7d5df.js.map

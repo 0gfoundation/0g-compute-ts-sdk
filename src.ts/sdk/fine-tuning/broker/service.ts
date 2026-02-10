@@ -221,7 +221,6 @@ export class ServiceProcessor extends BrokerBase {
     async createTask(
         providerAddress: string,
         preTrainedModelName: string,
-        dataSize: number,
         datasetHash: string,
         trainingPath: string,
         gasPrice?: number
@@ -239,35 +238,19 @@ export class ServiceProcessor extends BrokerBase {
                 console.log(`customized model hash: ${preTrainedModelHash}`)
             }
 
-            const service = await this.contract.getService(providerAddress)
             const trainingParams = await readFileContent(trainingPath)
-            const parsedParams = this.verifyTrainingParams(trainingParams)
-            const trainEpochs =
-                (parsedParams.num_train_epochs || parsedParams.total_steps) ?? 3
-            const fee =
-                service.pricePerToken * BigInt(dataSize) * BigInt(trainEpochs)
+            this.verifyTrainingParams(trainingParams)
 
             console.log(
-                `Estimated fee: ${fee} (neuron), data size: ${dataSize}, train epochs: ${trainEpochs}, price per token: ${service.pricePerToken} (neuron)`
+                'Fee will be automatically calculated by the broker based on actual token count'
             )
-
-            const account = await this.contract.getAccount(providerAddress)
-            if (account.balance - account.pendingRefund < fee) {
-                await this.ledger.transferFund(
-                    providerAddress,
-                    'fine-tuning',
-                    fee,
-                    gasPrice
-                )
-            }
 
             const nonce = getNonce()
             const signature = await signRequest(
                 this.contract.signer,
                 this.contract.getUserAddress(),
                 BigInt(nonce),
-                datasetHash,
-                fee
+                datasetHash
             )
 
             let wait = false
@@ -302,7 +285,7 @@ export class ServiceProcessor extends BrokerBase {
                 datasetHash,
                 trainingParams,
                 preTrainedModelHash,
-                fee: fee.toString(),
+                fee: '0', // Fee will be calculated by broker
                 nonce: nonce.toString(),
                 signature,
                 wait,

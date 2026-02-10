@@ -239,7 +239,6 @@ export class FineTuningBroker {
     public createTask = async (
         providerAddress: string,
         preTrainedModelName: string,
-        dataSize: number,
         datasetHash: string,
         trainingPath: string,
         gasPrice?: number
@@ -248,7 +247,6 @@ export class FineTuningBroker {
             return await this.serviceProcessor.createTask(
                 providerAddress,
                 preTrainedModelName,
-                dataSize,
                 datasetHash,
                 trainingPath,
                 gasPrice
