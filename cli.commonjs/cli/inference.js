@@ -659,7 +659,7 @@ function inference(program) {
                 // Use createApiKey to generate a persistent token
                 const apiKey = await broker.inference.requestProcessor.createApiKey(options.provider, {
                     expiresIn: duration,
-                    tokenId: tokenId
+                    tokenId: tokenId,
                 });
                 const bearerToken = apiKey.rawToken;
                 // Get service metadata to determine service type

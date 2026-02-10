@@ -13,3 +13,7 @@ out
 dist
 
 .claude
+# Temporary scripts with sensitive data
+ack_tee.cjs
+*.secret.js
+*.secret.cjs

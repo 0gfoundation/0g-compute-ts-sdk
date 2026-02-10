@@ -1,5 +1,9 @@
 import { throwFormattedError } from '../../common/utils'
-import { MODEL_HASH_MAP, TOKEN_COUNTER_FILE_HASH, TOKEN_COUNTER_MERKLE_ROOT } from '../const'
+import {
+    MODEL_HASH_MAP,
+    TOKEN_COUNTER_FILE_HASH,
+    TOKEN_COUNTER_MERKLE_ROOT,
+} from '../const'
 import { download, upload } from '../zg-storage'
 import { BrokerBase } from './base'
 import { calculateTokenSizeViaPython, calculateTokenSizeViaExe } from '../token'

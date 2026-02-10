@@ -24,12 +24,35 @@ exports.INDEXER_URL_STANDARD = 'https://indexer-storage-testnet-standard.0g.ai';
 exports.INDEXER_URL_TURBO = 'https://indexer-storage-testnet-turbo.0g.ai';
 exports.TOKEN_COUNTER_MERKLE_ROOT = '0x4e8ae3790920b9971397f088fcfacbb9dad0c28ec2831f37f3481933b1fdbdbc';
 exports.TOKEN_COUNTER_FILE_HASH = '26ab266a12c9ce34611aba3f82baf056dc683181236d5fa15edb8eb8c8db3872';
+/**
+ * MODEL_HASH_MAP contains pre-registered model configurations for fine-tuning.
+ *
+ * Hash Validation:
+ * - Model hashes are generated from the model files stored in 0G Storage or TEE.
+ * - When a task is created, the smart contract validates the model hash against registered providers.
+ * - The 'turbo' hash is used for TEE-based (turbo) storage, 'standard' for regular 0G Storage.
+ * - Empty 'standard' hash means the model is only available via turbo storage.
+ */
 exports.MODEL_HASH_MAP = {
     'distilbert-base-uncased': {
         turbo: '0x7f2244b25cd2219dfd9d14c052982ecce409356e0f08e839b79796e270d110a7',
         standard: '',
         description: 'DistilBERT is a transformers model, smaller and faster than BERT, which was pretrained on the same corpus in a self-supervised fashion, using the BERT base model as a teacher. More details can be found at: https://huggingface.co/distilbert/distilbert-base-uncased',
         tokenizer: '0x3317127671a3217583069001b2a00454ef4d1e838f8f1f4ffbe64db0ec7ed960',
+        type: 'text',
+    },
+    'Qwen2.5-0.5B-Instruct': {
+        turbo: '0xb4f76a886b8655c92bb021922d60b5e4d9271a5c9da98b6cb10937a06c2c75a7',
+        standard: '',
+        description: 'Qwen2.5-0.5B-Instruct is a compact instruction-tuned language model optimized for LoRA fine-tuning. More details at: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct',
+        tokenizer: 'Qwen/Qwen2.5-0.5B-Instruct',
+        type: 'text',
+    },
+    'Qwen3-32B': {
+        turbo: '0x2e6f9620c35bdcb2b753cc7aa34e78077a8ed133e36fa36008fd6bdfd29af3a5',
+        standard: '',
+        description: 'Qwen3-32B is a powerful 32B parameter language model with thinking/non-thinking mode switching. Optimized for LoRA fine-tuning. More details at: https://huggingface.co/Qwen/Qwen3-32B',
+        tokenizer: 'Qwen/Qwen3-32B',
         type: 'text',
     },
     // mobilenet_v2: {

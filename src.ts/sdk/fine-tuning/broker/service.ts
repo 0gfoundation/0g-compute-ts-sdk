@@ -105,8 +105,12 @@ export class ServiceProcessor extends BrokerBase {
             const account = await this.contract.getAccount(provider)
             const lockTime = await this.getLockTime()
             const now = BigInt(Math.floor(Date.now() / 1000)) // Converts milliseconds to seconds
+
+            // Use validRefundsLength to determine valid refunds
+            // Valid refunds are in range [0, validRefundsLength)
+            const validRefundsLength = Number(account.validRefundsLength)
             const refunds = account.refunds
-                .filter((refund) => !refund.processed)
+                .slice(0, validRefundsLength) // Only consider valid refunds
                 .filter((refund) => refund.amount !== BigInt(0))
                 .map((refund) => ({
                     amount: refund.amount,
