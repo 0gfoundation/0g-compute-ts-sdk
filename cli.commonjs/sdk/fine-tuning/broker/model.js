@@ -66,13 +66,13 @@ class ModelProcessor extends base_1.BrokerBase {
             const gasPrice = options?.gasPrice;
             const downloadMethod = options?.downloadMethod ?? 'tee';
             const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
-            logger_1.logger.debug(`deliverable: ${(0, utils_1.hexToRoots)(deliverable.modelRootHash)}`);
+            logger_1.logger.debug(`deliverable: ${deliverable.modelRootHash}`);
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
             if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await (0, zg_storage_1.download)(dataPath, (0, utils_1.hexToRoots)(deliverable.modelRootHash));
+                await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
                 logger_1.logger.info('Successfully downloaded model from 0G Storage');
             }
             else {
@@ -99,7 +99,7 @@ class ModelProcessor extends base_1.BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            await (0, zg_storage_1.download)(dataPath, (0, utils_1.hexToRoots)(deliverable.modelRootHash));
+            await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
             logger_1.logger.info('Successfully downloaded model from 0G Storage');
         }
         catch (error) {

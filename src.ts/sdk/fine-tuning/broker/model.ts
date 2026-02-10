@@ -1,7 +1,6 @@
 import {
     aesGCMDecryptToFile,
     eciesDecrypt,
-    hexToRoots,
     throwFormattedError,
 } from '../../common/utils'
 import { MODEL_HASH_MAP } from '../const'
@@ -86,7 +85,7 @@ export class ModelProcessor extends BrokerBase {
             )
 
             logger.debug(
-                `deliverable: ${hexToRoots(deliverable.modelRootHash)}`
+                `deliverable: ${deliverable.modelRootHash}`
             )
 
             if (!deliverable) {
@@ -95,7 +94,7 @@ export class ModelProcessor extends BrokerBase {
 
             if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await download(dataPath, hexToRoots(deliverable.modelRootHash))
+                await download(dataPath, deliverable.modelRootHash)
                 logger.info('Successfully downloaded model from 0G Storage')
             } else {
                 // Download LoRA directly from TEE
@@ -139,7 +138,7 @@ export class ModelProcessor extends BrokerBase {
                 throw new Error('No deliverable found')
             }
 
-            await download(dataPath, hexToRoots(deliverable.modelRootHash))
+            await download(dataPath, deliverable.modelRootHash)
             logger.info('Successfully downloaded model from 0G Storage')
         } catch (error) {
             throwFormattedError(error)

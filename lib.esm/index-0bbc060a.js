@@ -8582,13 +8582,6 @@ const ivLength = 12;
 const tagLength = 16;
 const sigLength = 65;
 const chunkLength = 64 * 1024 * 1024 + tagLength;
-// Fine-tuning
-function hexToRoots(hexString) {
-    if (hexString.startsWith('0x')) {
-        hexString = hexString.slice(2);
-    }
-    return Buffer.from(hexString, 'hex').toString('utf8');
-}
 async function signRequest(signer, userAddress, nonce, datasetRootHash, fee) {
     const hash = ethers.solidityPackedKeccak256(['address', 'uint256', 'string', 'uint256'], [userAddress, nonce, datasetRootHash, fee]);
     return await signer.signMessage(ethers.toBeArray(hash));
@@ -17132,13 +17125,13 @@ class ModelProcessor extends BrokerBase {
             const gasPrice = options?.gasPrice;
             const downloadMethod = options?.downloadMethod ?? 'tee';
             const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
-            logger.debug(`deliverable: ${hexToRoots(deliverable.modelRootHash)}`);
+            logger.debug(`deliverable: ${deliverable.modelRootHash}`);
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
             if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await download(dataPath, hexToRoots(deliverable.modelRootHash));
+                await download(dataPath, deliverable.modelRootHash);
                 logger.info('Successfully downloaded model from 0G Storage');
             }
             else {
@@ -17165,7 +17158,7 @@ class ModelProcessor extends BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            await download(dataPath, hexToRoots(deliverable.modelRootHash));
+            await download(dataPath, deliverable.modelRootHash);
             logger.info('Successfully downloaded model from 0G Storage');
         }
         catch (error) {
@@ -17270,7 +17263,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-e74070a6.js');
+    const { download } = await import('./index-ff934648.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -23375,4 +23368,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-59560aee.js.map
+//# sourceMappingURL=index-0bbc060a.js.map
