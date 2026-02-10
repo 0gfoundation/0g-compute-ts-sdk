@@ -310,14 +310,74 @@ export class FineTuningBroker {
         providerAddress: string,
         taskId: string,
         dataPath: string,
-        gasPrice?: number
+        options?: {
+            gasPrice?: number
+            downloadMethod?: 'tee' | '0g-storage'
+        }
     ): Promise<void> => {
         try {
             return await this.modelProcessor.acknowledgeModel(
                 providerAddress,
                 taskId,
                 dataPath,
-                gasPrice
+                options
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Download LoRA model directly from TEE
+     */
+    public downloadLoRAFromTEE = async (
+        providerAddress: string,
+        taskId: string,
+        outputPath: string
+    ): Promise<void> => {
+        try {
+            return await this.modelProcessor.downloadLoRAFromTEE(
+                providerAddress,
+                taskId,
+                outputPath
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Upload dataset directly to TEE (broker)
+     * Returns the dataset hash for use in task creation
+     * This is the preferred method for testing
+     */
+    public uploadDatasetToTEE = async (
+        providerAddress: string,
+        datasetPath: string
+    ): Promise<{ datasetHash: string; message: string }> => {
+        try {
+            return await this.serviceProvider.uploadDatasetToTEE(
+                providerAddress,
+                datasetPath
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Download encrypted model from 0G Storage (for advanced use cases)
+     */
+    public downloadModelFrom0GStorage = async (
+        providerAddress: string,
+        taskId: string,
+        dataPath: string
+    ): Promise<void> => {
+        try {
+            return await this.modelProcessor.downloadModelFrom0GStorage(
+                providerAddress,
+                taskId,
+                dataPath
             )
         } catch (error) {
             throwFormattedError(error)
@@ -385,10 +445,7 @@ export class FineTuningBroker {
         outputDir: string = '.'
     ): Promise<VerificationResult> => {
         try {
-            return await this.verifier.verifyService(
-                providerAddress,
-                outputDir
-            )
+            return await this.verifier.verifyService(providerAddress, outputDir)
         } catch (error) {
             throwFormattedError(error)
         }

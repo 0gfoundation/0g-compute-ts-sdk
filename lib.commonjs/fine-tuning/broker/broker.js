@@ -189,9 +189,44 @@ class FineTuningBroker {
             (0, utils_1.throwFormattedError)(error);
         }
     };
-    acknowledgeModel = async (providerAddress, taskId, dataPath, gasPrice) => {
+    acknowledgeModel = async (providerAddress, taskId, dataPath, options) => {
         try {
-            return await this.modelProcessor.acknowledgeModel(providerAddress, taskId, dataPath, gasPrice);
+            return await this.modelProcessor.acknowledgeModel(providerAddress, taskId, dataPath, options);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
+    /**
+     * Download LoRA model directly from TEE
+     */
+    downloadLoRAFromTEE = async (providerAddress, taskId, outputPath) => {
+        try {
+            return await this.modelProcessor.downloadLoRAFromTEE(providerAddress, taskId, outputPath);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
+    /**
+     * Upload dataset directly to TEE (broker)
+     * Returns the dataset hash for use in task creation
+     * This is the preferred method for testing
+     */
+    uploadDatasetToTEE = async (providerAddress, datasetPath) => {
+        try {
+            return await this.serviceProvider.uploadDatasetToTEE(providerAddress, datasetPath);
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    };
+    /**
+     * Download encrypted model from 0G Storage (for advanced use cases)
+     */
+    downloadModelFrom0GStorage = async (providerAddress, taskId, dataPath) => {
+        try {
+            return await this.modelProcessor.downloadModelFrom0GStorage(providerAddress, taskId, dataPath);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

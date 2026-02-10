@@ -114,9 +114,7 @@ export class Verifier extends BrokerBase {
 
             console.log(`   Provider URL: ${service.url}`)
             console.log(`   TEE Verifier: dstack (Intel TDX)`)
-            console.log(
-                '   Verification Method: DStack TEE (Intel TDX)'
-            )
+            console.log('   Verification Method: DStack TEE (Intel TDX)')
             console.log(
                 '   Verification includes: Quote validation, Compose hash check, Image integrity'
             )
@@ -125,8 +123,9 @@ export class Verifier extends BrokerBase {
 
             // Step 2: Get attestation report
             console.log('📥 Step 2: Downloading attestation report...')
-            const { rawReport } =
-                await this.servingProvider.getQuote(providerAddress)
+            const { rawReport } = await this.servingProvider.getQuote(
+                providerAddress
+            )
 
             if (!rawReport) {
                 throw new Error('Failed to get quote from provider')
@@ -157,9 +156,7 @@ export class Verifier extends BrokerBase {
                 signerMatches =
                     reportSignerAddress.toLowerCase() ===
                     service.teeSignerAddress.toLowerCase()
-                console.log(
-                    `   Report Signer Address: ${reportSignerAddress}`
-                )
+                console.log(`   Report Signer Address: ${reportSignerAddress}`)
                 console.log(
                     `   Address Match: ${
                         signerMatches ? '✅ MATCH' : '❌ MISMATCH'
@@ -362,13 +359,8 @@ export class Verifier extends BrokerBase {
     ): Promise<{ images: string[]; composeVerificationPassed: boolean }> {
         console.log(`   Processing attestation report...`)
 
-        if (
-            !(report.tcb_info || report.info?.tcb_info) ||
-            !report.event_log
-        ) {
-            console.log(
-                `   ⚠️  Warning: report missing tcb_info or event_log`
-            )
+        if (!(report.tcb_info || report.info?.tcb_info) || !report.event_log) {
+            console.log(`   ⚠️  Warning: report missing tcb_info or event_log`)
             return { images: [], composeVerificationPassed: false }
         }
 
@@ -376,10 +368,7 @@ export class Verifier extends BrokerBase {
             // Parse tcb_info if it's a string
             let tcbInfo: Record<string, unknown>
             if (typeof report.tcb_info === 'string') {
-                tcbInfo = JSON.parse(report.tcb_info) as Record<
-                    string,
-                    unknown
-                >
+                tcbInfo = JSON.parse(report.tcb_info) as Record<string, unknown>
             } else {
                 tcbInfo =
                     report.tcb_info ||

@@ -21,6 +21,15 @@ export declare const INDEXER_URL_STANDARD = "https://indexer-storage-testnet-sta
 export declare const INDEXER_URL_TURBO = "https://indexer-storage-testnet-turbo.0g.ai";
 export declare const TOKEN_COUNTER_MERKLE_ROOT = "0x4e8ae3790920b9971397f088fcfacbb9dad0c28ec2831f37f3481933b1fdbdbc";
 export declare const TOKEN_COUNTER_FILE_HASH = "26ab266a12c9ce34611aba3f82baf056dc683181236d5fa15edb8eb8c8db3872";
+/**
+ * MODEL_HASH_MAP contains pre-registered model configurations for fine-tuning.
+ *
+ * Hash Validation:
+ * - Model hashes are generated from the model files stored in 0G Storage or TEE.
+ * - When a task is created, the smart contract validates the model hash against registered providers.
+ * - The 'turbo' hash is used for TEE-based (turbo) storage, 'standard' for regular 0G Storage.
+ * - Empty 'standard' hash means the model is only available via turbo storage.
+ */
 export declare const MODEL_HASH_MAP: {
     [key: string]: {
         [key: string]: string;

@@ -13,7 +13,9 @@ import { TOKEN_COUNTER_MERKLE_ROOT } from '../sdk/fine-tuning/const'
 export default function fineTuning(program: Command) {
     program
         .command('verify')
-        .description('Verify the reliability and TEE attestation of a fine-tuning service')
+        .description(
+            'Verify the reliability and TEE attestation of a fine-tuning service'
+        )
         .requiredOption('--provider <address>', 'Provider address')
         .option(
             '--output-dir <path>',
@@ -37,7 +39,10 @@ export default function fineTuning(program: Command) {
 
                 if (!result.success) {
                     console.error('❌ Service verification failed')
-                    console.error('   Reports saved to:', result.outputDirectory)
+                    console.error(
+                        '   Reports saved to:',
+                        result.outputDirectory
+                    )
                     console.error(
                         '   Review the attestation reports for details'
                     )
@@ -189,7 +194,11 @@ export default function fineTuning(program: Command) {
             '--data-size <size>',
             'Token number of the dataset. Use calculate-token command for the calculation'
         )
-        .requiredOption('--dataset <hash>', 'Hash of the dataset')
+        .option('--dataset <hash>', 'Hash of the dataset (from 0G Storage)')
+        .option(
+            '--dataset-path <path>',
+            'Path to the dataset file (will be uploaded directly to TEE)'
+        )
         .requiredOption(
             '--config-path <path>',
             'Fine-tuning configuration path'
@@ -202,6 +211,37 @@ export default function fineTuning(program: Command) {
         .option('--step <step>', 'Step for gas price adjustment')
         .action((options) => {
             withFineTuningBroker(options, async (broker) => {
+                // Validate: exactly one of --dataset or --dataset-path must be provided
+                if (!options.dataset && !options.datasetPath) {
+                    console.error(
+                        chalk.red(
+                            'Error: Either --dataset (hash) or --dataset-path (file path) must be provided'
+                        )
+                    )
+                    process.exit(1)
+                }
+                if (options.dataset && options.datasetPath) {
+                    console.error(
+                        chalk.red(
+                            'Error: --dataset and --dataset-path are mutually exclusive. Please provide only one.'
+                        )
+                    )
+                    process.exit(1)
+                }
+
+                let datasetHash = options.dataset
+
+                // If dataset-path is provided, upload to TEE first
+                if (options.datasetPath) {
+                    console.log('Uploading dataset to TEE...')
+                    const result = await broker.fineTuning!.uploadDatasetToTEE(
+                        options.provider,
+                        options.datasetPath
+                    )
+                    datasetHash = result.datasetHash
+                    console.log('Dataset uploaded, hash:', datasetHash)
+                }
+
                 console.log('Verify provider...')
                 await broker.fineTuning!.acknowledgeProviderSigner(
                     options.provider,
@@ -214,7 +254,7 @@ export default function fineTuning(program: Command) {
                     options.provider,
                     options.model,
                     parseInt(options.dataSize, 10),
-                    options.dataset,
+                    datasetHash,
                     options.configPath,
                     options.gasPrice
                 )
@@ -338,13 +378,23 @@ export default function fineTuning(program: Command) {
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price adjustment')
+        .option(
+            '--download-method <method>',
+            'Download method: tee or 0g-storage (default: tee)'
+        )
         .action((options) => {
             withFineTuningBroker(options, async (broker) => {
                 await broker.fineTuning!.acknowledgeModel(
                     options.provider,
                     options.taskId,
                     options.dataPath,
-                    options.gasPrice
+                    {
+                        gasPrice: options.gasPrice,
+                        downloadMethod: options.downloadMethod as
+                            | 'tee'
+                            | '0g-storage'
+                            | undefined,
+                    }
                 )
                 console.log('Acknowledged model')
             })

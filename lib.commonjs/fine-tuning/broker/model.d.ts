@@ -24,52 +24,27 @@ export declare class ModelProcessor extends BrokerBase {
         [key: string]: string;
     }][][]>;
     /**
-     * Acknowledge receipt of a fine-tuned model from a provider.
-     * Downloads the encrypted model from 0G Storage and confirms receipt on-chain.
-     *
-     * @param providerAddress - Address of the provider who trained the model
-     * @param taskId - ID of the fine-tuning task
-     * @param dataPath - Local path where the encrypted model will be saved
-     * @param gasPrice - Optional gas price for the transaction
-     * @throws Error if no deliverable found or download fails
-     *
-     * @example
-     * ```typescript
-     * await broker.fineTuning.acknowledgeModel(
-     *   '0x1234...',
-     *   'task-123',
-     *   './encrypted-model.bin'
-     * );
-     * ```
+     * Acknowledge model delivery and download the trained model
+     * @param providerAddress - The provider's address
+     * @param taskId - The task ID
+     * @param dataPath - Path to save the downloaded model
+     * @param options - Optional configuration
+     * @param options.gasPrice - Gas price for the transaction
+     * @param options.downloadMethod - Download method: 'tee' (default) or '0g-storage'
      */
-    acknowledgeModel(providerAddress: string, taskId: string, dataPath: string, gasPrice?: number): Promise<void>;
+    acknowledgeModel(providerAddress: string, taskId: string, dataPath: string, options?: {
+        gasPrice?: number;
+        downloadMethod?: 'tee' | '0g-storage';
+    }): Promise<void>;
     /**
-     * Decrypt a fine-tuned model after acknowledgement.
-     * Uses the user's private key to decrypt the model encryption key,
-     * then decrypts the model file.
-     *
-     * @param providerAddress - Address of the provider who trained the model
-     * @param taskId - ID of the fine-tuning task
-     * @param encryptedModelPath - Local path to the encrypted model file
-     * @param decryptedModelPath - Local path where the decrypted model will be saved
-     * @throws Error if deliverable not found, not acknowledged, or decryption fails
-     *
-     * @example
-     * ```typescript
-     * await broker.fineTuning.decryptModel(
-     *   '0x1234...',
-     *   'task-123',
-     *   './encrypted-model.bin',
-     *   './my-model'
-     * );
-     * ```
-     *
-     * @remarks
-     * The model can only be decrypted after:
-     * 1. The provider has delivered the encrypted model
-     * 2. The user has acknowledged the model (called acknowledgeModel)
-     * 3. The provider has shared the encrypted decryption key
+     * Download model from 0G Storage (original method, for encrypted full model)
      */
+    downloadModelFrom0GStorage(providerAddress: string, taskId: string, dataPath: string): Promise<void>;
+    /**
+     * Download LoRA model directly from TEE (without acknowledge)
+     * Use this when you only want to download the trained LoRA adapter
+     */
+    downloadLoRAFromTEE(providerAddress: string, taskId: string, outputPath: string): Promise<void>;
     decryptModel(providerAddress: string, taskId: string, encryptedModelPath: string, decryptedModelPath: string): Promise<void>;
 }
 //# sourceMappingURL=model.d.ts.map
