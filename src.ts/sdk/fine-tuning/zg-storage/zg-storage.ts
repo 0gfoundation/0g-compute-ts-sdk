@@ -8,7 +8,7 @@ export async function upload(
     dataPath: string,
     gasPrice?: number,
     maxGasPrice?: number
-): Promise<void> {
+): Promise<string> {
     try {
         const fileSize = await getFileContentSize(dataPath)
 
@@ -44,26 +44,43 @@ export async function upload(
                 args.push('--max-gas-price', maxGasPrice.toString())
             }
 
-            const process = spawn(command, args)
+            let rootHash = ''
+            const childProcess = spawn(command, args)
 
-            process.stdout.on('data', (data) => {
-                console.log(`${data}`)
+            childProcess.stdout.on('data', (data) => {
+                const output = data.toString()
+                console.log(output)
+                // Capture root hash from output: "file uploaded, root = 0x..."
+                const match = output.match(
+                    /root\s*=\s*(0x[0-9a-fA-F]+)/
+                )
+                if (match) {
+                    rootHash = match[1]
+                }
             })
 
-            process.stderr.on('data', (data) => {
-                console.error(`${data}`)
+            childProcess.stderr.on('data', (data) => {
+                const output = data.toString()
+                console.error(output)
+                // Also check stderr since some log output goes to stderr
+                const match = output.match(
+                    /root\s*=\s*(0x[0-9a-fA-F]+)/
+                )
+                if (match) {
+                    rootHash = match[1]
+                }
             })
 
-            process.on('close', (code) => {
+            childProcess.on('close', (code) => {
                 if (code !== 0) {
                     reject(new Error(`Process exited with code ${code}`))
                 } else {
                     console.log(`File size: ${fileSize} bytes`)
-                    resolve()
+                    resolve(rootHash)
                 }
             })
 
-            process.on('error', (err) => {
+            childProcess.on('error', (err) => {
                 reject(err)
             })
         })

@@ -30,11 +30,11 @@ export declare class ModelProcessor extends BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: 'tee' (default) or '0g-storage'
+     * @param options.downloadMethod - Download method: '0g-storage' (default), 'tee', or 'auto' (try 0G Storage first, fallback to TEE)
      */
     acknowledgeModel(providerAddress: string, taskId: string, dataPath: string, options?: {
         gasPrice?: number;
-        downloadMethod?: 'tee' | '0g-storage';
+        downloadMethod?: 'tee' | '0g-storage' | 'auto';
     }): Promise<void>;
     /**
      * Download model from 0G Storage (original method, for encrypted full model)
