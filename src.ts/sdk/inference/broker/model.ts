@@ -14,11 +14,13 @@ export type Verifiability =
     | VerifiabilityEnum.TeeML
     | VerifiabilityEnum.ZKML
 
+export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'unknown'
+
 export interface ServiceHealthMetric {
     serviceType: string
     model: string
     provider: string
-    status: string
+    status: HealthStatus
     checks: {
         total: number
         successful: number
@@ -118,12 +120,11 @@ export class ModelProcessor extends ZGServingUserBrokerBase {
                 const response = await axios.get(
                     `${healthApiEndpoint}/health`,
                     {
-                        timeout: 5000, // 5 second timeout
+                        timeout: 10000, // 10 second timeout
                     }
                 )
                 healthMetrics = response.data.services || []
             } catch (error) {
-                console.warn('Failed to fetch health metrics:', error)
                 // Continue without health metrics
             }
 

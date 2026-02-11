@@ -44,12 +44,11 @@ class ModelProcessor extends base_1.ZGServingUserBrokerBase {
             let healthMetrics = [];
             try {
                 const response = await axios_1.default.get(`${healthApiEndpoint}/health`, {
-                    timeout: 5000, // 5 second timeout
+                    timeout: 10000, // 10 second timeout
                 });
                 healthMetrics = response.data.services || [];
             }
             catch (error) {
-                console.warn('Failed to fetch health metrics:', error);
                 // Continue without health metrics
             }
             // Create a map of health metrics by provider address

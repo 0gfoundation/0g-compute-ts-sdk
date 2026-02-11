@@ -6,11 +6,12 @@ export declare enum VerifiabilityEnum {
     ZKML = "ZKML"
 }
 export type Verifiability = VerifiabilityEnum.OpML | VerifiabilityEnum.TeeML | VerifiabilityEnum.ZKML;
+export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'unknown';
 export interface ServiceHealthMetric {
     serviceType: string;
     model: string;
     provider: string;
-    status: string;
+    status: HealthStatus;
     checks: {
         total: number;
         successful: number;
