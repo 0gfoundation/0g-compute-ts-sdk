@@ -105,8 +105,8 @@ export default function inference(program: Command) {
                             'Input Price Per Token (0G)',
                             service.inputPrice
                                 ? neuronToA0gi(
-                                      BigInt(service.inputPrice)
-                                  ).toFixed(18)
+                                    BigInt(service.inputPrice)
+                                ).toFixed(18)
                                 : 'N/A',
                         ])
                     }
@@ -114,7 +114,7 @@ export default function inference(program: Command) {
                     // Change output price label for text-to-image and image-editing services
                     const outputPriceLabel =
                         service.serviceType === 'text-to-image' ||
-                        service.serviceType === 'image-editing'
+                            service.serviceType === 'image-editing'
                             ? 'Price Per Image (OG)'
                             : 'Output Price Per Token (0G)'
 
@@ -122,8 +122,8 @@ export default function inference(program: Command) {
                         outputPriceLabel,
                         service.outputPrice
                             ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                  18
-                              )
+                                18
+                            )
                             : 'N/A',
                     ])
                     table.push([
@@ -132,6 +132,111 @@ export default function inference(program: Command) {
                     ])
                 })
                 console.log(table.toString())
+            })
+        })
+
+    program
+        .command('list-providers-detail')
+        .description(
+            'List inference providers with health metrics (uptime and latency)'
+        )
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option(
+            '--include-invalid',
+            'Include all services, even those without valid teeSignerAddress'
+        )
+        .action((options: any) => {
+            const table = new Table({
+                colWidths: [50, 50],
+            })
+            withBroker(options, async (broker) => {
+                // TODO: Support pagination for listing services
+                const services = await broker.inference.listServiceWithDetail(
+                    0,
+                    50,
+                    options.includeInvalid
+                )
+                services.forEach((service, index) => {
+                    const health = service.healthMetrics
+
+                    table.push([
+                        chalk.blue(`Provider ${index + 1}`),
+                        chalk.blue(service.provider),
+                    ])
+                    table.push(['Model', service.model || 'N/A'])
+
+                    // Only show input price for non text-to-image and non image-editing services
+                    if (
+                        service.serviceType !== 'text-to-image' &&
+                        service.serviceType !== 'image-editing'
+                    ) {
+                        table.push([
+                            'Input Price Per Token (0G)',
+                            service.inputPrice
+                                ? neuronToA0gi(
+                                    BigInt(service.inputPrice)
+                                ).toFixed(18)
+                                : 'N/A',
+                        ])
+                    }
+
+                    // Change output price label for text-to-image and image-editing services
+                    const outputPriceLabel =
+                        service.serviceType === 'text-to-image' ||
+                            service.serviceType === 'image-editing'
+                            ? 'Price Per Image (OG)'
+                            : 'Output Price Per Token (0G)'
+
+                    table.push([
+                        outputPriceLabel,
+                        service.outputPrice
+                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
+                                18
+                            )
+                            : 'N/A',
+                    ])
+                    table.push([
+                        'Verifiability',
+                        service.verifiability || 'N/A',
+                    ])
+
+                    // Add health metrics
+                    if (health?.status) {
+                        let statusDisplay = ''
+                        if (health.status === 'healthy') {
+                            statusDisplay = chalk.green('✓ Healthy')
+                        } else if (health.status === 'warning') {
+                            statusDisplay = chalk.yellow('⚠ Warning')
+                        } else {
+                            statusDisplay = chalk.red('✗ Critical')
+                        }
+                        table.push(['Health Status', statusDisplay])
+
+                        if (health.uptime !== undefined) {
+                            const uptimeDisplay =
+                                health.uptime >= 85
+                                    ? chalk.green(`${health.uptime}%`)
+                                    : health.uptime >= 70
+                                        ? chalk.yellow(`${health.uptime}%`)
+                                        : chalk.red(`${health.uptime}%`)
+                            table.push(['Uptime', uptimeDisplay])
+                        }
+                    } else {
+                        table.push([
+                            'Health Status',
+                            chalk.gray('No metrics available'),
+                        ])
+                    }
+                })
+                console.log(table.toString())
+                console.log(
+                    chalk.gray(
+                        '\nNote: Health metrics are fetched from the monitoring API. ' +
+                        'Services without metrics may be newly registered or temporarily unavailable.'
+                    )
+                )
             })
         })
 
@@ -587,7 +692,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)
@@ -688,7 +793,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)
@@ -778,8 +883,7 @@ export default function inference(program: Command) {
                     }
 
                     console.log(
-                        `\n${chalk.blue('Log file:')} ${options.component}/${
-                            options.filename
+                        `\n${chalk.blue('Log file:')} ${options.component}/${options.filename
                         }`
                     )
                     console.log(`${chalk.blue('Provider:')} ${userAddress}`)
@@ -804,7 +908,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)

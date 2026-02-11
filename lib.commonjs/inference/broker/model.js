@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelProcessor = exports.VerifiabilityEnum = void 0;
 exports.isVerifiability = isVerifiability;
+const tslib_1 = require("tslib");
 const base_1 = require("./base");
 const utils_1 = require("../../common/utils");
+const axios_1 = tslib_1.__importDefault(require("axios"));
 var VerifiabilityEnum;
 (function (VerifiabilityEnum) {
     VerifiabilityEnum["OpML"] = "OpML";
@@ -18,6 +20,87 @@ class ModelProcessor extends base_1.ZGServingUserBrokerBase {
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved or health API is unreachable.
+     */
+    async listServiceWithDetail(offset = 0, limit = 50, includeUnacknowledged = false) {
+        try {
+            // Get services from blockchain
+            const services = await this.listService(offset, limit, includeUnacknowledged);
+            // Determine health API endpoint based on chain ID
+            const chainId = await this.contract.signer.provider
+                ?.getNetwork()
+                .then((n) => n.chainId);
+            const healthApiEndpoint = this.getHealthApiEndpoint(chainId);
+            // Fetch health metrics from API
+            let healthMetrics = [];
+            try {
+                const response = await axios_1.default.get(`${healthApiEndpoint}/health`, {
+                    timeout: 10000, // 10 second timeout
+                });
+                healthMetrics = response.data.services || [];
+            }
+            catch (error) {
+                // Continue without health metrics
+            }
+            // Create a map of health metrics by provider address
+            const healthMap = new Map();
+            for (const metric of healthMetrics) {
+                healthMap.set(metric.provider.toLowerCase(), metric);
+            }
+            // Merge health metrics with services
+            // Note: Cannot use spread operator on ethers Result objects as it loses named properties
+            const servicesWithDetail = services.map((service) => {
+                const health = healthMap.get(service.provider.toLowerCase());
+                return {
+                    provider: service.provider,
+                    serviceType: service.serviceType,
+                    url: service.url,
+                    inputPrice: service.inputPrice,
+                    outputPrice: service.outputPrice,
+                    updatedAt: service.updatedAt,
+                    model: service.model,
+                    verifiability: service.verifiability,
+                    additionalInfo: service.additionalInfo,
+                    teeSignerAddress: service.teeSignerAddress,
+                    teeSignerAcknowledged: service.teeSignerAcknowledged,
+                    healthMetrics: health
+                        ? {
+                            status: health.status,
+                            uptime: health.checks.uptime,
+                            avgResponseTime: health.performance.response_time?.avg ?? 0,
+                            lastCheck: health.lastCheck,
+                        }
+                        : undefined,
+                };
+            });
+            return servicesWithDetail;
+        }
+        catch (error) {
+            (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    /**
+     * Get health API endpoint based on chain ID
+     * @param chainId - The chain ID
+     * @returns The health API endpoint URL
+     */
+    getHealthApiEndpoint(chainId) {
+        // Mainnet: 16661n, Testnet: 16602n
+        if (chainId === 16661n) {
+            return 'https://compute-status.0g.ai';
+        }
+        else {
+            // Default to testnet
+            return 'https://compute-status-testnet.0g.ai';
         }
     }
     /**

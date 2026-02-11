@@ -17,3 +17,5 @@ dist
 ack_tee.cjs
 *.secret.js
 *.secret.cjs
+
+.pnpm-store

@@ -99,6 +99,46 @@ export class InferenceBroker {
     }
 
     /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * This method combines on-chain service data with real-time health metrics including
+     * uptime percentage and average response time (latency) for each service provider.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved.
+     *
+     * @example
+     * ```typescript
+     * const servicesWithHealth = await broker.inference.listServiceWithDetail();
+     * servicesWithHealth.forEach(service => {
+     *   console.log(`Provider: ${service.provider}`);
+     *   if (service.healthMetrics) {
+     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
+     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
+     *   }
+     * });
+     * ```
+     */
+    public listServiceWithDetail = async (
+        offset: number = 0,
+        limit: number = 50,
+        includeUnacknowledged: boolean = false
+    ) => {
+        try {
+            return await this.modelProcessor.listServiceWithDetail(
+                offset,
+                limit,
+                includeUnacknowledged
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
      * Retrieves the account information for a given provider address.
      *
      * @param {string} providerAddress - The address of the provider identifying the account.

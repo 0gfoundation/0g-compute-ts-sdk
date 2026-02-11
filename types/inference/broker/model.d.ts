@@ -6,8 +6,74 @@ export declare enum VerifiabilityEnum {
     ZKML = "ZKML"
 }
 export type Verifiability = VerifiabilityEnum.OpML | VerifiabilityEnum.TeeML | VerifiabilityEnum.ZKML;
+export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'unknown';
+export interface ServiceHealthMetric {
+    serviceType: string;
+    model: string;
+    provider: string;
+    status: HealthStatus;
+    checks: {
+        total: number;
+        successful: number;
+        failed: number;
+        uptime: number;
+    };
+    performance: {
+        response_time?: {
+            avg: number;
+            unit: string;
+            samples: number;
+        };
+        ttft?: {
+            avg: number;
+            unit: string;
+            samples: number;
+        };
+        tokens_per_second?: {
+            avg: number;
+            unit: string;
+            samples: number;
+        };
+    };
+    lastCheck: string;
+}
+export interface ServiceWithDetail {
+    provider: string;
+    serviceType: string;
+    url: string;
+    inputPrice: bigint;
+    outputPrice: bigint;
+    updatedAt: bigint;
+    model: string;
+    verifiability: string;
+    additionalInfo: string;
+    teeSignerAddress: string;
+    teeSignerAcknowledged: boolean;
+    healthMetrics?: {
+        status: string;
+        uptime: number;
+        avgResponseTime: number;
+        lastCheck: string;
+    };
+}
 export declare class ModelProcessor extends ZGServingUserBrokerBase {
     listService(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceStructOutput[]>;
+    /**
+     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     *
+     * @param {number} offset - The offset for pagination (default: 0).
+     * @param {number} limit - The limit for pagination (default: 50).
+     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
+     * @throws An error if the service list cannot be retrieved or health API is unreachable.
+     */
+    listServiceWithDetail(offset?: number, limit?: number, includeUnacknowledged?: boolean): Promise<ServiceWithDetail[]>;
+    /**
+     * Get health API endpoint based on chain ID
+     * @param chainId - The chain ID
+     * @returns The health API endpoint URL
+     */
+    private getHealthApiEndpoint;
     /**
      * Remove service (Provider owner only)
      *

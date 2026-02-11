@@ -5,6 +5,7 @@
         "declarationDir": "./types",
         "emitDeclarationOnly": true,
         "moduleResolution": "node",
-        "module": "esnext"
+        "module": "esnext",
+        "tsBuildInfoFile": "./types/.tsbuildinfo"
     }
 }

@@ -113,7 +113,7 @@ class BrowserCryptoAdapter implements CryptoAdapter {
     ): Promise<{ encrypted: Buffer; authTag: Buffer }> {
         const cryptoKey = await crypto.subtle.importKey(
             'raw',
-            key,
+            new Uint8Array(key),
             { name: 'AES-GCM' },
             false,
             ['encrypt']
@@ -122,11 +122,11 @@ class BrowserCryptoAdapter implements CryptoAdapter {
         const result = await crypto.subtle.encrypt(
             {
                 name: 'AES-GCM',
-                iv: iv,
+                iv: new Uint8Array(iv),
                 tagLength: 128,
             },
             cryptoKey,
-            data
+            new Uint8Array(data)
         )
 
         const encrypted = new Uint8Array(result.slice(0, -16))
@@ -146,20 +146,20 @@ class BrowserCryptoAdapter implements CryptoAdapter {
     ): Promise<Buffer> {
         const cryptoKey = await crypto.subtle.importKey(
             'raw',
-            key,
+            new Uint8Array(key),
             { name: 'AES-GCM' },
             false,
             ['decrypt']
         )
 
         const combined = new Uint8Array(encryptedData.length + authTag.length)
-        combined.set(encryptedData, 0)
-        combined.set(authTag, encryptedData.length)
+        combined.set(new Uint8Array(encryptedData), 0)
+        combined.set(new Uint8Array(authTag), encryptedData.length)
 
         const result = await crypto.subtle.decrypt(
             {
                 name: 'AES-GCM',
-                iv: iv,
+                iv: new Uint8Array(iv),
                 tagLength: 128,
             },
             cryptoKey,

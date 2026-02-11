@@ -3,6 +3,7 @@
     "compilerOptions": {
         "moduleResolution": "Bundler", // TS-5.2 updates about compiler option 'module' and 'moduleResolution' https://github.com/microsoft/TypeScript/pull/54567 and https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/#module-and-moduleresolution-must-match-under-recent-node-js-settings
         "module": "es2020",
-        "outDir": "./lib.esm"
+        "outDir": "./lib.esm",
+        "tsBuildInfoFile": "./lib.esm/.tsbuildinfo"
     }
 }

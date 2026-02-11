@@ -24,7 +24,8 @@
         "skipLibCheck": true,
         "allowJs": true,
         "module": "commonjs",
-        "outDir": "./cli.commonjs"
+        "outDir": "./cli.commonjs",
+        "tsBuildInfoFile": "./cli.commonjs/.tsbuildinfo"
     },
     "exclude": [],
     "include": ["./src.ts/cli/**/*.ts"]

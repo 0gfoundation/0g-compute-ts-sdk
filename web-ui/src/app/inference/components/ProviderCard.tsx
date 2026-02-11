@@ -24,7 +24,13 @@ import {
 } from 'lucide-react'
 import { cn, copyToClipboard } from '@/lib/utils'
 import type { Provider } from '@/shared/types/broker'
-import { isProviderUnstable, isOfficial0GProvider } from '@/shared/config/unstableProviders'
+import { isOfficial0GProvider } from '@/shared/config/unstableProviders'
+import {
+    useProviderHealth,
+    getModelHealthStatus,
+    getHealthStatusColor,
+    getHealthStatusText,
+} from '@/shared/hooks/useProviderHealth'
 
 interface ProviderCardProps {
     provider: Provider
@@ -55,17 +61,25 @@ export function ProviderCard({
 }: ProviderCardProps) {
     const isVerified = provider.teeSignerAcknowledged ?? false
     const isDisabled = !isVerified
-    const isUnstable = isProviderUnstable(provider.address)
     const is0GOfficial = isOfficial0GProvider(provider.address)
+
+    // Get real-time health status for this specific model using SWR hook
+    const { healthData, isLoading: isLoadingHealth } = useProviderHealth()
+    const healthStatus = React.useMemo(
+        () =>
+            getModelHealthStatus(healthData, provider.address, provider.model),
+        [healthData, provider.address, provider.model]
+    )
 
     // Determine service type category for UI display
     // Separate text-to-image from image-editing (which requires file upload)
-    const isImageEditing = provider.serviceType === 'image-editing' ||
+    const isImageEditing =
+        provider.serviceType === 'image-editing' ||
         provider.name?.toLowerCase().includes('edit')
-    const isTextToImage = !isImageEditing && (
-        provider.serviceType === 'text-to-image' ||
-        provider.name?.toLowerCase().includes('image')
-    )
+    const isTextToImage =
+        !isImageEditing &&
+        (provider.serviceType === 'text-to-image' ||
+            provider.name?.toLowerCase().includes('image'))
     const isImageService = isTextToImage || isImageEditing
     const isChatService = provider.serviceType === 'chatbot'
     const isSpeechService = provider.serviceType === 'speech-to-text'
@@ -74,7 +88,10 @@ export function ProviderCard({
         await copyToClipboard(provider.address)
     }
 
-    const truncatedAddress = `${provider.address.slice(0, 8)}...${provider.address.slice(-6)}`
+    const truncatedAddress = `${provider.address.slice(
+        0,
+        8
+    )}...${provider.address.slice(-6)}`
 
     return (
         <Card
@@ -104,11 +121,56 @@ export function ProviderCard({
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <div className="flex items-center">
-                                            <div className={`w-2 h-2 rounded-full ${isUnstable ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
+                                            {isLoadingHealth ? (
+                                                <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
+                                            ) : (
+                                                <div
+                                                    className={cn(
+                                                        'w-2 h-2 rounded-full',
+                                                        getHealthStatusColor(
+                                                            healthStatus.status
+                                                        )
+                                                    )}
+                                                />
+                                            )}
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>{isUnstable ? 'Limited Availability' : 'High Availability'}</p>
+                                        <div className="text-sm">
+                                            <p className="font-semibold mb-1">
+                                                {getHealthStatusText(
+                                                    healthStatus.status
+                                                )}
+                                            </p>
+                                            {healthStatus.uptime !== null && (
+                                                <p className="text-xs">
+                                                    Uptime:{' '}
+                                                    {healthStatus.uptime.toFixed(
+                                                        2
+                                                    )}
+                                                    %
+                                                </p>
+                                            )}
+                                            {healthStatus.serviceInfo && (
+                                                <div className="mt-1 text-xs">
+                                                    {healthStatus.serviceInfo
+                                                        .performance
+                                                        .response_time && (
+                                                        <p>
+                                                            Avg Response:{' '}
+                                                            {
+                                                                healthStatus
+                                                                    .serviceInfo
+                                                                    .performance
+                                                                    .response_time
+                                                                    .avg
+                                                            }
+                                                            ms
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
@@ -141,11 +203,17 @@ export function ProviderCard({
                                     <TooltipTrigger asChild>
                                         <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 px-1.5 py-0.5 text-xs flex items-center gap-1">
                                             <Clock className="h-3 w-3" />
-                                            Recent{usageCount && usageCount > 1 ? ` (${usageCount}x)` : ''}
+                                            Recent
+                                            {usageCount && usageCount > 1
+                                                ? ` (${usageCount}x)`
+                                                : ''}
                                         </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>You&apos;ve used this provider recently</p>
+                                        <p>
+                                            You&apos;ve used this provider
+                                            recently
+                                        </p>
                                     </TooltipContent>
                                 </Tooltip>
                             )}
@@ -158,7 +226,10 @@ export function ProviderCard({
                                         </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Lowest price among available providers</p>
+                                        <p>
+                                            Lowest price among available
+                                            providers
+                                        </p>
                                     </TooltipContent>
                                 </Tooltip>
                             )}
@@ -174,48 +245,98 @@ export function ProviderCard({
                                         <div className="flex items-center gap-2 text-xs bg-secondary px-2.5 py-1.5 rounded-lg cursor-help font-mono">
                                             {isImageService ? (
                                                 <div className="flex items-center gap-1">
-                                                    <span className="text-muted-foreground">Price:</span>
+                                                    <span className="text-muted-foreground">
+                                                        Price:
+                                                    </span>
                                                     <span className="font-semibold text-foreground">
-                                                        {provider.outputPrice?.toFixed(4)} 0G/image
+                                                        {provider.outputPrice?.toFixed(
+                                                            4
+                                                        )}{' '}
+                                                        0G/image
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <>
-                                                    {provider.inputPrice !== undefined && (
+                                                    {provider.inputPrice !==
+                                                        undefined && (
                                                         <div className="flex items-center gap-1">
-                                                            <span className="text-muted-foreground">In:</span>
+                                                            <span className="text-muted-foreground">
+                                                                In:
+                                                            </span>
                                                             <span className="font-semibold text-foreground">
-                                                                {provider.inputPrice.toFixed(2)}
+                                                                {provider.inputPrice.toFixed(
+                                                                    2
+                                                                )}
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {provider.outputPrice !== undefined && (
+                                                    {provider.outputPrice !==
+                                                        undefined && (
                                                         <div className="flex items-center gap-1">
-                                                            <span className="text-muted-foreground">Out:</span>
+                                                            <span className="text-muted-foreground">
+                                                                Out:
+                                                            </span>
                                                             <span className="font-semibold text-foreground">
-                                                                {provider.outputPrice.toFixed(2)}
+                                                                {provider.outputPrice.toFixed(
+                                                                    2
+                                                                )}
                                                             </span>
                                                         </div>
                                                     )}
-                                                    <span className="text-muted-foreground">0G/1M</span>
+                                                    <span className="text-muted-foreground">
+                                                        0G/1M
+                                                    </span>
                                                 </>
                                             )}
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs">
                                         <div className="text-sm">
-                                            <p className="font-semibold mb-1">Pricing Details</p>
+                                            <p className="font-semibold mb-1">
+                                                Pricing Details
+                                            </p>
                                             {isImageService ? (
-                                                <p>Cost per generated image: {provider.outputPrice?.toFixed(4)} 0G</p>
+                                                <p>
+                                                    Cost per generated image:{' '}
+                                                    {provider.outputPrice?.toFixed(
+                                                        4
+                                                    )}{' '}
+                                                    0G
+                                                </p>
                                             ) : (
                                                 <>
-                                                    {provider.inputPrice !== undefined && (
-                                                        <p>Input (what you send): {provider.inputPrice.toFixed(4)} 0G per 1M tokens</p>
+                                                    {provider.inputPrice !==
+                                                        undefined && (
+                                                        <p>
+                                                            Input (what you
+                                                            send):{' '}
+                                                            {provider.inputPrice.toFixed(
+                                                                4
+                                                            )}{' '}
+                                                            0G per 1M tokens
+                                                        </p>
                                                     )}
-                                                    {provider.outputPrice !== undefined && (
-                                                        <p>Output (AI response): {provider.outputPrice.toFixed(4)} 0G per 1M tokens</p>
+                                                    {provider.outputPrice !==
+                                                        undefined && (
+                                                        <p>
+                                                            Output (AI
+                                                            response):{' '}
+                                                            {provider.outputPrice.toFixed(
+                                                                4
+                                                            )}{' '}
+                                                            0G per 1M tokens
+                                                        </p>
                                                     )}
-                                                    <p className="text-muted-foreground mt-1 text-xs">~{((provider.inputPrice || 0) + (provider.outputPrice || 0)).toFixed(4)} 0G per typical message</p>
+                                                    <p className="text-muted-foreground mt-1 text-xs">
+                                                        ~
+                                                        {(
+                                                            (provider.inputPrice ||
+                                                                0) +
+                                                            (provider.outputPrice ||
+                                                                0)
+                                                        ).toFixed(4)}{' '}
+                                                        0G per typical message
+                                                    </p>
                                                 </>
                                             )}
                                         </div>
@@ -369,7 +490,8 @@ export function ProviderCard({
                         <div className="flex items-start">
                             <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
                             <p className="text-xs text-red-700">
-                                This provider has not been verified and cannot be used until verification is complete.
+                                This provider has not been verified and cannot
+                                be used until verification is complete.
                             </p>
                         </div>
                     </div>

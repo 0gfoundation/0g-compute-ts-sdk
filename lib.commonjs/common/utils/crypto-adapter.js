@@ -100,12 +100,12 @@ class BrowserCryptoAdapter {
         }
     }
     async aesGCMEncrypt(key, data, iv) {
-        const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['encrypt']);
+        const cryptoKey = await crypto.subtle.importKey('raw', new Uint8Array(key), { name: 'AES-GCM' }, false, ['encrypt']);
         const result = await crypto.subtle.encrypt({
             name: 'AES-GCM',
-            iv: iv,
+            iv: new Uint8Array(iv),
             tagLength: 128,
-        }, cryptoKey, data);
+        }, cryptoKey, new Uint8Array(data));
         const encrypted = new Uint8Array(result.slice(0, -16));
         const authTag = new Uint8Array(result.slice(-16));
         return {
@@ -114,13 +114,13 @@ class BrowserCryptoAdapter {
         };
     }
     async aesGCMDecrypt(key, encryptedData, iv, authTag) {
-        const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['decrypt']);
+        const cryptoKey = await crypto.subtle.importKey('raw', new Uint8Array(key), { name: 'AES-GCM' }, false, ['decrypt']);
         const combined = new Uint8Array(encryptedData.length + authTag.length);
-        combined.set(encryptedData, 0);
-        combined.set(authTag, encryptedData.length);
+        combined.set(new Uint8Array(encryptedData), 0);
+        combined.set(new Uint8Array(authTag), encryptedData.length);
         const result = await crypto.subtle.decrypt({
             name: 'AES-GCM',
-            iv: iv,
+            iv: new Uint8Array(iv),
             tagLength: 128,
         }, cryptoKey, combined);
         return Buffer.from(result);

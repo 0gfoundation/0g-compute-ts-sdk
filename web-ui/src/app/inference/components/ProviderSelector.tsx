@@ -1,176 +1,269 @@
-import React, { useState, useRef, useEffect } from 'react';
-import type { Provider } from '../../../shared/types/broker';
-import { formatBalance } from '../../../shared/utils/currency';
-import { isProviderUnstable, isOfficial0GProvider } from '@/shared/config/unstableProviders';
+import React, { useState, useRef, useEffect } from 'react'
+import type { Provider } from '../../../shared/types/broker'
+import { formatBalance } from '../../../shared/utils/currency'
+import { isOfficial0GProvider } from '@/shared/config/unstableProviders'
+import {
+    useProviderHealth,
+    getModelHealthStatus,
+    getHealthStatusColor,
+    getHealthStatusText,
+} from '@/shared/hooks/useProviderHealth'
 
 interface ProviderSelectorProps {
-  providers: Provider[];
-  selectedProvider: Provider | null;
-  onProviderSelect: (provider: Provider) => void;
-  isLoading?: boolean;
-  isStreaming?: boolean;
+    providers: Provider[]
+    selectedProvider: Provider | null
+    onProviderSelect: (provider: Provider) => void
+    isLoading?: boolean
+    isStreaming?: boolean
 }
 
 export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
-  providers,
-  selectedProvider,
-  onProviderSelect,
-  isLoading = false,
-  isStreaming = false,
+    providers,
+    selectedProvider,
+    onProviderSelect,
+    isLoading = false,
+    isStreaming = false,
 }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+    const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
+    // Get health data using SWR hook (automatically cached across components)
+    const { healthData, isLoading: isLoadingHealth } = useProviderHealth()
 
-    if (isDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target as Node)
+            ) {
+                setIsDropdownOpen(false)
+            }
+        }
+
+        if (isDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [isDropdownOpen])
+
+    const handleProviderSelect = (provider: Provider) => {
+        onProviderSelect(provider)
+        setIsDropdownOpen(false)
     }
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isDropdownOpen]);
+    const disabled = isLoading || isStreaming
 
-  const handleProviderSelect = (provider: Provider) => {
-    onProviderSelect(provider);
-    setIsDropdownOpen(false);
-  };
+    // Helper to get health info for a provider's model
+    const getHealthInfo = (provider: Provider) => {
+        const healthStatus = getModelHealthStatus(
+            healthData,
+            provider.address,
+            provider.model
+        )
 
-  const disabled = isLoading || isStreaming;
+        return {
+            healthStatus,
+            statusColor: getHealthStatusColor(healthStatus.status),
+            statusText: getHealthStatusText(healthStatus.status),
+        }
+    }
 
-  return (
-    <div className="relative mb-4" ref={dropdownRef}>
-      <button
-        onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
-        disabled={disabled}
-        className={`w-full p-3 border border-gray-300 rounded-lg text-left flex items-center justify-between ${
-          disabled
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-500"
-        }`}
-      >
-        <div className="flex-1 min-w-0">
-          {selectedProvider ? (
-            <div>
-              <div className="font-medium text-gray-900 truncate flex items-center gap-1.5">
-                {selectedProvider.name}
-                <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    isProviderUnstable(selectedProvider.address)
-                      ? 'bg-yellow-500 animate-pulse'
-                      : 'bg-green-500'
-                  }`}
-                  title={isProviderUnstable(selectedProvider.address) ? 'Limited Availability' : 'High Availability'}
-                />
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5 flex items-center space-x-4">
-                <span>{selectedProvider.model.includes('/') ? selectedProvider.model.split('/').slice(1).join('/') : selectedProvider.model}</span>
-                <span className="flex items-center space-x-1">
-                  <span>🔒</span>
-                  <span>{selectedProvider.verifiability}</span>
-                  {isOfficial0GProvider(selectedProvider.address) && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
-                      0G
-                    </span>
-                  )}
-                </span>
-                {selectedProvider.inputPrice && selectedProvider.outputPrice && (
-                  <span className="text-green-600 font-medium">
-                    {formatBalance(selectedProvider.inputPrice)}/
-                    {formatBalance(selectedProvider.outputPrice)} 0G per 1M tokens
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="text-gray-500">Select a provider...</div>
-          )}
-        </div>
-        
-        <div className="flex items-center ml-2">
-          {disabled && (
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-purple-600 mr-2"></div>
-          )}
-          <svg
-            className={`w-4 h-4 text-gray-400 transition-transform ${
-              isDropdownOpen ? "rotate-180" : ""
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
-      </button>
-
-      {isDropdownOpen && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-          {providers.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">
-              No providers available
-            </div>
-          ) : (
-            providers.map((provider) => (
-              <button
-                key={provider.address}
-                onClick={() => handleProviderSelect(provider)}
-                className={`w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                  selectedProvider?.address === provider.address
-                    ? "bg-purple-50"
-                    : ""
+    return (
+        <div className="relative mb-4" ref={dropdownRef}>
+            <button
+                onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
+                disabled={disabled}
+                className={`w-full p-3 border border-gray-300 rounded-lg text-left flex items-center justify-between ${
+                    disabled
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-500'
                 }`}
-              >
-                <div className="font-medium text-gray-900 flex items-center gap-1.5">
-                  {provider.name}
-                  <div
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isProviderUnstable(provider.address)
-                        ? 'bg-yellow-500 animate-pulse'
-                        : 'bg-green-500'
-                    }`}
-                    title={isProviderUnstable(provider.address) ? 'Limited Availability' : 'High Availability'}
-                  />
+            >
+                <div className="flex-1 min-w-0">
+                    {selectedProvider ? (
+                        <div>
+                            <div className="font-medium text-gray-900 truncate flex items-center gap-1.5">
+                                {selectedProvider.name}
+                                {isLoadingHealth ? (
+                                    <div className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-300 animate-pulse" />
+                                ) : (() => {
+                                    const healthInfo =
+                                        getHealthInfo(selectedProvider)
+                                    return (
+                                        <div
+                                            className={`w-2 h-2 rounded-full flex-shrink-0 ${healthInfo.statusColor}`}
+                                            title={`${healthInfo.statusText}${
+                                                healthInfo.healthStatus
+                                                    .uptime !== null
+                                                    ? ` (${healthInfo.healthStatus.uptime.toFixed(
+                                                          1
+                                                      )}% uptime)`
+                                                    : ''
+                                            }`}
+                                        />
+                                    )
+                                })()}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center space-x-4">
+                                <span>
+                                    {selectedProvider.model.includes('/')
+                                        ? selectedProvider.model
+                                              .split('/')
+                                              .slice(1)
+                                              .join('/')
+                                        : selectedProvider.model}
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                    <span>🔒</span>
+                                    <span>
+                                        {selectedProvider.verifiability}
+                                    </span>
+                                    {isOfficial0GProvider(
+                                        selectedProvider.address
+                                    ) && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+                                            0G
+                                        </span>
+                                    )}
+                                </span>
+                                {selectedProvider.inputPrice &&
+                                    selectedProvider.outputPrice && (
+                                        <span className="text-green-600 font-medium">
+                                            {formatBalance(
+                                                selectedProvider.inputPrice
+                                            )}
+                                            /
+                                            {formatBalance(
+                                                selectedProvider.outputPrice
+                                            )}{' '}
+                                            0G per 1M tokens
+                                        </span>
+                                    )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-gray-500">
+                            Select a provider...
+                        </div>
+                    )}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5 space-y-1">
-                  <div className="flex items-center space-x-4">
-                    <span>Model: {provider.model.includes('/') ? provider.model.split('/').slice(1).join('/') : provider.model}</span>
-                    <span className="flex items-center space-x-1">
-                      <span>🔒</span>
-                      <span>{provider.verifiability}</span>
-                      {isOfficial0GProvider(provider.address) && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
-                          0G
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="text-gray-600">
-                    Address: {provider.address.slice(0, 8)}...{provider.address.slice(-6)}
-                  </div>
-                  {provider.inputPrice && provider.outputPrice && (
-                    <div className="text-green-600 font-medium">
-                      Cost: {formatBalance(provider.inputPrice)}/
-                      {formatBalance(provider.outputPrice)} 0G per 1M tokens
-                    </div>
-                  )}
+
+                <div className="flex items-center ml-2">
+                    {disabled && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-purple-600 mr-2"></div>
+                    )}
+                    <svg
+                        className={`w-4 h-4 text-gray-400 transition-transform ${
+                            isDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                        />
+                    </svg>
                 </div>
-              </button>
-            ))
-          )}
+            </button>
+
+            {isDropdownOpen && !disabled && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {providers.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                            No providers available
+                        </div>
+                    ) : (
+                        providers.map((provider) => {
+                            const healthInfo = getHealthInfo(provider)
+                            return (
+                                <button
+                                    key={provider.address}
+                                    onClick={() =>
+                                        handleProviderSelect(provider)
+                                    }
+                                    className={`w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                                        selectedProvider?.address ===
+                                        provider.address
+                                            ? 'bg-purple-50'
+                                            : ''
+                                    }`}
+                                >
+                                    <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                        {provider.name}
+                                        {isLoadingHealth ? (
+                                            <div className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-300 animate-pulse" />
+                                        ) : (
+                                            <div
+                                                className={`w-2 h-2 rounded-full flex-shrink-0 ${healthInfo.statusColor}`}
+                                                title={`${healthInfo.statusText}${
+                                                    healthInfo.healthStatus
+                                                        .uptime !== null
+                                                        ? ` (${healthInfo.healthStatus.uptime.toFixed(
+                                                              1
+                                                          )}% uptime)`
+                                                        : ''
+                                                }`}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-0.5 space-y-1">
+                                        <div className="flex items-center space-x-4">
+                                            <span>
+                                                Model:{' '}
+                                                {provider.model.includes('/')
+                                                    ? provider.model
+                                                          .split('/')
+                                                          .slice(1)
+                                                          .join('/')
+                                                    : provider.model}
+                                            </span>
+                                            <span className="flex items-center space-x-1">
+                                                <span>🔒</span>
+                                                <span>
+                                                    {provider.verifiability}
+                                                </span>
+                                                {isOfficial0GProvider(
+                                                    provider.address
+                                                ) && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+                                                        0G
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="text-gray-600">
+                                            Address:{' '}
+                                            {provider.address.slice(0, 8)}...
+                                            {provider.address.slice(-6)}
+                                        </div>
+                                        {provider.inputPrice &&
+                                            provider.outputPrice && (
+                                                <div className="text-green-600 font-medium">
+                                                    Cost:{' '}
+                                                    {formatBalance(
+                                                        provider.inputPrice
+                                                    )}
+                                                    /
+                                                    {formatBalance(
+                                                        provider.outputPrice
+                                                    )}{' '}
+                                                    0G per 1M tokens
+                                                </div>
+                                            )}
+                                    </div>
+                                </button>
+                            )
+                        })
+                    )}
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
-};
+    )
+}

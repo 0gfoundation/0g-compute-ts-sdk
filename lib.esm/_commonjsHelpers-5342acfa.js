@@ -3,11 +3,15 @@ function getDefaultExportFromCjs (x) {
 }
 
 function getAugmentedNamespace(n) {
-  if (n.__esModule) return n;
+  if (Object.prototype.hasOwnProperty.call(n, '__esModule')) return n;
   var f = n.default;
 	if (typeof f == "function") {
 		var a = function a () {
-			if (this instanceof a) {
+			var isInstance = false;
+      try {
+        isInstance = this instanceof a;
+      } catch {}
+			if (isInstance) {
         return Reflect.construct(f, arguments, this.constructor);
 			}
 			return f.apply(this, arguments);
@@ -28,4 +32,4 @@ function getAugmentedNamespace(n) {
 }
 
 export { getAugmentedNamespace as a, getDefaultExportFromCjs as g };
-//# sourceMappingURL=_commonjsHelpers-0f3c985d.js.map
+//# sourceMappingURL=_commonjsHelpers-5342acfa.js.map
