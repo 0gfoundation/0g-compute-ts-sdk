@@ -42,7 +42,8 @@ export declare class ModelProcessor extends BrokerBase {
     downloadModelFrom0GStorage(providerAddress: string, taskId: string, dataPath: string): Promise<void>;
     /**
      * Download LoRA model directly from TEE (without acknowledge)
-     * Use this when you only want to download the trained LoRA adapter
+     * Use this when you only want to download the trained LoRA adapter.
+     * Verifies the downloaded file's hash against the on-chain modelRootHash.
      */
     downloadLoRAFromTEE(providerAddress: string, taskId: string, outputPath: string): Promise<void>;
     /**
@@ -73,5 +74,15 @@ export declare class ModelProcessor extends BrokerBase {
  * 3. The provider has shared the encrypted decryption key
  */
     decryptModel(providerAddress: string, taskId: string, encryptedModelPath: string, decryptedModelPath: string): Promise<void>;
+    /**
+     * Verify the hash of a downloaded model file against the on-chain modelRootHash.
+     * The broker computes modelRootHash as keccak256(encryptedFileBytes).
+     *
+     * @param filePath - Path to the downloaded file (may be a directory or file)
+     * @param taskId - Task ID for logging
+     * @param expectedHash - Expected hash from the contract deliverable (hex string)
+     * @throws Error if hash verification fails
+     */
+    private verifyDownloadedModelHash;
 }
 //# sourceMappingURL=model.d.ts.map

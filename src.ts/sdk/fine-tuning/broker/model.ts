@@ -7,6 +7,8 @@ import { MODEL_HASH_MAP } from '../const'
 import { download } from '../zg-storage'
 import { BrokerBase } from './base'
 import { logger } from '../../common/logger'
+import { ethers } from 'ethers'
+import * as fs from 'fs/promises'
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
@@ -104,10 +106,13 @@ export class ModelProcessor extends BrokerBase {
                     dataPath
                 )
                 logger.info('Successfully downloaded LoRA model from TEE')
-                // Note: TEE downloads are verified by the signature authentication.
-                // The broker ensures only authorized users can download the model.
-                // Additional hash verification could be added when the broker
-                // provides a content hash in the response.
+
+                // Verify hash of downloaded file against on-chain modelRootHash
+                await this.verifyDownloadedModelHash(
+                    dataPath,
+                    taskId,
+                    deliverable.modelRootHash
+                )
             }
 
             await this.contract.acknowledgeDeliverable(
@@ -147,7 +152,8 @@ export class ModelProcessor extends BrokerBase {
 
     /**
      * Download LoRA model directly from TEE (without acknowledge)
-     * Use this when you only want to download the trained LoRA adapter
+     * Use this when you only want to download the trained LoRA adapter.
+     * Verifies the downloaded file's hash against the on-chain modelRootHash.
      */
     async downloadLoRAFromTEE(
         providerAddress: string,
@@ -160,6 +166,24 @@ export class ModelProcessor extends BrokerBase {
                 taskId,
                 outputPath
             )
+
+            // Verify hash against on-chain deliverable
+            const deliverable = await this.contract.getDeliverable(
+                providerAddress,
+                taskId
+            )
+
+            if (deliverable && deliverable.modelRootHash) {
+                await this.verifyDownloadedModelHash(
+                    outputPath,
+                    taskId,
+                    deliverable.modelRootHash
+                )
+            } else {
+                logger.warn(
+                    'No deliverable found on-chain, skipping hash verification'
+                )
+            }
         } catch (error) {
             throwFormattedError(error)
         }
@@ -233,5 +257,87 @@ export class ModelProcessor extends BrokerBase {
             throwFormattedError(error)
         }
         return
+    }
+
+    /**
+     * Verify the hash of a downloaded model file against the on-chain modelRootHash.
+     * The broker computes modelRootHash as keccak256(encryptedFileBytes).
+     *
+     * @param filePath - Path to the downloaded file (may be a directory or file)
+     * @param taskId - Task ID for logging
+     * @param expectedHash - Expected hash from the contract deliverable (hex string)
+     * @throws Error if hash verification fails
+     */
+    private async verifyDownloadedModelHash(
+        filePath: string,
+        taskId: string,
+        expectedHash: string
+    ): Promise<void> {
+        try {
+            // Resolve the actual file path (downloadLoRAFromTEE may save to a subdirectory)
+            let actualFile = filePath
+            try {
+                const stats = await fs.stat(filePath)
+                if (stats.isDirectory()) {
+                    // Look for the LoRA file in the directory
+                    const files = await fs.readdir(filePath)
+                    const loraFile = files.find(
+                        (f) =>
+                            f.startsWith('lora_model_') ||
+                            f.endsWith('.data') ||
+                            f.endsWith('.zip')
+                    )
+                    if (loraFile) {
+                        actualFile = `${filePath}/${loraFile}`
+                    } else if (files.length === 1) {
+                        actualFile = `${filePath}/${files[0]}`
+                    } else {
+                        logger.warn(
+                            `Cannot determine downloaded file in directory ${filePath}, skipping hash verification`
+                        )
+                        return
+                    }
+                }
+            } catch (err) {
+                // File doesn't exist - nothing to verify
+                logger.warn(
+                    `Downloaded file not found at ${filePath}, skipping hash verification`
+                )
+                return
+            }
+
+            const fileData = await fs.readFile(actualFile)
+            const computedHash = ethers.keccak256(fileData)
+
+            // Normalize both hashes for comparison
+            const normalizedExpected = expectedHash
+                .toLowerCase()
+                .startsWith('0x')
+                ? expectedHash.toLowerCase()
+                : `0x${expectedHash.toLowerCase()}`
+            const normalizedComputed = computedHash.toLowerCase()
+
+            if (normalizedExpected === normalizedComputed) {
+                logger.info(
+                    `Hash verification passed for task ${taskId}: ${normalizedComputed}`
+                )
+            } else {
+                throw new Error(
+                    `Hash verification failed for task ${taskId}. ` +
+                        `Expected: ${normalizedExpected}, Got: ${normalizedComputed}. ` +
+                        `The downloaded file may be corrupted or tampered with.`
+                )
+            }
+        } catch (error: any) {
+            // Re-throw hash mismatch errors
+            if (
+                error.message &&
+                error.message.includes('Hash verification failed')
+            ) {
+                throw error
+            }
+            // Log but don't fail for other errors (file access issues, etc.)
+            logger.warn(`Hash verification could not be completed: ${error}`)
+        }
     }
 }
