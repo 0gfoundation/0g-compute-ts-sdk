@@ -105,8 +105,8 @@ export default function inference(program: Command) {
                             'Input Price Per Token (0G)',
                             service.inputPrice
                                 ? neuronToA0gi(
-                                      BigInt(service.inputPrice)
-                                  ).toFixed(18)
+                                    BigInt(service.inputPrice)
+                                ).toFixed(18)
                                 : 'N/A',
                         ])
                     }
@@ -114,7 +114,7 @@ export default function inference(program: Command) {
                     // Change output price label for text-to-image and image-editing services
                     const outputPriceLabel =
                         service.serviceType === 'text-to-image' ||
-                        service.serviceType === 'image-editing'
+                            service.serviceType === 'image-editing'
                             ? 'Price Per Image (OG)'
                             : 'Output Price Per Token (0G)'
 
@@ -122,8 +122,8 @@ export default function inference(program: Command) {
                         outputPriceLabel,
                         service.outputPrice
                             ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                  18
-                              )
+                                18
+                            )
                             : 'N/A',
                     ])
                     table.push([
@@ -176,8 +176,8 @@ export default function inference(program: Command) {
                             'Input Price Per Token (0G)',
                             service.inputPrice
                                 ? neuronToA0gi(
-                                      BigInt(service.inputPrice)
-                                  ).toFixed(18)
+                                    BigInt(service.inputPrice)
+                                ).toFixed(18)
                                 : 'N/A',
                         ])
                     }
@@ -185,7 +185,7 @@ export default function inference(program: Command) {
                     // Change output price label for text-to-image and image-editing services
                     const outputPriceLabel =
                         service.serviceType === 'text-to-image' ||
-                        service.serviceType === 'image-editing'
+                            service.serviceType === 'image-editing'
                             ? 'Price Per Image (OG)'
                             : 'Output Price Per Token (0G)'
 
@@ -193,8 +193,8 @@ export default function inference(program: Command) {
                         outputPriceLabel,
                         service.outputPrice
                             ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                  18
-                              )
+                                18
+                            )
                             : 'N/A',
                     ])
                     table.push([
@@ -216,22 +216,12 @@ export default function inference(program: Command) {
 
                         if (health.uptime !== undefined) {
                             const uptimeDisplay =
-                                health.uptime === 100
+                                health.uptime >= 85
                                     ? chalk.green(`${health.uptime}%`)
-                                    : health.uptime >= 80
-                                    ? chalk.yellow(`${health.uptime}%`)
-                                    : chalk.red(`${health.uptime}%`)
+                                    : health.uptime >= 70
+                                        ? chalk.yellow(`${health.uptime}%`)
+                                        : chalk.red(`${health.uptime}%`)
                             table.push(['Uptime', uptimeDisplay])
-                        }
-
-                        if (health.avgResponseTime !== undefined) {
-                            const latencyDisplay =
-                                health.avgResponseTime < 1000
-                                    ? chalk.green(`${health.avgResponseTime}ms`)
-                                    : health.avgResponseTime < 5000
-                                    ? chalk.yellow(`${health.avgResponseTime}ms`)
-                                    : chalk.red(`${health.avgResponseTime}ms`)
-                            table.push(['Avg Response Time', latencyDisplay])
                         }
                     } else {
                         table.push([
@@ -244,7 +234,7 @@ export default function inference(program: Command) {
                 console.log(
                     chalk.gray(
                         '\nNote: Health metrics are fetched from the monitoring API. ' +
-                            'Services without metrics may be newly registered or temporarily unavailable.'
+                        'Services without metrics may be newly registered or temporarily unavailable.'
                     )
                 )
             })
@@ -702,7 +692,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)
@@ -803,7 +793,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)
@@ -893,8 +883,7 @@ export default function inference(program: Command) {
                     }
 
                     console.log(
-                        `\n${chalk.blue('Log file:')} ${options.component}/${
-                            options.filename
+                        `\n${chalk.blue('Log file:')} ${options.component}/${options.filename
                         }`
                     )
                     console.log(`${chalk.blue('Provider:')} ${userAddress}`)
@@ -919,7 +908,7 @@ export default function inference(program: Command) {
                         console.error(
                             'Error:',
                             axiosError.response.data?.error ||
-                                axiosError.response.statusText
+                            axiosError.response.statusText
                         )
                     } else if (error instanceof Error) {
                         console.error('Error:', error.message)

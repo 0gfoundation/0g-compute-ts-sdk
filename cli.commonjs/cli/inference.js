@@ -172,20 +172,12 @@ function inference(program) {
                     }
                     table.push(['Health Status', statusDisplay]);
                     if (health.uptime !== undefined) {
-                        const uptimeDisplay = health.uptime === 100
+                        const uptimeDisplay = health.uptime >= 85
                             ? chalk_1.default.green(`${health.uptime}%`)
-                            : health.uptime >= 80
+                            : health.uptime >= 70
                                 ? chalk_1.default.yellow(`${health.uptime}%`)
                                 : chalk_1.default.red(`${health.uptime}%`);
                         table.push(['Uptime', uptimeDisplay]);
-                    }
-                    if (health.avgResponseTime !== undefined) {
-                        const latencyDisplay = health.avgResponseTime < 1000
-                            ? chalk_1.default.green(`${health.avgResponseTime}ms`)
-                            : health.avgResponseTime < 5000
-                                ? chalk_1.default.yellow(`${health.avgResponseTime}ms`)
-                                : chalk_1.default.red(`${health.avgResponseTime}ms`);
-                        table.push(['Avg Response Time', latencyDisplay]);
                     }
                 }
                 else {
