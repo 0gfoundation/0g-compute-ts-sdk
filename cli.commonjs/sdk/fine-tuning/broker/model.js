@@ -9,6 +9,7 @@ const base_1 = require("./base");
 const logger_1 = require("../../common/logger");
 const ethers_1 = require("ethers");
 const promises_1 = tslib_1.__importDefault(require("fs/promises"));
+const path_1 = tslib_1.__importDefault(require("path"));
 /**
  * ModelProcessor handles model-related operations including listing available models,
  * acknowledging model delivery, and decrypting fine-tuned models.
@@ -73,6 +74,17 @@ class ModelProcessor extends base_1.BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
+            // Resolve storage download path: 0G Storage client needs a file path, not a directory
+            let storageDownloadPath = dataPath;
+            try {
+                const stats = await promises_1.default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    storageDownloadPath = path_1.default.join(dataPath, `model_${taskId}.bin`);
+                }
+            }
+            catch {
+                // Path doesn't exist yet, use as-is (will be created as a file)
+            }
             if (downloadMethod === 'tee') {
                 // Download LoRA directly from TEE
                 await this.servingProvider.downloadLoRAFromTEE(providerAddress, taskId, dataPath);
@@ -82,15 +94,15 @@ class ModelProcessor extends base_1.BrokerBase {
             }
             else if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
-                logger_1.logger.info('Successfully downloaded model from 0G Storage');
+                await (0, zg_storage_1.download)(storageDownloadPath, deliverable.modelRootHash);
+                logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
             }
             else {
                 // Auto mode: try 0G Storage first, fallback to TEE
                 try {
                     logger_1.logger.info('Downloading model from 0G Storage...');
-                    await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
-                    logger_1.logger.info('Successfully downloaded model from 0G Storage');
+                    await (0, zg_storage_1.download)(storageDownloadPath, deliverable.modelRootHash);
+                    logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
                 }
                 catch (storageErr) {
                     logger_1.logger.warn(`0G Storage download failed: ${storageErr}. Falling back to TEE download...`);
@@ -115,8 +127,19 @@ class ModelProcessor extends base_1.BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
-            logger_1.logger.info('Successfully downloaded model from 0G Storage');
+            // Resolve path: 0G Storage client needs a file path, not a directory
+            let downloadPath = dataPath;
+            try {
+                const stats = await promises_1.default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    downloadPath = path_1.default.join(dataPath, `model_${taskId}.bin`);
+                }
+            }
+            catch {
+                // Path doesn't exist yet, use as-is
+            }
+            await (0, zg_storage_1.download)(downloadPath, deliverable.modelRootHash);
+            logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${downloadPath}`);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

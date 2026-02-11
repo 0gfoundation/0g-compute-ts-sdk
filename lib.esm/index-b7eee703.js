@@ -20976,6 +20976,17 @@ class ModelProcessor extends BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
+            // Resolve storage download path: 0G Storage client needs a file path, not a directory
+            let storageDownloadPath = dataPath;
+            try {
+                const stats = await fs__default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    storageDownloadPath = path__default.join(dataPath, `model_${taskId}.bin`);
+                }
+            }
+            catch {
+                // Path doesn't exist yet, use as-is (will be created as a file)
+            }
             if (downloadMethod === 'tee') {
                 // Download LoRA directly from TEE
                 await this.servingProvider.downloadLoRAFromTEE(providerAddress, taskId, dataPath);
@@ -20985,15 +20996,15 @@ class ModelProcessor extends BrokerBase {
             }
             else if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await download(dataPath, deliverable.modelRootHash);
-                logger.info('Successfully downloaded model from 0G Storage');
+                await download(storageDownloadPath, deliverable.modelRootHash);
+                logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
             }
             else {
                 // Auto mode: try 0G Storage first, fallback to TEE
                 try {
                     logger.info('Downloading model from 0G Storage...');
-                    await download(dataPath, deliverable.modelRootHash);
-                    logger.info('Successfully downloaded model from 0G Storage');
+                    await download(storageDownloadPath, deliverable.modelRootHash);
+                    logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
                 }
                 catch (storageErr) {
                     logger.warn(`0G Storage download failed: ${storageErr}. Falling back to TEE download...`);
@@ -21018,8 +21029,19 @@ class ModelProcessor extends BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            await download(dataPath, deliverable.modelRootHash);
-            logger.info('Successfully downloaded model from 0G Storage');
+            // Resolve path: 0G Storage client needs a file path, not a directory
+            let downloadPath = dataPath;
+            try {
+                const stats = await fs__default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    downloadPath = path__default.join(dataPath, `model_${taskId}.bin`);
+                }
+            }
+            catch {
+                // Path doesn't exist yet, use as-is
+            }
+            await download(downloadPath, deliverable.modelRootHash);
+            logger.info(`Successfully downloaded model from 0G Storage to ${downloadPath}`);
         }
         catch (error) {
             throwFormattedError(error);
@@ -21172,7 +21194,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-5e3d6866.js');
+    const { download } = await import('./index-501a40b3.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -23551,4 +23573,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-79063bc7.js.map
+//# sourceMappingURL=index-b7eee703.js.map
