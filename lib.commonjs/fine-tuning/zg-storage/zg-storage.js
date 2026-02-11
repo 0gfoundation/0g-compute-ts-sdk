@@ -7,6 +7,7 @@ const const_1 = require("../const");
 const child_process_1 = require("child_process");
 const path_1 = tslib_1.__importDefault(require("path"));
 const fs = tslib_1.__importStar(require("fs/promises"));
+const logger_1 = require("../../common/logger");
 async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
     try {
         const fileSize = await getFileContentSize(dataPath);
@@ -35,7 +36,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
             const childProcess = (0, child_process_1.spawn)(command, args);
             childProcess.stdout.on('data', (data) => {
                 const output = data.toString();
-                console.log(output);
+                logger_1.logger.debug(output);
                 // Capture root hash from output: "file uploaded, root = 0x..."
                 const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/);
                 if (match) {
@@ -44,7 +45,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
             });
             childProcess.stderr.on('data', (data) => {
                 const output = data.toString();
-                console.error(output);
+                logger_1.logger.warn(output);
                 // Also check stderr since some log output goes to stderr
                 const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/);
                 if (match) {
@@ -55,8 +56,11 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
                 if (code !== 0) {
                     reject(new Error(`Process exited with code ${code}`));
                 }
+                else if (!rootHash) {
+                    reject(new Error('Upload succeeded but no root hash was captured from output'));
+                }
                 else {
-                    console.log(`File size: ${fileSize} bytes`);
+                    logger_1.logger.info(`File size: ${fileSize} bytes`);
                     resolve(rootHash);
                 }
             });
@@ -66,7 +70,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
         });
     }
     catch (err) {
-        console.error(err);
+        logger_1.logger.error(`Upload failed: ${err}`);
         throw err;
     }
 }
@@ -87,12 +91,12 @@ async function download(dataPath, dataRoot) {
         process.stdout.on('data', (data) => {
             const output = data.toString();
             log += output;
-            console.log(output);
+            logger_1.logger.debug(output);
         });
         process.stderr.on('data', (data) => {
             const errorOutput = data.toString();
             log += errorOutput;
-            console.error(errorOutput);
+            logger_1.logger.warn(errorOutput);
         });
         process.on('close', (code) => {
             if (code !== 0) {

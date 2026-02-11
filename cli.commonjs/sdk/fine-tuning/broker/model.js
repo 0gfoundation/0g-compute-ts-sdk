@@ -63,7 +63,7 @@ class ModelProcessor extends base_1.BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: '0g-storage' (default), 'tee', or 'auto' (try 0G Storage first, fallback to TEE)
+     * @param options.downloadMethod - Download method: 'auto' (default, try 0G Storage first then TEE fallback), 'tee', or '0g-storage'
      */
     async acknowledgeModel(providerAddress, taskId, dataPath, options) {
         try {

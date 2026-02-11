@@ -292,7 +292,7 @@ function fineTuning(program) {
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price adjustment')
-        .option('--download-method <method>', 'Download method: auto (default, try 0G Storage then TEE), 0g-storage, or tee')
+        .option('--download-method <method>', 'Download method: auto (try 0G Storage then TEE), 0g-storage, or tee (default: auto)')
         .action((options) => {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
             await broker.fineTuning.acknowledgeModel(options.provider, options.taskId, options.dataPath, {

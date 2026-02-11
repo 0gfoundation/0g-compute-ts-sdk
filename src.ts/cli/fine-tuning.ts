@@ -407,7 +407,7 @@ export default function fineTuning(program: Command) {
         .option('--step <step>', 'Step for gas price adjustment')
         .option(
             '--download-method <method>',
-            'Download method: auto (default, try 0G Storage then TEE), 0g-storage, or tee'
+            'Download method: auto (try 0G Storage then TEE), 0g-storage, or tee (default: auto)'
         )
         .action((options) => {
             withFineTuningBroker(options, async (broker) => {

@@ -6,6 +6,7 @@ const const_1 = require("../const");
 const zg_storage_1 = require("../zg-storage");
 const base_1 = require("./base");
 const token_1 = require("../token");
+const logger_1 = require("../../common/logger");
 /**
  * DatasetProcessor handles dataset-related operations including upload, download,
  * and token calculation for fine-tuning tasks.
@@ -99,7 +100,7 @@ class DatasetProcessor extends base_1.BrokerBase {
             else {
                 dataSize = await (0, token_1.calculateTokenSizeViaExe)(tokenizer, datasetPath, dataType, const_1.TOKEN_COUNTER_MERKLE_ROOT, const_1.TOKEN_COUNTER_FILE_HASH);
             }
-            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
+            logger_1.logger.info(`Token size for dataset ${datasetPath}: ${dataSize}`);
             return dataSize;
         }
         catch (error) {

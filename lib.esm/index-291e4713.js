@@ -20821,7 +20821,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
             const childProcess = spawn$1(command, args);
             childProcess.stdout.on('data', (data) => {
                 const output = data.toString();
-                console.log(output);
+                logger.debug(output);
                 // Capture root hash from output: "file uploaded, root = 0x..."
                 const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/);
                 if (match) {
@@ -20830,7 +20830,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
             });
             childProcess.stderr.on('data', (data) => {
                 const output = data.toString();
-                console.error(output);
+                logger.warn(output);
                 // Also check stderr since some log output goes to stderr
                 const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/);
                 if (match) {
@@ -20841,8 +20841,11 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
                 if (code !== 0) {
                     reject(new Error(`Process exited with code ${code}`));
                 }
+                else if (!rootHash) {
+                    reject(new Error('Upload succeeded but no root hash was captured from output'));
+                }
                 else {
-                    console.log(`File size: ${fileSize} bytes`);
+                    logger.info(`File size: ${fileSize} bytes`);
                     resolve(rootHash);
                 }
             });
@@ -20852,7 +20855,7 @@ async function upload(privateKey, dataPath, gasPrice, maxGasPrice) {
         });
     }
     catch (err) {
-        console.error(err);
+        logger.error(`Upload failed: ${err}`);
         throw err;
     }
 }
@@ -20873,12 +20876,12 @@ async function download(dataPath, dataRoot) {
         process.stdout.on('data', (data) => {
             const output = data.toString();
             log += output;
-            console.log(output);
+            logger.debug(output);
         });
         process.stderr.on('data', (data) => {
             const errorOutput = data.toString();
             log += errorOutput;
-            console.error(errorOutput);
+            logger.warn(errorOutput);
         });
         process.on('close', (code) => {
             if (code !== 0) {
@@ -20965,7 +20968,7 @@ class ModelProcessor extends BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: '0g-storage' (default), 'tee', or 'auto' (try 0G Storage first, fallback to TEE)
+     * @param options.downloadMethod - Download method: 'auto' (default, try 0G Storage first then TEE fallback), 'tee', or '0g-storage'
      */
     async acknowledgeModel(providerAddress, taskId, dataPath, options) {
         try {
@@ -21194,7 +21197,7 @@ async function safeDynamicImport() {
     if (isBrowser()) {
         throw new Error('ZG Storage operations are not available in browser environment.');
     }
-    const { download } = await import('./index-501a40b3.js');
+    const { download } = await import('./index-6b7b9b27.js');
     return { download };
 }
 async function calculateTokenSizeViaExe(tokenizerRootHash, datasetPath, datasetType, tokenCounterMerkleRoot, tokenCounterFileHash) {
@@ -21508,7 +21511,7 @@ class DatasetProcessor extends BrokerBase {
             else {
                 dataSize = await calculateTokenSizeViaExe(tokenizer, datasetPath, dataType, TOKEN_COUNTER_MERKLE_ROOT, TOKEN_COUNTER_FILE_HASH);
             }
-            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
+            logger.info(`Token size for dataset ${datasetPath}: ${dataSize}`);
             return dataSize;
         }
         catch (error) {
@@ -23573,4 +23576,4 @@ async function createZGComputeNetworkBroker(signer, ledgerCA, inferenceCA, fineT
 }
 
 export { AccountProcessor as A, CONTRACT_ADDRESSES as C, FineTuningBroker as F, HARDHAT_CHAIN_ID as H, InferenceBroker as I, LedgerBroker as L, ModelProcessor$1 as M, RequestProcessor as R, TESTNET_CHAIN_ID as T, Verifier$1 as V, ZGComputeNetworkBroker as Z, ResponseProcessor as a, createFineTuningBroker as b, createInferenceBroker as c, download as d, createLedgerBroker as e, MAINNET_CHAIN_ID as f, getNetworkType as g, createZGComputeNetworkBroker as h, isDevMode as i, isBrowser as j, isNode as k, isWebWorker as l, hasWebCrypto as m, getCryptoAdapter as n, upload as u };
-//# sourceMappingURL=index-b7eee703.js.map
+//# sourceMappingURL=index-291e4713.js.map

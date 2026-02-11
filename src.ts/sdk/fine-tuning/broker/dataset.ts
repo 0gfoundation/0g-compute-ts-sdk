@@ -7,6 +7,7 @@ import {
 import { download, upload } from '../zg-storage'
 import { BrokerBase } from './base'
 import { calculateTokenSizeViaPython, calculateTokenSizeViaExe } from '../token'
+import { logger } from '../../common/logger'
 
 /**
  * DatasetProcessor handles dataset-related operations including upload, download,
@@ -128,8 +129,8 @@ export class DatasetProcessor extends BrokerBase {
                 )
             }
 
-            console.log(
-                `The token size for the dataset ${datasetPath} is ${dataSize}`
+            logger.info(
+                `Token size for dataset ${datasetPath}: ${dataSize}`
             )
 
             return dataSize

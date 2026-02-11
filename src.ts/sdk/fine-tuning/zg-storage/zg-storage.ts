@@ -2,6 +2,7 @@ import { INDEXER_URL_TURBO, ZG_RPC_ENDPOINT_TESTNET } from '../const'
 import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs/promises'
+import { logger } from '../../common/logger'
 
 export async function upload(
     privateKey: string,
@@ -49,7 +50,7 @@ export async function upload(
 
             childProcess.stdout.on('data', (data) => {
                 const output = data.toString()
-                console.log(output)
+                logger.debug(output)
                 // Capture root hash from output: "file uploaded, root = 0x..."
                 const match = output.match(
                     /root\s*=\s*(0x[0-9a-fA-F]+)/
@@ -61,7 +62,7 @@ export async function upload(
 
             childProcess.stderr.on('data', (data) => {
                 const output = data.toString()
-                console.error(output)
+                logger.warn(output)
                 // Also check stderr since some log output goes to stderr
                 const match = output.match(
                     /root\s*=\s*(0x[0-9a-fA-F]+)/
@@ -74,8 +75,14 @@ export async function upload(
             childProcess.on('close', (code) => {
                 if (code !== 0) {
                     reject(new Error(`Process exited with code ${code}`))
+                } else if (!rootHash) {
+                    reject(
+                        new Error(
+                            'Upload succeeded but no root hash was captured from output'
+                        )
+                    )
                 } else {
-                    console.log(`File size: ${fileSize} bytes`)
+                    logger.info(`File size: ${fileSize} bytes`)
                     resolve(rootHash)
                 }
             })
@@ -85,7 +92,7 @@ export async function upload(
             })
         })
     } catch (err) {
-        console.error(err)
+        logger.error(`Upload failed: ${err}`)
         throw err
     }
 }
@@ -122,13 +129,13 @@ export async function download(
         process.stdout.on('data', (data) => {
             const output = data.toString()
             log += output
-            console.log(output)
+            logger.debug(output)
         })
 
         process.stderr.on('data', (data) => {
             const errorOutput = data.toString()
             log += errorOutput
-            console.error(errorOutput)
+            logger.warn(errorOutput)
         })
 
         process.on('close', (code) => {
