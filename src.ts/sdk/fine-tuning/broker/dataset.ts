@@ -20,6 +20,7 @@ export class DatasetProcessor extends BrokerBase {
      * @param dataPath - Local path to the dataset file
      * @param gasPrice - Optional gas price for the transaction
      * @param maxGasPrice - Optional maximum gas price
+     * @returns Root hash of the uploaded dataset in 0G Storage
      * @throws Error if upload fails
      */
     async uploadDataset(
@@ -27,9 +28,9 @@ export class DatasetProcessor extends BrokerBase {
         dataPath: string,
         gasPrice?: number,
         maxGasPrice?: number
-    ): Promise<void> {
+    ): Promise<string> {
         try {
-            await upload(privateKey, dataPath, gasPrice)
+            return await upload(privateKey, dataPath, gasPrice, maxGasPrice)
         } catch (error) {
             throwFormattedError(error)
         }

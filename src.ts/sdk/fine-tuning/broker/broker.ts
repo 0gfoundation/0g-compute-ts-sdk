@@ -194,9 +194,9 @@ export class FineTuningBroker {
         dataPath: string,
         gasPrice?: number,
         maxGasPrice?: number
-    ): Promise<void> => {
+    ): Promise<string> => {
         try {
-            await this.datasetProcessor.uploadDataset(
+            return await this.datasetProcessor.uploadDataset(
                 this.signer.privateKey,
                 dataPath,
                 gasPrice || this._gasPrice,
@@ -310,7 +310,7 @@ export class FineTuningBroker {
         dataPath: string,
         options?: {
             gasPrice?: number
-            downloadMethod?: 'tee' | '0g-storage'
+            downloadMethod?: 'tee' | '0g-storage' | 'auto'
         }
     ): Promise<void> => {
         try {

@@ -66,7 +66,7 @@ export class ModelProcessor extends BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: 'tee' (default) or '0g-storage'
+     * @param options.downloadMethod - Download method: '0g-storage' (default), 'tee', or 'auto' (try 0G Storage first, fallback to TEE)
      */
     async acknowledgeModel(
         providerAddress: string,
@@ -74,12 +74,12 @@ export class ModelProcessor extends BrokerBase {
         dataPath: string,
         options?: {
             gasPrice?: number
-            downloadMethod?: 'tee' | '0g-storage'
+            downloadMethod?: 'tee' | '0g-storage' | 'auto'
         }
     ): Promise<void> {
         try {
             const gasPrice = options?.gasPrice
-            const downloadMethod = options?.downloadMethod ?? 'tee'
+            const downloadMethod = options?.downloadMethod ?? 'auto'
 
             const deliverable = await this.contract.getDeliverable(
                 providerAddress,
@@ -94,11 +94,7 @@ export class ModelProcessor extends BrokerBase {
                 throw new Error('No deliverable found')
             }
 
-            if (downloadMethod === '0g-storage') {
-                // Download from 0G Storage with built-in hash verification
-                await download(dataPath, deliverable.modelRootHash)
-                logger.info('Successfully downloaded model from 0G Storage')
-            } else {
+            if (downloadMethod === 'tee') {
                 // Download LoRA directly from TEE
                 await this.servingProvider.downloadLoRAFromTEE(
                     providerAddress,
@@ -113,6 +109,40 @@ export class ModelProcessor extends BrokerBase {
                     taskId,
                     deliverable.modelRootHash
                 )
+            } else if (downloadMethod === '0g-storage') {
+                // Download from 0G Storage with built-in hash verification
+                await download(dataPath, deliverable.modelRootHash)
+                logger.info('Successfully downloaded model from 0G Storage')
+            } else {
+                // Auto mode: try 0G Storage first, fallback to TEE
+                try {
+                    logger.info(
+                        'Downloading model from 0G Storage...'
+                    )
+                    await download(dataPath, deliverable.modelRootHash)
+                    logger.info(
+                        'Successfully downloaded model from 0G Storage'
+                    )
+                } catch (storageErr) {
+                    logger.warn(
+                        `0G Storage download failed: ${storageErr}. Falling back to TEE download...`
+                    )
+                    await this.servingProvider.downloadLoRAFromTEE(
+                        providerAddress,
+                        taskId,
+                        dataPath
+                    )
+                    logger.info(
+                        'Successfully downloaded LoRA model from TEE (fallback)'
+                    )
+
+                    // Verify hash of downloaded file against on-chain modelRootHash
+                    await this.verifyDownloadedModelHash(
+                        dataPath,
+                        taskId,
+                        deliverable.modelRootHash
+                    )
+                }
             }
 
             await this.contract.acknowledgeDeliverable(

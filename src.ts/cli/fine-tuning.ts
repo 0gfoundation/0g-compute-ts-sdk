@@ -227,15 +227,31 @@ export default function fineTuning(program: Command) {
 
                 let datasetHash = options.dataset
 
-                // If dataset-path is provided, upload to TEE first
+                // If dataset-path is provided, upload dataset (0G Storage first, fallback to TEE)
                 if (options.datasetPath) {
-                    console.log('Uploading dataset to TEE...')
-                    const result = await broker.fineTuning!.uploadDatasetToTEE(
-                        options.provider,
-                        options.datasetPath
-                    )
-                    datasetHash = result.datasetHash
-                    console.log('Dataset uploaded, hash:', datasetHash)
+                    try {
+                        console.log('Uploading dataset to 0G Storage...')
+                        const rootHash = await broker.fineTuning!.uploadDataset(
+                            options.datasetPath,
+                            options.gasPrice,
+                            options.maxGasPrice
+                        )
+                        if (rootHash) {
+                            datasetHash = rootHash
+                            console.log('Dataset uploaded to 0G Storage, root hash:', datasetHash)
+                        } else {
+                            throw new Error('Upload succeeded but no root hash returned')
+                        }
+                    } catch (storageErr) {
+                        console.warn(chalk.yellow(`\n⚠️  0G Storage upload failed: ${storageErr}`))
+                        console.log('Falling back to direct TEE upload...')
+                        const result = await broker.fineTuning!.uploadDatasetToTEE(
+                            options.provider,
+                            options.datasetPath
+                        )
+                        datasetHash = result.datasetHash
+                        console.log('Dataset uploaded to TEE (fallback), hash:', datasetHash)
+                    }
                 }
 
                 console.log('Verify provider...')
@@ -391,7 +407,7 @@ export default function fineTuning(program: Command) {
         .option('--step <step>', 'Step for gas price adjustment')
         .option(
             '--download-method <method>',
-            'Download method: tee or 0g-storage (default: tee)'
+            'Download method: auto (default, try 0G Storage then TEE), 0g-storage, or tee'
         )
         .action((options) => {
             withFineTuningBroker(options, async (broker) => {
@@ -401,10 +417,11 @@ export default function fineTuning(program: Command) {
                     options.dataPath,
                     {
                         gasPrice: options.gasPrice,
-                        downloadMethod: options.downloadMethod as
+                        downloadMethod: (options.downloadMethod as
                             | 'tee'
                             | '0g-storage'
-                            | undefined,
+                            | 'auto'
+                            | undefined) ?? 'auto',
                     }
                 )
                 console.log('Acknowledged model')
