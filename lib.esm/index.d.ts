@@ -3656,7 +3656,7 @@ declare class FineTuningBroker {
         [key: string]: string;
     }][][]>;
     modelUsage: (providerAddress: string, preTrainedModelName: string, output: string) => Promise<void>;
-    uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<void>;
+    uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<string>;
     downloadDataset: (dataPath: string, dataRoot: string) => Promise<void>;
     calculateToken: (datasetPath: string, preTrainedModelName: string, usePython: boolean, providerAddress?: string) => Promise<void>;
     createTask: (providerAddress: string, preTrainedModelName: string, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
@@ -3666,7 +3666,7 @@ declare class FineTuningBroker {
     getLog: (providerAddress: string, taskID?: string) => Promise<string>;
     acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, options?: {
         gasPrice?: number;
-        downloadMethod?: "tee" | "0g-storage";
+        downloadMethod?: "tee" | "0g-storage" | "auto";
     }) => Promise<void>;
     /**
      * Download LoRA model directly from TEE
@@ -3827,5 +3827,4 @@ interface CryptoAdapter {
 }
 declare function getCryptoAdapter(): CryptoAdapter;
 
-export { CONTRACT_ADDRESSES, FineTuningBroker, HARDHAT_CHAIN_ID, AccountProcessor as InferenceAccountProcessor, InferenceBroker, ModelProcessor as InferenceModelProcessor, RequestProcessor as InferenceRequestProcessor, ResponseProcessor as InferenceResponseProcessor, Verifier as InferenceVerifier, LedgerBroker, MAINNET_CHAIN_ID, TESTNET_CHAIN_ID, ZGComputeNetworkBroker, createFineTuningBroker, createInferenceBroker, createLedgerBroker, createZGComputeNetworkBroker, getCryptoAdapter, getNetworkType, hasWebCrypto, isBrowser, isDevMode, isNode, isWebWorker };
-export type { CryptoAdapter, ServiceStructOutput as FineTuningServiceStructOutput, AccountStructOutput as InferenceAccountStructOutput, ServiceStructOutput$1 as InferenceServiceStructOutput, ServingRequestHeaders as InferenceServingRequestHeaders, SingerRAVerificationResult as InferenceSingerRAVerificationResult };
+export { CONTRACT_ADDRESSES, type CryptoAdapter, FineTuningBroker, type ServiceStructOutput as FineTuningServiceStructOutput, HARDHAT_CHAIN_ID, AccountProcessor as InferenceAccountProcessor, type AccountStructOutput as InferenceAccountStructOutput, InferenceBroker, ModelProcessor as InferenceModelProcessor, RequestProcessor as InferenceRequestProcessor, ResponseProcessor as InferenceResponseProcessor, type ServiceStructOutput$1 as InferenceServiceStructOutput, type ServingRequestHeaders as InferenceServingRequestHeaders, type SingerRAVerificationResult as InferenceSingerRAVerificationResult, Verifier as InferenceVerifier, LedgerBroker, MAINNET_CHAIN_ID, TESTNET_CHAIN_ID, ZGComputeNetworkBroker, createFineTuningBroker, createInferenceBroker, createLedgerBroker, createZGComputeNetworkBroker, getCryptoAdapter, getNetworkType, hasWebCrypto, isBrowser, isDevMode, isNode, isWebWorker };

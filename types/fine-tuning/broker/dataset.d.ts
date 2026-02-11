@@ -11,9 +11,10 @@ export declare class DatasetProcessor extends BrokerBase {
      * @param dataPath - Local path to the dataset file
      * @param gasPrice - Optional gas price for the transaction
      * @param maxGasPrice - Optional maximum gas price
+     * @returns Root hash of the uploaded dataset in 0G Storage
      * @throws Error if upload fails
      */
-    uploadDataset(privateKey: string, dataPath: string, gasPrice?: number, maxGasPrice?: number): Promise<void>;
+    uploadDataset(privateKey: string, dataPath: string, gasPrice?: number, maxGasPrice?: number): Promise<string>;
     /**
      * Download a dataset from 0G Storage.
      *

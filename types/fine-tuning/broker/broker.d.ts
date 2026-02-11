@@ -29,7 +29,7 @@ export declare class FineTuningBroker {
         [key: string]: string;
     }][][]>;
     modelUsage: (providerAddress: string, preTrainedModelName: string, output: string) => Promise<void>;
-    uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<void>;
+    uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<string>;
     downloadDataset: (dataPath: string, dataRoot: string) => Promise<void>;
     calculateToken: (datasetPath: string, preTrainedModelName: string, usePython: boolean, providerAddress?: string) => Promise<void>;
     createTask: (providerAddress: string, preTrainedModelName: string, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
@@ -39,7 +39,7 @@ export declare class FineTuningBroker {
     getLog: (providerAddress: string, taskID?: string) => Promise<string>;
     acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, options?: {
         gasPrice?: number;
-        downloadMethod?: "tee" | "0g-storage";
+        downloadMethod?: "tee" | "0g-storage" | "auto";
     }) => Promise<void>;
     /**
      * Download LoRA model directly from TEE

@@ -46,6 +46,10 @@ export declare class ModelProcessor extends BrokerBase {
      */
     downloadLoRAFromTEE(providerAddress: string, taskId: string, outputPath: string): Promise<void>;
     /**
+     * Verify the hash of a downloaded model file against the expected on-chain hash.
+     */
+    private verifyDownloadedModelHash;
+    /**
  * Decrypt a fine-tuned model after acknowledgement.
  * Uses the user's private key to decrypt the model encryption key,
  * then decrypts the model file.

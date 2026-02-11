@@ -7,6 +7,8 @@ import { MODEL_HASH_MAP } from '../const'
 import { download } from '../zg-storage'
 import { BrokerBase } from './base'
 import { logger } from '../../common/logger'
+import { ethers } from 'ethers'
+import fs from 'fs/promises'
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
@@ -195,6 +197,71 @@ export class ModelProcessor extends BrokerBase {
             )
         } catch (error) {
             throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Verify the hash of a downloaded model file against the expected on-chain hash.
+     */
+    private async verifyDownloadedModelHash(
+        filePath: string,
+        taskId: string,
+        expectedHash: string
+    ): Promise<void> {
+        try {
+            let actualFile = filePath
+            try {
+                const stats = await fs.stat(filePath)
+                if (stats.isDirectory()) {
+                    const files = await fs.readdir(filePath)
+                    const loraFile = files.find(
+                        (f) =>
+                            f.startsWith('lora_model_') ||
+                            f.endsWith('.data') ||
+                            f.endsWith('.zip')
+                    )
+                    if (loraFile) {
+                        actualFile = `${filePath}/${loraFile}`
+                    } else if (files.length === 1) {
+                        actualFile = `${filePath}/${files[0]}`
+                    } else {
+                        logger.warn(
+                            `Cannot determine downloaded file in directory ${filePath}, skipping hash verification`
+                        )
+                        return
+                    }
+                }
+            } catch (err) {
+                logger.warn(
+                    `Downloaded file not found at ${filePath}, skipping hash verification`
+                )
+                return
+            }
+
+            const fileData = await fs.readFile(actualFile)
+            const computedHash = ethers.keccak256(fileData)
+
+            if (
+                expectedHash &&
+                expectedHash !==
+                    '0x0000000000000000000000000000000000000000000000000000000000000000'
+            ) {
+                if (computedHash !== expectedHash) {
+                    logger.warn(
+                        `Hash mismatch for task ${taskId}: expected ${expectedHash}, got ${computedHash}`
+                    )
+                } else {
+                    logger.info(
+                        `Hash verification passed for task ${taskId}`
+                    )
+                }
+            } else {
+                logger.info(
+                    `No on-chain hash to verify against for task ${taskId}, computed hash: ${computedHash}`
+                )
+            }
+        } catch (err) {
+            logger.warn(`Hash verification failed: ${err}`)
         }
     }
 

@@ -18,11 +18,12 @@ class DatasetProcessor extends base_1.BrokerBase {
      * @param dataPath - Local path to the dataset file
      * @param gasPrice - Optional gas price for the transaction
      * @param maxGasPrice - Optional maximum gas price
+     * @returns Root hash of the uploaded dataset in 0G Storage
      * @throws Error if upload fails
      */
     async uploadDataset(privateKey, dataPath, gasPrice, maxGasPrice) {
         try {
-            await (0, zg_storage_1.upload)(privateKey, dataPath, gasPrice);
+            return await (0, zg_storage_1.upload)(privateKey, dataPath, gasPrice, maxGasPrice);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);

@@ -158,12 +158,26 @@ function fineTuning(program) {
                 process.exit(1);
             }
             let datasetHash = options.dataset;
-            // If dataset-path is provided, upload to TEE first
+            // If dataset-path is provided, upload dataset (0G Storage first, fallback to TEE)
             if (options.datasetPath) {
-                console.log('Uploading dataset to TEE...');
-                const result = await broker.fineTuning.uploadDatasetToTEE(options.provider, options.datasetPath);
-                datasetHash = result.datasetHash;
-                console.log('Dataset uploaded, hash:', datasetHash);
+                try {
+                    console.log('Uploading dataset to 0G Storage...');
+                    const rootHash = await broker.fineTuning.uploadDataset(options.datasetPath, options.gasPrice, options.maxGasPrice);
+                    if (rootHash) {
+                        datasetHash = rootHash;
+                        console.log('Dataset uploaded to 0G Storage, root hash:', datasetHash);
+                    }
+                    else {
+                        throw new Error('Upload succeeded but no root hash returned');
+                    }
+                }
+                catch (storageErr) {
+                    console.warn(chalk_1.default.yellow(`\n⚠️  0G Storage upload failed: ${storageErr}`));
+                    console.log('Falling back to direct TEE upload...');
+                    const result = await broker.fineTuning.uploadDatasetToTEE(options.provider, options.datasetPath);
+                    datasetHash = result.datasetHash;
+                    console.log('Dataset uploaded to TEE (fallback), hash:', datasetHash);
+                }
             }
             console.log('Verify provider...');
             await broker.fineTuning.acknowledgeProviderSigner(options.provider, options.gasPrice);
@@ -278,12 +292,12 @@ function fineTuning(program) {
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price adjustment')
-        .option('--download-method <method>', 'Download method: tee or 0g-storage (default: tee)')
+        .option('--download-method <method>', 'Download method: auto (default, try 0G Storage then TEE), 0g-storage, or tee')
         .action((options) => {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
             await broker.fineTuning.acknowledgeModel(options.provider, options.taskId, options.dataPath, {
                 gasPrice: options.gasPrice,
-                downloadMethod: options.downloadMethod,
+                downloadMethod: options.downloadMethod ?? 'auto',
             });
             console.log('Acknowledged model');
         });
