@@ -23,7 +23,7 @@ export declare class ServiceProcessor extends BrokerBase {
     acknowledgeTEESignerByOwner(providerAddress: string, gasPrice?: number): Promise<void>;
     revokeTEESignerAcknowledgement(providerAddress: string, gasPrice?: number): Promise<void>;
     removeService(gasPrice?: number): Promise<void>;
-    createTask(providerAddress: string, preTrainedModelName: string, dataSize: number, datasetHash: string, trainingPath: string, gasPrice?: number): Promise<string>;
+    createTask(providerAddress: string, preTrainedModelName: string, datasetHash: string, trainingPath: string, gasPrice?: number): Promise<string>;
     cancelTask(providerAddress: string, taskID: string): Promise<string>;
     listTask(providerAddress: string): Promise<Task[]>;
     getTask(providerAddress: string, taskID?: string): Promise<Task>;

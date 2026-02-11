@@ -32,12 +32,32 @@ export declare class FineTuningBroker {
     uploadDataset: (dataPath: string, gasPrice?: number, maxGasPrice?: number) => Promise<void>;
     downloadDataset: (dataPath: string, dataRoot: string) => Promise<void>;
     calculateToken: (datasetPath: string, preTrainedModelName: string, usePython: boolean, providerAddress?: string) => Promise<void>;
-    createTask: (providerAddress: string, preTrainedModelName: string, dataSize: number, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
+    createTask: (providerAddress: string, preTrainedModelName: string, datasetHash: string, trainingPath: string, gasPrice?: number) => Promise<string>;
     cancelTask: (providerAddress: string, taskID: string) => Promise<string>;
     listTask: (providerAddress: string) => Promise<Task[]>;
     getTask: (providerAddress: string, taskID?: string) => Promise<Task>;
     getLog: (providerAddress: string, taskID?: string) => Promise<string>;
-    acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, gasPrice?: number) => Promise<void>;
+    acknowledgeModel: (providerAddress: string, taskId: string, dataPath: string, options?: {
+        gasPrice?: number;
+        downloadMethod?: "tee" | "0g-storage";
+    }) => Promise<void>;
+    /**
+     * Download LoRA model directly from TEE
+     */
+    downloadLoRAFromTEE: (providerAddress: string, taskId: string, outputPath: string) => Promise<void>;
+    /**
+     * Upload dataset directly to TEE (broker)
+     * Returns the dataset hash for use in task creation
+     * This is the preferred method for testing
+     */
+    uploadDatasetToTEE: (providerAddress: string, datasetPath: string) => Promise<{
+        datasetHash: string;
+        message: string;
+    }>;
+    /**
+     * Download encrypted model from 0G Storage (for advanced use cases)
+     */
+    downloadModelFrom0GStorage: (providerAddress: string, taskId: string, dataPath: string) => Promise<void>;
     decryptModel: (providerAddress: string, taskId: string, encryptedModelPath: string, decryptedModelPath: string) => Promise<void>;
     /**
      * Verify fine-tuning service TEE attestation (DStack only)

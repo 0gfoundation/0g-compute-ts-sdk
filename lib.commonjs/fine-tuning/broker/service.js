@@ -104,8 +104,11 @@ class ServiceProcessor extends base_1.BrokerBase {
             const account = await this.contract.getAccount(provider);
             const lockTime = await this.getLockTime();
             const now = BigInt(Math.floor(Date.now() / 1000)); // Converts milliseconds to seconds
+            // Use validRefundsLength to determine valid refunds
+            // Valid refunds are in range [0, validRefundsLength)
+            const validRefundsLength = Number(account.validRefundsLength);
             const refunds = account.refunds
-                .filter((refund) => !refund.processed)
+                .slice(0, validRefundsLength) // Only consider valid refunds
                 .filter((refund) => refund.amount !== BigInt(0))
                 .map((refund) => ({
                 amount: refund.amount,
@@ -183,7 +186,7 @@ class ServiceProcessor extends base_1.BrokerBase {
             (0, utils_1.throwFormattedError)(error);
         }
     }
-    async createTask(providerAddress, preTrainedModelName, dataSize, datasetHash, trainingPath, gasPrice) {
+    async createTask(providerAddress, preTrainedModelName, datasetHash, trainingPath, gasPrice) {
         try {
             let preTrainedModelHash;
             if (preTrainedModelName in const_1.MODEL_HASH_MAP) {
@@ -194,18 +197,11 @@ class ServiceProcessor extends base_1.BrokerBase {
                 preTrainedModelHash = model.hash;
                 console.log(`customized model hash: ${preTrainedModelHash}`);
             }
-            const service = await this.contract.getService(providerAddress);
             const trainingParams = await readFileContent(trainingPath);
-            const parsedParams = this.verifyTrainingParams(trainingParams);
-            const trainEpochs = (parsedParams.num_train_epochs || parsedParams.total_steps) ?? 3;
-            const fee = service.pricePerToken * BigInt(dataSize) * BigInt(trainEpochs);
-            console.log(`Estimated fee: ${fee} (neuron), data size: ${dataSize}, train epochs: ${trainEpochs}, price per token: ${service.pricePerToken} (neuron)`);
-            const account = await this.contract.getAccount(providerAddress);
-            if (account.balance - account.pendingRefund < fee) {
-                await this.ledger.transferFund(providerAddress, 'fine-tuning', fee, gasPrice);
-            }
+            this.verifyTrainingParams(trainingParams);
+            console.log('Fee will be automatically calculated by the broker based on actual token count');
             const nonce = (0, utils_1.getNonce)();
-            const signature = await (0, utils_1.signRequest)(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash, fee);
+            const signature = await (0, utils_1.signRequest)(this.contract.signer, this.contract.getUserAddress(), BigInt(nonce), datasetHash);
             let wait = false;
             const counter = await this.servingProvider.getPendingTaskCounter(providerAddress);
             if (counter > 0) {
@@ -229,7 +225,7 @@ class ServiceProcessor extends base_1.BrokerBase {
                 datasetHash,
                 trainingParams,
                 preTrainedModelHash,
-                fee: fee.toString(),
+                fee: '0', // Fee will be calculated by broker
                 nonce: nonce.toString(),
                 signature,
                 wait,

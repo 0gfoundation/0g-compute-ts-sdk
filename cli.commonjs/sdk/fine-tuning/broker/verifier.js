@@ -249,8 +249,7 @@ class Verifier extends base_1.BrokerBase {
      */
     async processDStackVerification(report) {
         console.log(`   Processing attestation report...`);
-        if (!(report.tcb_info || report.info?.tcb_info) ||
-            !report.event_log) {
+        if (!(report.tcb_info || report.info?.tcb_info) || !report.event_log) {
             console.log(`   ⚠️  Warning: report missing tcb_info or event_log`);
             return { images: [], composeVerificationPassed: false };
         }

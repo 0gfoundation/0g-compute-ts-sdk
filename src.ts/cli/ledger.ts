@@ -13,7 +13,6 @@ import Table from 'cli-table3'
 import type { ZGComputeNetworkBroker } from '../sdk'
 import { getNetworkType } from '../sdk'
 import chalk from 'chalk'
-import { hexToRoots } from '../sdk/common/utils'
 import type { DeliverableStructOutput } from '../sdk/fine-tuning/contract/typechain/FineTuningServing'
 import { interactiveSelect } from './interactive-selection'
 import { getRpcEndpoint } from './network-setup'
@@ -470,7 +469,7 @@ function renderDeliverables(deliverables: DeliverableStructOutput[]) {
     deliverables.forEach((d) => {
         table.push([
             d.id,
-            splitIntoChunks(hexToRoots(d.modelRootHash), 60),
+            splitIntoChunks(d.modelRootHash, 60),
             d.acknowledged ? chalk.greenBright.bold('\u2713') : '',
         ])
     })
