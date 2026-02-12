@@ -44,6 +44,27 @@ export async function signTaskID(
     return await signer.signMessage(ethers.toBeArray(hash))
 }
 
+/**
+ * Sign a message for dataset upload authentication with timestamp
+ * Used to verify user ownership before uploading datasets to TEE
+ * The message format is: keccak256(userAddress + timestamp)
+ * This prevents signature replay attacks by binding the signature to a specific time
+ *
+ * @param signer - The wallet to sign with
+ * @param userAddress - The user's address
+ * @param timestamp - Unix timestamp in seconds (should be current time)
+ * @returns The signature as a hex string
+ */
+export async function signDatasetUpload(
+    signer: Wallet,
+    userAddress: string,
+    timestamp: number
+): Promise<string> {
+    const message = `${userAddress}${timestamp}`
+    const hash = ethers.keccak256(ethers.toUtf8Bytes(message))
+    return await signer.signMessage(ethers.toBeArray(hash))
+}
+
 export async function eciesDecrypt(
     signer: Wallet,
     encryptedData: string
