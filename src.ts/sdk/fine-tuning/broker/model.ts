@@ -3,13 +3,19 @@ import {
     eciesDecrypt,
     throwFormattedError,
 } from '../../common/utils'
-import { MODEL_HASH_MAP } from '../const'
+import {
+    TESTNET_MODELS,
+    TESTNET_DEV_MODELS,
+    MAINNET_MODELS,
+    HARDHAT_MODELS,
+} from '../const'
 import { download } from '../zg-storage'
 import { BrokerBase } from './base'
 import { logger } from '../../common/logger'
 import { ethers } from 'ethers'
 import fs from 'fs/promises'
 import path from 'path'
+import { getNetworkType, isDevMode } from '../../broker'
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
@@ -20,6 +26,12 @@ export class ModelProcessor extends BrokerBase {
      * List all available models including both standard pre-trained models
      * and customized models from providers.
      *
+     * Network-specific models:
+     * - Testnet (dev mode): Qwen2.5-0.5B-Instruct
+     * - Testnet (production): Qwen2.5-0.5B-Instruct
+     * - Mainnet: Qwen2.5-0.5B-Instruct, Qwen3-32B
+     * - Hardhat (local): mock-model
+     *
      * @returns A tuple containing two arrays:
      *   - [0]: Standard pre-trained models with their configurations
      *   - [1]: Customized models from providers with descriptions
@@ -28,12 +40,35 @@ export class ModelProcessor extends BrokerBase {
      * ```typescript
      * const [standardModels, customizedModels] = await broker.fineTuning.listModel();
      *
-     * // Standard models: [['meta-llama/Llama-2-7b-chat-hf', {...}], ...]
+     * // Standard models: [['Qwen2.5-0.5B-Instruct', {...}], ...]
      * // Customized models: [['my-model', { description: '...', provider: '0x...' }], ...]
      * ```
      */
     async listModel(): Promise<[string, { [key: string]: string }][][]> {
         try {
+            // Get current network type
+            const chainId = await this.contract.signer.provider?.getNetwork().then(n => n.chainId)
+            const networkType = chainId ? getNetworkType(chainId) : 'unknown'
+            const devMode = isDevMode()
+
+            // Select model configuration based on network and dev mode
+            let modelConfig
+            if (networkType === 'hardhat') {
+                // Local hardhat network: use mock models
+                modelConfig = HARDHAT_MODELS
+            } else if (networkType === 'testnet') {
+                // Testnet: check dev mode
+                modelConfig = devMode ? TESTNET_DEV_MODELS : TESTNET_MODELS
+            } else if (networkType === 'mainnet') {
+                // Mainnet: all production models
+                modelConfig = MAINNET_MODELS
+            } else {
+                // Unknown network: default to mainnet models
+                modelConfig = MAINNET_MODELS
+            }
+
+            const availableModels = Object.entries(modelConfig)
+
             const services = await this.contract.listService()
             const customizedModels: [string, { [key: string]: string }][] = []
 
@@ -54,7 +89,7 @@ export class ModelProcessor extends BrokerBase {
                 }
             }
 
-            return [Object.entries(MODEL_HASH_MAP), customizedModels]
+            return [availableModels, customizedModels]
         } catch (error) {
             throwFormattedError(error)
         }
