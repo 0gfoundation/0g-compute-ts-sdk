@@ -7,6 +7,12 @@ node_modules
 token_counter
 token_counter.*
 
+# Build outputs (generated files)
+lib.commonjs/
+lib.esm/
+cli.commonjs/
+types/
+
 # Next.js build outputs
 .next
 out
