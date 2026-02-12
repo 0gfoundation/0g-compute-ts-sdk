@@ -6,6 +6,7 @@ const const_1 = require("../const");
 const zg_storage_1 = require("../zg-storage");
 const base_1 = require("./base");
 const token_1 = require("../token");
+const logger_1 = require("../../common/logger");
 /**
  * DatasetProcessor handles dataset-related operations including upload, download,
  * and token calculation for fine-tuning tasks.
@@ -18,11 +19,12 @@ class DatasetProcessor extends base_1.BrokerBase {
      * @param dataPath - Local path to the dataset file
      * @param gasPrice - Optional gas price for the transaction
      * @param maxGasPrice - Optional maximum gas price
+     * @returns Root hash of the uploaded dataset in 0G Storage
      * @throws Error if upload fails
      */
     async uploadDataset(privateKey, dataPath, gasPrice, maxGasPrice) {
         try {
-            await (0, zg_storage_1.upload)(privateKey, dataPath, gasPrice);
+            return await (0, zg_storage_1.upload)(privateKey, dataPath, gasPrice, maxGasPrice);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
@@ -98,7 +100,7 @@ class DatasetProcessor extends base_1.BrokerBase {
             else {
                 dataSize = await (0, token_1.calculateTokenSizeViaExe)(tokenizer, datasetPath, dataType, const_1.TOKEN_COUNTER_MERKLE_ROOT, const_1.TOKEN_COUNTER_FILE_HASH);
             }
-            console.log(`The token size for the dataset ${datasetPath} is ${dataSize}`);
+            logger_1.logger.info(`Token size for dataset ${datasetPath}: ${dataSize}`);
             return dataSize;
         }
         catch (error) {

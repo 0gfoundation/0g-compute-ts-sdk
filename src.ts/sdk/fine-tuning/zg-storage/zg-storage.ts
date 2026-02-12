@@ -2,13 +2,14 @@ import { INDEXER_URL_TURBO, ZG_RPC_ENDPOINT_TESTNET } from '../const'
 import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs/promises'
+import { logger } from '../../common/logger'
 
 export async function upload(
     privateKey: string,
     dataPath: string,
     gasPrice?: number,
     maxGasPrice?: number
-): Promise<void> {
+): Promise<string> {
     try {
         const fileSize = await getFileContentSize(dataPath)
 
@@ -44,31 +45,54 @@ export async function upload(
                 args.push('--max-gas-price', maxGasPrice.toString())
             }
 
-            const process = spawn(command, args)
+            let rootHash = ''
+            const childProcess = spawn(command, args)
 
-            process.stdout.on('data', (data) => {
-                console.log(`${data}`)
-            })
-
-            process.stderr.on('data', (data) => {
-                console.error(`${data}`)
-            })
-
-            process.on('close', (code) => {
-                if (code !== 0) {
-                    reject(new Error(`Process exited with code ${code}`))
-                } else {
-                    console.log(`File size: ${fileSize} bytes`)
-                    resolve()
+            childProcess.stdout.on('data', (data) => {
+                const output = data.toString()
+                logger.debug(output)
+                // Capture root hash from output: "file uploaded, root = 0x..."
+                const match = output.match(
+                    /root\s*=\s*(0x[0-9a-fA-F]+)/
+                )
+                if (match) {
+                    rootHash = match[1]
                 }
             })
 
-            process.on('error', (err) => {
+            childProcess.stderr.on('data', (data) => {
+                const output = data.toString()
+                logger.warn(output)
+                // Also check stderr since some log output goes to stderr
+                const match = output.match(
+                    /root\s*=\s*(0x[0-9a-fA-F]+)/
+                )
+                if (match) {
+                    rootHash = match[1]
+                }
+            })
+
+            childProcess.on('close', (code) => {
+                if (code !== 0) {
+                    reject(new Error(`Process exited with code ${code}`))
+                } else if (!rootHash) {
+                    reject(
+                        new Error(
+                            'Upload succeeded but no root hash was captured from output'
+                        )
+                    )
+                } else {
+                    logger.info(`File size: ${fileSize} bytes`)
+                    resolve(rootHash)
+                }
+            })
+
+            childProcess.on('error', (err) => {
                 reject(err)
             })
         })
     } catch (err) {
-        console.error(err)
+        logger.error(`Upload failed: ${err}`)
         throw err
     }
 }
@@ -105,13 +129,13 @@ export async function download(
         process.stdout.on('data', (data) => {
             const output = data.toString()
             log += output
-            console.log(output)
+            logger.debug(output)
         })
 
         process.stderr.on('data', (data) => {
             const errorOutput = data.toString()
             log += errorOutput
-            console.error(errorOutput)
+            logger.warn(errorOutput)
         })
 
         process.on('close', (code) => {

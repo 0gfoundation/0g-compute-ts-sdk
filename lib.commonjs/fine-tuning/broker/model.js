@@ -1,11 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelProcessor = void 0;
+const tslib_1 = require("tslib");
 const utils_1 = require("../../common/utils");
 const const_1 = require("../const");
 const zg_storage_1 = require("../zg-storage");
 const base_1 = require("./base");
 const logger_1 = require("../../common/logger");
+const ethers_1 = require("ethers");
+const promises_1 = tslib_1.__importDefault(require("fs/promises"));
+const path_1 = tslib_1.__importDefault(require("path"));
 /**
  * ModelProcessor handles model-related operations including listing available models,
  * acknowledging model delivery, and decrypting fine-tuned models.
@@ -59,30 +63,54 @@ class ModelProcessor extends base_1.BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: 'tee' (default) or '0g-storage'
+     * @param options.downloadMethod - Download method: 'auto' (default, try 0G Storage first then TEE fallback), 'tee', or '0g-storage'
      */
     async acknowledgeModel(providerAddress, taskId, dataPath, options) {
         try {
             const gasPrice = options?.gasPrice;
-            const downloadMethod = options?.downloadMethod ?? 'tee';
+            const downloadMethod = options?.downloadMethod ?? 'auto';
             const deliverable = await this.contract.getDeliverable(providerAddress, taskId);
             logger_1.logger.debug(`deliverable: ${deliverable.modelRootHash}`);
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            if (downloadMethod === '0g-storage') {
-                // Download from 0G Storage with built-in hash verification
-                await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
-                logger_1.logger.info('Successfully downloaded model from 0G Storage');
+            // Resolve storage download path: 0G Storage client needs a file path, not a directory
+            let storageDownloadPath = dataPath;
+            try {
+                const stats = await promises_1.default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    storageDownloadPath = path_1.default.join(dataPath, `model_${taskId}.bin`);
+                }
             }
-            else {
+            catch {
+                // Path doesn't exist yet, use as-is (will be created as a file)
+            }
+            if (downloadMethod === 'tee') {
                 // Download LoRA directly from TEE
                 await this.servingProvider.downloadLoRAFromTEE(providerAddress, taskId, dataPath);
                 logger_1.logger.info('Successfully downloaded LoRA model from TEE');
-                // Note: TEE downloads are verified by the signature authentication.
-                // The broker ensures only authorized users can download the model.
-                // Additional hash verification could be added when the broker
-                // provides a content hash in the response.
+                // Verify hash of downloaded file against on-chain modelRootHash
+                await this.verifyDownloadedModelHash(dataPath, taskId, deliverable.modelRootHash);
+            }
+            else if (downloadMethod === '0g-storage') {
+                // Download from 0G Storage with built-in hash verification
+                await (0, zg_storage_1.download)(storageDownloadPath, deliverable.modelRootHash);
+                logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
+            }
+            else {
+                // Auto mode: try 0G Storage first, fallback to TEE
+                try {
+                    logger_1.logger.info('Downloading model from 0G Storage...');
+                    await (0, zg_storage_1.download)(storageDownloadPath, deliverable.modelRootHash);
+                    logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${storageDownloadPath}`);
+                }
+                catch (storageErr) {
+                    logger_1.logger.warn(`0G Storage download failed: ${storageErr}. Falling back to TEE download...`);
+                    await this.servingProvider.downloadLoRAFromTEE(providerAddress, taskId, dataPath);
+                    logger_1.logger.info('Successfully downloaded LoRA model from TEE (fallback)');
+                    // Verify hash of downloaded file against on-chain modelRootHash
+                    await this.verifyDownloadedModelHash(dataPath, taskId, deliverable.modelRootHash);
+                }
             }
             await this.contract.acknowledgeDeliverable(providerAddress, taskId, gasPrice);
         }
@@ -99,8 +127,19 @@ class ModelProcessor extends base_1.BrokerBase {
             if (!deliverable) {
                 throw new Error('No deliverable found');
             }
-            await (0, zg_storage_1.download)(dataPath, deliverable.modelRootHash);
-            logger_1.logger.info('Successfully downloaded model from 0G Storage');
+            // Resolve path: 0G Storage client needs a file path, not a directory
+            let downloadPath = dataPath;
+            try {
+                const stats = await promises_1.default.stat(dataPath);
+                if (stats.isDirectory()) {
+                    downloadPath = path_1.default.join(dataPath, `model_${taskId}.bin`);
+                }
+            }
+            catch {
+                // Path doesn't exist yet, use as-is
+            }
+            await (0, zg_storage_1.download)(downloadPath, deliverable.modelRootHash);
+            logger_1.logger.info(`Successfully downloaded model from 0G Storage to ${downloadPath}`);
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
@@ -116,6 +155,55 @@ class ModelProcessor extends base_1.BrokerBase {
         }
         catch (error) {
             (0, utils_1.throwFormattedError)(error);
+        }
+    }
+    /**
+     * Verify the hash of a downloaded model file against the expected on-chain hash.
+     */
+    async verifyDownloadedModelHash(filePath, taskId, expectedHash) {
+        try {
+            let actualFile = filePath;
+            try {
+                const stats = await promises_1.default.stat(filePath);
+                if (stats.isDirectory()) {
+                    const files = await promises_1.default.readdir(filePath);
+                    const loraFile = files.find((f) => f.startsWith('lora_model_') ||
+                        f.endsWith('.data') ||
+                        f.endsWith('.zip'));
+                    if (loraFile) {
+                        actualFile = `${filePath}/${loraFile}`;
+                    }
+                    else if (files.length === 1) {
+                        actualFile = `${filePath}/${files[0]}`;
+                    }
+                    else {
+                        logger_1.logger.warn(`Cannot determine downloaded file in directory ${filePath}, skipping hash verification`);
+                        return;
+                    }
+                }
+            }
+            catch (err) {
+                logger_1.logger.warn(`Downloaded file not found at ${filePath}, skipping hash verification`);
+                return;
+            }
+            const fileData = await promises_1.default.readFile(actualFile);
+            const computedHash = ethers_1.ethers.keccak256(fileData);
+            if (expectedHash &&
+                expectedHash !==
+                    '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                if (computedHash !== expectedHash) {
+                    logger_1.logger.warn(`Hash mismatch for task ${taskId}: expected ${expectedHash}, got ${computedHash}`);
+                }
+                else {
+                    logger_1.logger.info(`Hash verification passed for task ${taskId}`);
+                }
+            }
+            else {
+                logger_1.logger.info(`No on-chain hash to verify against for task ${taskId}, computed hash: ${computedHash}`);
+            }
+        }
+        catch (err) {
+            logger_1.logger.warn(`Hash verification failed: ${err}`);
         }
     }
     /**

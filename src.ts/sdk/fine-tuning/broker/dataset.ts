@@ -7,6 +7,7 @@ import {
 import { download, upload } from '../zg-storage'
 import { BrokerBase } from './base'
 import { calculateTokenSizeViaPython, calculateTokenSizeViaExe } from '../token'
+import { logger } from '../../common/logger'
 
 /**
  * DatasetProcessor handles dataset-related operations including upload, download,
@@ -20,6 +21,7 @@ export class DatasetProcessor extends BrokerBase {
      * @param dataPath - Local path to the dataset file
      * @param gasPrice - Optional gas price for the transaction
      * @param maxGasPrice - Optional maximum gas price
+     * @returns Root hash of the uploaded dataset in 0G Storage
      * @throws Error if upload fails
      */
     async uploadDataset(
@@ -27,9 +29,9 @@ export class DatasetProcessor extends BrokerBase {
         dataPath: string,
         gasPrice?: number,
         maxGasPrice?: number
-    ): Promise<void> {
+    ): Promise<string> {
         try {
-            await upload(privateKey, dataPath, gasPrice)
+            return await upload(privateKey, dataPath, gasPrice, maxGasPrice)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -127,8 +129,8 @@ export class DatasetProcessor extends BrokerBase {
                 )
             }
 
-            console.log(
-                `The token size for the dataset ${datasetPath} is ${dataSize}`
+            logger.info(
+                `Token size for dataset ${datasetPath}: ${dataSize}`
             )
 
             return dataSize

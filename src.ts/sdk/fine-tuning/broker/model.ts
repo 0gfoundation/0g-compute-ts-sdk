@@ -7,6 +7,9 @@ import { MODEL_HASH_MAP } from '../const'
 import { download } from '../zg-storage'
 import { BrokerBase } from './base'
 import { logger } from '../../common/logger'
+import { ethers } from 'ethers'
+import fs from 'fs/promises'
+import path from 'path'
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
@@ -64,7 +67,7 @@ export class ModelProcessor extends BrokerBase {
      * @param dataPath - Path to save the downloaded model
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
-     * @param options.downloadMethod - Download method: 'tee' (default) or '0g-storage'
+     * @param options.downloadMethod - Download method: 'auto' (default, try 0G Storage first then TEE fallback), 'tee', or '0g-storage'
      */
     async acknowledgeModel(
         providerAddress: string,
@@ -72,12 +75,12 @@ export class ModelProcessor extends BrokerBase {
         dataPath: string,
         options?: {
             gasPrice?: number
-            downloadMethod?: 'tee' | '0g-storage'
+            downloadMethod?: 'tee' | '0g-storage' | 'auto'
         }
     ): Promise<void> {
         try {
             const gasPrice = options?.gasPrice
-            const downloadMethod = options?.downloadMethod ?? 'tee'
+            const downloadMethod = options?.downloadMethod ?? 'auto'
 
             const deliverable = await this.contract.getDeliverable(
                 providerAddress,
@@ -92,11 +95,21 @@ export class ModelProcessor extends BrokerBase {
                 throw new Error('No deliverable found')
             }
 
-            if (downloadMethod === '0g-storage') {
-                // Download from 0G Storage with built-in hash verification
-                await download(dataPath, deliverable.modelRootHash)
-                logger.info('Successfully downloaded model from 0G Storage')
-            } else {
+            // Resolve storage download path: 0G Storage client needs a file path, not a directory
+            let storageDownloadPath = dataPath
+            try {
+                const stats = await fs.stat(dataPath)
+                if (stats.isDirectory()) {
+                    storageDownloadPath = path.join(
+                        dataPath,
+                        `model_${taskId}.bin`
+                    )
+                }
+            } catch {
+                // Path doesn't exist yet, use as-is (will be created as a file)
+            }
+
+            if (downloadMethod === 'tee') {
                 // Download LoRA directly from TEE
                 await this.servingProvider.downloadLoRAFromTEE(
                     providerAddress,
@@ -104,10 +117,52 @@ export class ModelProcessor extends BrokerBase {
                     dataPath
                 )
                 logger.info('Successfully downloaded LoRA model from TEE')
-                // Note: TEE downloads are verified by the signature authentication.
-                // The broker ensures only authorized users can download the model.
-                // Additional hash verification could be added when the broker
-                // provides a content hash in the response.
+
+                // Verify hash of downloaded file against on-chain modelRootHash
+                await this.verifyDownloadedModelHash(
+                    dataPath,
+                    taskId,
+                    deliverable.modelRootHash
+                )
+            } else if (downloadMethod === '0g-storage') {
+                // Download from 0G Storage with built-in hash verification
+                await download(storageDownloadPath, deliverable.modelRootHash)
+                logger.info(
+                    `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
+                )
+            } else {
+                // Auto mode: try 0G Storage first, fallback to TEE
+                try {
+                    logger.info(
+                        'Downloading model from 0G Storage...'
+                    )
+                    await download(
+                        storageDownloadPath,
+                        deliverable.modelRootHash
+                    )
+                    logger.info(
+                        `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
+                    )
+                } catch (storageErr) {
+                    logger.warn(
+                        `0G Storage download failed: ${storageErr}. Falling back to TEE download...`
+                    )
+                    await this.servingProvider.downloadLoRAFromTEE(
+                        providerAddress,
+                        taskId,
+                        dataPath
+                    )
+                    logger.info(
+                        'Successfully downloaded LoRA model from TEE (fallback)'
+                    )
+
+                    // Verify hash of downloaded file against on-chain modelRootHash
+                    await this.verifyDownloadedModelHash(
+                        dataPath,
+                        taskId,
+                        deliverable.modelRootHash
+                    )
+                }
             }
 
             await this.contract.acknowledgeDeliverable(
@@ -138,8 +193,24 @@ export class ModelProcessor extends BrokerBase {
                 throw new Error('No deliverable found')
             }
 
-            await download(dataPath, deliverable.modelRootHash)
-            logger.info('Successfully downloaded model from 0G Storage')
+            // Resolve path: 0G Storage client needs a file path, not a directory
+            let downloadPath = dataPath
+            try {
+                const stats = await fs.stat(dataPath)
+                if (stats.isDirectory()) {
+                    downloadPath = path.join(
+                        dataPath,
+                        `model_${taskId}.bin`
+                    )
+                }
+            } catch {
+                // Path doesn't exist yet, use as-is
+            }
+
+            await download(downloadPath, deliverable.modelRootHash)
+            logger.info(
+                `Successfully downloaded model from 0G Storage to ${downloadPath}`
+            )
         } catch (error) {
             throwFormattedError(error)
         }
@@ -162,6 +233,71 @@ export class ModelProcessor extends BrokerBase {
             )
         } catch (error) {
             throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Verify the hash of a downloaded model file against the expected on-chain hash.
+     */
+    private async verifyDownloadedModelHash(
+        filePath: string,
+        taskId: string,
+        expectedHash: string
+    ): Promise<void> {
+        try {
+            let actualFile = filePath
+            try {
+                const stats = await fs.stat(filePath)
+                if (stats.isDirectory()) {
+                    const files = await fs.readdir(filePath)
+                    const loraFile = files.find(
+                        (f) =>
+                            f.startsWith('lora_model_') ||
+                            f.endsWith('.data') ||
+                            f.endsWith('.zip')
+                    )
+                    if (loraFile) {
+                        actualFile = `${filePath}/${loraFile}`
+                    } else if (files.length === 1) {
+                        actualFile = `${filePath}/${files[0]}`
+                    } else {
+                        logger.warn(
+                            `Cannot determine downloaded file in directory ${filePath}, skipping hash verification`
+                        )
+                        return
+                    }
+                }
+            } catch (err) {
+                logger.warn(
+                    `Downloaded file not found at ${filePath}, skipping hash verification`
+                )
+                return
+            }
+
+            const fileData = await fs.readFile(actualFile)
+            const computedHash = ethers.keccak256(fileData)
+
+            if (
+                expectedHash &&
+                expectedHash !==
+                    '0x0000000000000000000000000000000000000000000000000000000000000000'
+            ) {
+                if (computedHash !== expectedHash) {
+                    logger.warn(
+                        `Hash mismatch for task ${taskId}: expected ${expectedHash}, got ${computedHash}`
+                    )
+                } else {
+                    logger.info(
+                        `Hash verification passed for task ${taskId}`
+                    )
+                }
+            } else {
+                logger.info(
+                    `No on-chain hash to verify against for task ${taskId}, computed hash: ${computedHash}`
+                )
+            }
+        } catch (err) {
+            logger.warn(`Hash verification failed: ${err}`)
         }
     }
 
