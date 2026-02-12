@@ -6,12 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Wallet, Image, Mic, ArrowRight, Sparkles } from "lucide-react";
 import { OnboardingFlow } from "@/components/ui/onboarding-flow";
-import { use0GBroker } from "../shared/hooks/use0GBroker";
+import { useBroker } from "@/shared/providers/BrokerProvider";
 
 // Use native <a> tag instead of Next.js Link to avoid RSC .txt navigation issues in static export
 export default function Home() {
   const { isConnected } = useAccount();
-  const { ledgerInfo } = use0GBroker();
+  const { ledgerInfo } = useBroker();
 
   // Check if user has balance (more than 0)
   const hasBalance = ledgerInfo && parseFloat(ledgerInfo.totalBalance) > 0;

@@ -25,7 +25,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { use0GBroker } from './use0GBroker'
+import { useBroker } from '../providers/BrokerProvider'
 import { getApiKeysForProvider, type StoredApiKey } from '../utils/apiKeyStorage'
 
 export interface OnChainToken {
@@ -68,7 +68,7 @@ const MAX_TOKEN_ID = 254 // 0-254, 255 is reserved for ephemeral tokens
  * @param userAddress - User's wallet address for localStorage lookup (optional)
  */
 export function useOnChainTokens(provider: string, userAddress?: string): UseOnChainTokensReturn {
-  const { broker } = use0GBroker()
+  const { broker } = useBroker()
   const [tokens, setTokens] = useState<OnChainToken[]>([])
   const [generation, setGeneration] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)

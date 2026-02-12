@@ -1,3 +1,4 @@
+/** @deprecated Use `useBroker` from `@/shared/providers/BrokerProvider` */
 export { use0GBroker } from './use0GBroker';
 export { useBrokerOperations } from './useBrokerOperations';
 export { useChatHistory } from './useChatHistory';

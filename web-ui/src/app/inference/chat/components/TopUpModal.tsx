@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState } from "react";
 import { a0giToNeuron } from "../../../../shared/utils/currency";
+import { formatNumber } from "../../../../shared/utils/formatNumber";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Loader2, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MINIMUM_DEPOSITS } from "@/shared/constants/limits";
 
 // Preset amounts for quick top-up
 const TOPUP_PRESETS = [
@@ -56,25 +58,6 @@ interface TopUpModalProps {
   setErrorWithTimeout: (error: string | null) => void;
 }
 
-// Helper function to format numbers with appropriate precision
-const formatNumber = (num: number): string => {
-  // Use toPrecision to maintain significant digits, then parseFloat to clean up
-  const cleanValue = parseFloat(num.toPrecision(15));
-
-  // If the number is very small, show more decimal places
-  if (Math.abs(cleanValue) < 0.000001) {
-    return cleanValue.toFixed(12).replace(/\.?0+$/, '');
-  }
-  // For larger numbers, show fewer decimal places
-  else if (Math.abs(cleanValue) < 0.01) {
-    return cleanValue.toFixed(8).replace(/\.?0+$/, '');
-  }
-  // For normal sized numbers, show up to 6 decimal places
-  else {
-    return cleanValue.toFixed(6).replace(/\.?0+$/, '');
-  }
-};
-
 export function TopUpModal({
   isOpen,
   onClose,
@@ -105,7 +88,20 @@ export function TopUpModal({
   };
 
   const handleTopUp = async () => {
-    if (!broker || !selectedProvider || !topUpAmount || parseFloat(topUpAmount) <= 0) {
+    if (!broker || !selectedProvider || !topUpAmount) {
+      return;
+    }
+
+    const amountInA0gi = parseFloat(topUpAmount);
+    if (isNaN(amountInA0gi) || amountInA0gi <= 0) return;
+
+    // Validate minimum amount for provider transfer
+    if (amountInA0gi < MINIMUM_DEPOSITS.TOPUP_PROVIDER) {
+      toast({
+        variant: "destructive",
+        title: "Minimum Amount Required",
+        description: `Minimum transfer to provider is ${MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G`,
+      });
       return;
     }
 
@@ -113,7 +109,6 @@ export function TopUpModal({
     setErrorWithTimeout(null);
 
     try {
-      const amountInA0gi = parseFloat(topUpAmount);
       const amountInNeuron = a0giToNeuron(amountInA0gi);
 
       // Call the transfer function with neuron amount
@@ -169,42 +164,29 @@ export function TopUpModal({
           <DialogTitle>Add Funds for the Current Provider Service</DialogTitle>
           <DialogDescription>
             Transfer funds from your available balance to pay for this provider&apos;s services.
-            Current funds: <span className="font-semibold">{(providerBalance ?? 0).toFixed(6)} 0G</span>
+            Current funds: <span className="font-semibold">{formatNumber(providerBalance ?? 0)} 0G</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Check if there's pending refund */}
+          {/* Pending refund notice */}
           {providerPendingRefund && providerPendingRefund > 0 ? (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="text-sm text-yellow-800">
-                <p className="mb-2">
+                <p className="mb-1">
                   <span className="font-semibold">Pending Refund: {formatNumber(providerPendingRefund)} 0G</span>
                 </p>
-                <p className="text-xs mb-3">
-                  You previously requested to withdraw funds from this provider. Please cancel the withdrawal request to replenish the fund.
+                <p className="text-xs">
+                  You have a pending withdrawal from this provider. Once the lock period expires, go to the{' '}
+                  <a href="/wallet" className="underline font-medium">wallet page</a> to retrieve these funds.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Use parseFloat to clean up floating point precision issues
-                    // and toPrecision to maintain significant digits
-                    const cleanValue = parseFloat(providerPendingRefund.toPrecision(15));
-                    setTopUpAmount(cleanValue.toString());
-                  }}
-                  className="bg-yellow-600 text-white hover:bg-yellow-700 border-yellow-600"
-                  disabled={isTopping}
-                >
-                  Use Pending Refund ({formatNumber(providerPendingRefund)} 0G)
-                </Button>
               </div>
             </div>
           ) : null}
 
           <div className="text-xs text-gray-500">
             Available for Transfer: {ledgerInfo ? (
-              <span className="font-medium">{(parseFloat(ledgerInfo.availableBalance) + (providerPendingRefund || 0)).toFixed(6)} 0G</span>
+              <span className="font-medium">{formatNumber(ledgerInfo.availableBalance)} 0G</span>
             ) : (
               <span>Loading...</span>
             )}
@@ -252,7 +234,7 @@ export function TopUpModal({
                 value={topUpAmount}
                 onChange={(e) => handleCustomInput(e.target.value)}
                 placeholder="Enter amount"
-                min="1"
+                min={MINIMUM_DEPOSITS.TOPUP_PROVIDER}
                 step="0.000001"
                 className="pr-12"
                 disabled={isTopping}
@@ -263,7 +245,7 @@ export function TopUpModal({
             </div>
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-400">
-            <span>Minimum transfer amount: 1 0G</span>
+            <span>Minimum transfer amount: {MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -295,9 +277,9 @@ export function TopUpModal({
             disabled={
               isTopping ||
               !topUpAmount ||
-              parseFloat(topUpAmount) < 1 ||
+              parseFloat(topUpAmount) < MINIMUM_DEPOSITS.TOPUP_PROVIDER ||
               !ledgerInfo ||
-              parseFloat(topUpAmount) > parseFloat(ledgerInfo.totalBalance)
+              parseFloat(topUpAmount) > parseFloat(ledgerInfo.availableBalance)
             }
             className="w-full bg-purple-600 hover:bg-purple-700"
           >

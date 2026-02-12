@@ -26,7 +26,7 @@
  */
 
 import { useCallback } from 'react'
-import { use0GBroker } from './use0GBroker'
+import { useBroker } from '../providers/BrokerProvider'
 import { a0giToNeuron, neuronToA0gi } from '../utils/currency'
 import { formatBlockchainError } from '../utils/blockchainErrors'
 
@@ -121,7 +121,7 @@ function parseDuration(duration: string): number {
  * @returns Object with broker operation methods
  */
 export function useBrokerOperations(): BrokerOperationsReturn {
-  const { broker, refreshLedgerInfo } = use0GBroker()
+  const { broker, refreshLedgerInfo } = useBroker()
 
   /**
    * Transfer funds to provider sub-account

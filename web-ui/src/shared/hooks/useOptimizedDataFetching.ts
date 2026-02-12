@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { dataCache } from '../utils/chainCache';
+
+export { setCurrentChainInCache, clearChainCache, clearDataCache } from '../utils/chainCache';
 
 interface DataFetchingOptions<T> {
   fetchFn: () => Promise<T>;
@@ -15,86 +18,6 @@ interface DataFetchingResult<T> {
   error: string | null;
   refetch: () => Promise<void>;
 }
-
-// Chain-aware cache implementation
-class ChainAwareDataCache {
-  private cache = new Map<string, Map<string, { data: unknown; timestamp: number; ttl: number }>>();
-  private currentChainId: number | undefined;
-  
-  setCurrentChain(chainId: number | undefined): void {
-    this.currentChainId = chainId;
-  }
-  
-  private getChainCache(chainId?: number): Map<string, { data: unknown; timestamp: number; ttl: number }> {
-    const effectiveChainId = chainId ?? this.currentChainId ?? 0;
-    const chainKey = effectiveChainId.toString();
-    
-    if (!this.cache.has(chainKey)) {
-      this.cache.set(chainKey, new Map());
-    }
-    return this.cache.get(chainKey)!;
-  }
-  
-  set<T>(key: string, data: T, ttl: number = 5 * 60 * 1000, chainId?: number): void {
-    const chainCache = this.getChainCache(chainId);
-    chainCache.set(key, {
-      data,
-      timestamp: Date.now(),
-      ttl,
-    });
-  }
-  
-  get<T>(key: string, chainId?: number): T | null {
-    const chainCache = this.getChainCache(chainId);
-    const cached = chainCache.get(key);
-    if (!cached) return null;
-    
-    const now = Date.now();
-    if (now - cached.timestamp > cached.ttl) {
-      chainCache.delete(key);
-      return null;
-    }
-    
-    return cached.data as T;
-  }
-  
-  // Clear cache for specific chain or specific key
-  clear(key?: string, chainId?: number): void {
-    if (chainId !== undefined) {
-      // Clear specific chain's cache
-      const chainKey = chainId.toString();
-      if (key) {
-        // Clear specific key in specific chain
-        const chainCache = this.cache.get(chainKey);
-        if (chainCache) {
-          chainCache.delete(key);
-        }
-      } else {
-        // Clear entire chain cache
-        this.cache.delete(chainKey);
-      }
-    } else if (key) {
-      // Clear specific key from current chain
-      const chainCache = this.getChainCache();
-      chainCache.delete(key);
-    } else {
-      // Clear all caches
-      this.cache.clear();
-    }
-  }
-  
-  // Clear cache for a specific chain when switching
-  clearChain(chainId: number): void {
-    this.cache.delete(chainId.toString());
-  }
-}
-
-const dataCache = new ChainAwareDataCache();
-
-// Export function to update current chain in cache
-export const setCurrentChainInCache = (chainId: number | undefined) => {
-  dataCache.setCurrentChain(chainId);
-};
 
 export function useOptimizedDataFetching<T>({
   fetchFn,
@@ -262,11 +185,3 @@ export function useParallelDataFetching<T extends Record<string, unknown>>(
   };
 }
 
-// Clear cache utilities
-export const clearDataCache = (key?: string, chainId?: number) => {
-  dataCache.clear(key, chainId);
-};
-
-export const clearChainCache = (chainId: number) => {
-  dataCache.clearChain(chainId);
-};

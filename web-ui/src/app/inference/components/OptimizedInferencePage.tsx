@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useCallback, useMemo } from 'react'
 import { useAccount, useChainId } from 'wagmi'
-import { use0GBroker } from '@/shared/hooks/use0GBroker'
+import { useBroker } from '@/shared/providers/BrokerProvider'
 import { useOptimizedDataFetching } from '@/shared/hooks/useOptimizedDataFetching'
 import type { Provider } from '@/shared/types/broker'
 import { OFFICIAL_PROVIDERS } from '../constants/providers'
@@ -30,7 +30,7 @@ const getRecentlyUsedProviders = (): string[] => {
 export function OptimizedInferencePage() {
     const { isConnected } = useAccount()
     const chainId = useChainId()
-    const { broker, isInitializing } = use0GBroker()
+    const { broker, isInitializing } = useBroker()
     const { setIsNavigating, setTargetRoute, setTargetPageType } = useNavigation()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [selectedProviderForBuild, setSelectedProviderForBuild] =

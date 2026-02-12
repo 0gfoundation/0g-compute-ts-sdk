@@ -17,6 +17,7 @@ import {
 import { ChevronUp, RefreshCw, Loader2, HelpCircle, Clock, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isProviderUnstable } from '@/shared/config/unstableProviders'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 // Live countdown component
 function CountdownTimer({ remainSeconds, formatTime }: { remainSeconds: number; formatTime: (s: number) => string }) {
@@ -96,7 +97,6 @@ interface ProviderFundsTableProps {
     loadingRefunds: { [key: string]: boolean }
     onRefreshRefund: (provider: string) => void
     type: 'inference' | 'fine-tuning'
-    formatNumber: (value: string | number) => string
     formatTime: (seconds: number) => string
 }
 
@@ -112,7 +112,6 @@ export function ProviderFundsTable({
     loadingRefunds,
     onRefreshRefund,
     type,
-    formatNumber,
     formatTime,
 }: ProviderFundsTableProps) {
     const getRefundKey = (provider: string) => `${type}-${provider}`

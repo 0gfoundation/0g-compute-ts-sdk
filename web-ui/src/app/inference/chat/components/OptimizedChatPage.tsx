@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { use0GBroker } from "../../../../shared/hooks/use0GBroker";
+import { useBroker } from "@/shared/providers/BrokerProvider";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
 import { useStreamingState } from "../../../../shared/hooks/useStreamingState";
@@ -43,7 +43,7 @@ interface Message {
 
 export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
-  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
+  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = useBroker();
   const { toast } = useToast();
 
   // Use toast for non-blocking errors
@@ -98,6 +98,10 @@ export function OptimizedChatPage() {
   const [isTopping, setIsTopping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
+  const isStreamingRef = useRef(isStreaming);
+  const isLoadingRef = useRef(isLoading);
+  isStreamingRef.current = isStreaming;
+  isLoadingRef.current = isLoading;
   
   // Initialize chat history hook first - shared across all providers for the same wallet
   const chatHistory = useChatHistory({
@@ -361,20 +365,24 @@ export function OptimizedChatPage() {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < CHAT_CONFIG.SCROLL_THRESHOLD;
-      
-      if (!isNearBottom && isStreaming) {
-        // User scrolled up during streaming, stop auto-scroll
-        isUserScrollingRef.current = true;
-      } else if (isNearBottom) {
-        // User is back near bottom, resume auto-scroll
-        isUserScrollingRef.current = false;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (isStreamingRef.current || isLoadingRef.current) {
+        const isAtBottom = distanceFromBottom <= CHAT_CONFIG.SCROLL_THRESHOLD;
+        isUserScrollingRef.current = !isAtBottom;
       }
     };
 
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, [isStreaming]);
+  }, []);
+
+  // Reset scroll tracking when streaming/loading ends
+  useEffect(() => {
+    if (!isStreaming && !isLoading) {
+      isUserScrollingRef.current = false;
+    }
+  }, [isStreaming, isLoading]);
   
   useEffect(() => {
     const scrollToBottom = () => {

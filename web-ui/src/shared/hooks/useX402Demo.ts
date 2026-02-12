@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
-import { use0GBroker } from './use0GBroker'
+import { useBroker } from '../providers/BrokerProvider'
 import { X402BrokerWrapper, type X402DepositResult } from '../../lib/x402/x402Wrapper'
 import { useWalletClient } from 'wagmi'
 import { BrowserProvider } from 'ethers'
 
 export function useX402Demo() {
-  const { broker, isInitializing, error, ledgerInfo, refreshLedgerInfo } = use0GBroker()
+  const { broker, isInitializing, error, ledgerInfo, refreshLedgerInfo } = useBroker()
   const { data: walletClient } = useWalletClient()
 
   const [x402Wrapper, setX402Wrapper] = useState<X402BrokerWrapper | null>(null)

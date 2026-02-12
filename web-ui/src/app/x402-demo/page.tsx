@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useX402Demo } from '../../shared/hooks/useX402Demo'
 import { useAccount } from 'wagmi'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 export default function X402DemoPage() {
   const { isConnected } = useAccount()
@@ -166,7 +167,7 @@ export default function X402DemoPage() {
             <div>
               <div className="text-sm text-gray-700 font-medium">Ledger Balance</div>
               <div className="text-2xl font-bold text-purple-600">
-                {ledgerInfo?.availableBalance || '0'} A0GI
+                {ledgerInfo ? `${formatNumber(ledgerInfo.availableBalance)} A0GI` : 'Loading...'}
               </div>
             </div>
             <div>
@@ -181,7 +182,7 @@ export default function X402DemoPage() {
             <div>
               <div className="text-sm text-gray-700 font-medium">Total Balance</div>
               <div className="text-2xl font-bold text-gray-900">
-                {ledgerInfo?.totalBalance || '0'} A0GI
+                {ledgerInfo ? `${formatNumber(ledgerInfo.totalBalance)} A0GI` : 'Loading...'}
               </div>
             </div>
           </div>

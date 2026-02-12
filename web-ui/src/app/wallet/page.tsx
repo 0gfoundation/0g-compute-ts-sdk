@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useAccount } from 'wagmi';
-import { use0GBroker } from '../../shared/hooks/use0GBroker';
+import { useBroker } from '@/shared/providers/BrokerProvider';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StateDisplay } from '@/components/ui/state-display';
 import { BalanceCard, AddFundsForm, WithdrawDialog, FundDistribution } from './components';
 import { TransactionHistory, useTransactionHistory } from './components/TransactionHistory';
 import { Loader2 } from 'lucide-react';
+import { formatNumber } from '@/shared/utils/formatNumber';
 
 function LedgerContent() {
   const { isConnected } = useAccount();
@@ -19,7 +20,7 @@ function LedgerContent() {
     ledgerInfo,
     refreshLedgerInfo,
     depositFund,
-  } = use0GBroker();
+  } = useBroker();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'detail' | 'history'>('overview');
   const [expandedRefunds, setExpandedRefunds] = useState<{ [key: string]: boolean }>({});
@@ -28,7 +29,7 @@ function LedgerContent() {
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
   const [isRetrievingAll, setIsRetrievingAll] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: string, show: boolean }>({ message: '', show: false });
+  const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: React.ReactNode, show: boolean }>({ message: '', show: false });
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,18 +51,6 @@ function LedgerContent() {
       refreshLedgerInfo();
     }
   }, [isConnected, refreshLedgerInfo]);
-
-  // Helper function to format numbers and avoid scientific notation
-  const formatNumber = (value: string | number) => {
-    if (!value || value === "0" || value === 0) return "0";
-    const num = parseFloat(value.toString());
-    if (isNaN(num)) return "0";
-    return num.toLocaleString('en-US', {
-      useGrouping: false,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 20
-    });
-  };
 
   // Helper function to format time from seconds
   const formatTime = (totalSeconds: number) => {
@@ -114,9 +103,9 @@ function LedgerContent() {
 
   // Use real ledger info if available, otherwise show placeholder
   const displayLedgerInfo = ledgerInfo || {
-    totalBalance: "0.000000",
-    availableBalance: "0.000000",
-    locked: "0.000000",
+    totalBalance: "0",
+    availableBalance: "0",
+    locked: "0",
     inferences: [],
     fineTunings: [],
   };
@@ -131,7 +120,7 @@ function LedgerContent() {
         broker.ledger.retrieveFund('fine-tuning')
       ]);
       setShowSuccessAlert({
-        message: 'All provider fund retrieval has been requested successfully, please wait for <strong>lock period</strong>. Check the Distributed Provider Funds details section for wait times.<br/>Funds that have passed the lock period have been retrieved to your Available Balance.',
+        message: <>All provider fund retrieval has been requested successfully, please wait for <strong>lock period</strong>. Check the Distributed Provider Funds details section for wait times.<br/>Funds that have passed the lock period have been retrieved to your Available Balance.</>,
         show: true
       });
       setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 8000);
@@ -262,7 +251,6 @@ function LedgerContent() {
                 onRefreshRefund={fetchRefundDetails}
                 showSuccessAlert={showSuccessAlert}
                 error={error}
-                formatNumber={formatNumber}
                 formatTime={formatTime}
               />
             </TabsContent>
@@ -272,7 +260,6 @@ function LedgerContent() {
                 transactions={transactions}
                 isLoading={txLoading}
                 onRefresh={refreshTransactions}
-                formatNumber={formatNumber}
                 explorerBaseUrl="https://chainscan-newton.0g.ai"
               />
             </TabsContent>
@@ -286,7 +273,10 @@ function LedgerContent() {
         availableBalance={displayLedgerInfo.availableBalance}
         totalBalance={displayLedgerInfo.totalBalance}
         lockedBalance={displayLedgerInfo.locked}
-        refund={(amount) => broker!.ledger.refund(amount)}
+        refund={(amount) => {
+          if (!broker) throw new Error('Broker not initialized');
+          return broker.ledger.refund(amount);
+        }}
         onSuccess={refreshLedgerInfo}
         onDeleteSuccess={() => window.location.href = '/'}
       />

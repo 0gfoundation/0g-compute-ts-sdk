@@ -29,6 +29,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 export type TransactionType = 'deposit' | 'transfer' | 'retrieve' | 'usage'
 
@@ -48,7 +49,6 @@ interface TransactionHistoryProps {
     transactions: Transaction[]
     isLoading?: boolean
     onRefresh?: () => void
-    formatNumber: (value: string | number) => string
     explorerBaseUrl?: string
 }
 
@@ -129,11 +129,9 @@ function StatusBadge({ status }: { status: Transaction['status'] }) {
 
 function TransactionItem({
     transaction,
-    formatNumber,
     explorerBaseUrl,
 }: {
     transaction: Transaction
-    formatNumber: (value: string | number) => string
     explorerBaseUrl?: string
 }) {
     const isPositive = transaction.type === 'deposit' || transaction.type === 'retrieve'
@@ -218,7 +216,6 @@ export function TransactionHistory({
     transactions,
     isLoading = false,
     onRefresh,
-    formatNumber,
     explorerBaseUrl,
 }: TransactionHistoryProps) {
     const [isExpanded, setIsExpanded] = useState(true)
@@ -366,7 +363,6 @@ export function TransactionHistory({
                                                     <TransactionItem
                                                         key={tx.id}
                                                         transaction={tx}
-                                                        formatNumber={formatNumber}
                                                         explorerBaseUrl={explorerBaseUrl}
                                                     />
                                                 ))}
