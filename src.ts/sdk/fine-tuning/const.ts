@@ -1,8 +1,15 @@
+// Testnet endpoints
 export const ZG_RPC_ENDPOINT_TESTNET = 'https://evmrpc-testnet.0g.ai'
-
-export const INDEXER_URL_STANDARD =
+export const INDEXER_URL_TESTNET_STANDARD =
     'https://indexer-storage-testnet-standard.0g.ai'
-export const INDEXER_URL_TURBO = 'https://indexer-storage-testnet-turbo.0g.ai'
+export const INDEXER_URL_TESTNET_TURBO = 'https://indexer-storage-testnet-turbo.0g.ai'
+
+// Mainnet endpoints
+export const ZG_RPC_ENDPOINT_MAINNET = 'https://evmrpc.0g.ai'
+export const INDEXER_URL_MAINNET_STANDARD =
+    'https://indexer-storage-standard.0g.ai'
+export const INDEXER_URL_MAINNET_TURBO = 'https://indexer-storage-turbo.0g.ai'
+
 
 export const TOKEN_COUNTER_MERKLE_ROOT =
     '0x4e8ae3790920b9971397f088fcfacbb9dad0c28ec2831f37f3481933b1fdbdbc'

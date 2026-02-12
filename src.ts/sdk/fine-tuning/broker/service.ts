@@ -123,9 +123,9 @@ export class ServiceProcessor extends BrokerBase {
         }
     }
 
-    async listService(): Promise<ServiceStructOutput[]> {
+    async listService(includeUnacknowledged: boolean = false): Promise<ServiceStructOutput[]> {
         try {
-            const services = await this.contract.listService()
+            const services = await this.contract.listService(includeUnacknowledged)
             return services
         } catch (error) {
             throwFormattedError(error)

@@ -161,7 +161,8 @@ export class ModelProcessor extends BrokerBase {
                 )
             } else if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await download(storageDownloadPath, deliverable.modelRootHash)
+                const storageConfig = await this.getStorageConfig()
+                await download(storageDownloadPath, deliverable.modelRootHash, storageConfig)
                 logger.info(
                     `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
                 )
@@ -171,9 +172,11 @@ export class ModelProcessor extends BrokerBase {
                     logger.info(
                         'Downloading model from 0G Storage...'
                     )
+                    const storageConfig = await this.getStorageConfig()
                     await download(
                         storageDownloadPath,
-                        deliverable.modelRootHash
+                        deliverable.modelRootHash,
+                        storageConfig
                     )
                     logger.info(
                         `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
@@ -242,7 +245,8 @@ export class ModelProcessor extends BrokerBase {
                 // Path doesn't exist yet, use as-is
             }
 
-            await download(downloadPath, deliverable.modelRootHash)
+            const storageConfig = await this.getStorageConfig()
+            await download(downloadPath, deliverable.modelRootHash, storageConfig)
             logger.info(
                 `Successfully downloaded model from 0G Storage to ${downloadPath}`
             )

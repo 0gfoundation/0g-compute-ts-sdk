@@ -148,10 +148,16 @@ export class FineTuningServingContract {
         }
     }
 
-    async listService(): Promise<ServiceStructOutput[]> {
+    async listService(includeUnacknowledged: boolean = false): Promise<ServiceStructOutput[]> {
         try {
             const services = await this.serving.getAllServices()
-            return services
+            // Filter out unacknowledged providers by default
+            if (includeUnacknowledged) {
+                return services
+            }
+            return services.filter(
+                (service) => service.teeSignerAcknowledged
+            )
         } catch (error) {
             throwFormattedError(error)
         }
