@@ -1,17 +1,30 @@
-import { INDEXER_URL_TURBO, ZG_RPC_ENDPOINT_TESTNET } from '../const'
+import {
+    INDEXER_URL_TESTNET_TURBO,
+    ZG_RPC_ENDPOINT_TESTNET,
+} from '../const'
 import { spawn } from 'child_process'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { logger } from '../../common/logger'
 
+export interface StorageConfig {
+    rpcUrl?: string
+    indexerUrl?: string
+}
+
 export async function upload(
     privateKey: string,
     dataPath: string,
     gasPrice?: number,
-    maxGasPrice?: number
+    maxGasPrice?: number,
+    config?: StorageConfig
 ): Promise<string> {
     try {
         const fileSize = await getFileContentSize(dataPath)
+
+        // Use provided config or default to testnet
+        const rpcUrl = config?.rpcUrl || ZG_RPC_ENDPOINT_TESTNET
+        const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
         return new Promise((resolve, reject) => {
             const command = path.join(
@@ -26,11 +39,11 @@ export async function upload(
             const args = [
                 'upload',
                 '--url',
-                ZG_RPC_ENDPOINT_TESTNET,
+                rpcUrl,
                 '--key',
                 privateKey,
                 '--indexer',
-                INDEXER_URL_TURBO,
+                indexerUrl,
                 '--file',
                 dataPath,
                 '--skip-tx=false',
@@ -99,8 +112,12 @@ export async function upload(
 
 export async function download(
     dataPath: string,
-    dataRoot: string
+    dataRoot: string,
+    config?: StorageConfig
 ): Promise<void> {
+    // Use provided config or default to testnet
+    const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
+
     return new Promise((resolve, reject) => {
         const command = path.join(
             __dirname,
@@ -117,7 +134,7 @@ export async function download(
             '--file',
             dataPath,
             '--indexer',
-            INDEXER_URL_TURBO,
+            indexerUrl,
             '--roots',
             dataRoot,
         ]

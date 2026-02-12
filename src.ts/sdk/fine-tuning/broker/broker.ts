@@ -80,9 +80,9 @@ export class FineTuningBroker {
         )
     }
 
-    public listService = async () => {
+    public listService = async (includeUnacknowledged: boolean = false) => {
         try {
-            return await this.serviceProcessor.listService()
+            return await this.serviceProcessor.listService(includeUnacknowledged)
         } catch (error) {
             throwFormattedError(error)
         }

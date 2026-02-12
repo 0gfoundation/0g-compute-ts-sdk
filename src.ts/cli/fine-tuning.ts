@@ -482,12 +482,18 @@ export default function fineTuning(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .option(
+            '--include-invalid',
+            'Include all services, even those without valid teeSignerAddress'
+        )
         .action((options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
             withFineTuningBroker(options, async (broker) => {
-                const services = await broker.fineTuning!.listService()
+                const services = await broker.fineTuning!.listService(
+                    options.includeInvalid
+                )
                 services.forEach((service, index) => {
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
