@@ -116,6 +116,9 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
     // stale calls check this before writing state.
     const initIdRef = useRef<symbol | null>(null)
 
+    // Track current chainId to detect changes (useRef to avoid extra renders)
+    const currentChainIdRef = useRef<number | undefined>(undefined)
+
     const initializeBroker = useCallback(async () => {
         if (!walletClient || !isConnected) {
             setIsInitializing(false)
@@ -280,11 +283,9 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
             setError(null)
             setIsInitializing(false)
             setIsChainSwitching(false)
+            currentChainIdRef.current = undefined
         }
     }, [isConnected])
-
-    // Track current chainId to detect changes (useRef to avoid extra renders)
-    const currentChainIdRef = useRef<number | undefined>(chainId)
 
     // Update cache with current chain
     useEffect(() => {
@@ -319,7 +320,7 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
             const timerId = setTimeout(reinitialize, 1000)
 
             return () => clearTimeout(timerId)
-        } else if (prevChainId === undefined) {
+        } else if (prevChainId === undefined && isConnected) {
             currentChainIdRef.current = chainId
         }
     }, [chainId, isConnected, walletClient, initializeBroker])

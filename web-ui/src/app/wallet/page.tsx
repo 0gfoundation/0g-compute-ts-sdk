@@ -45,7 +45,7 @@ function LedgerContent() {
     }
   }, [searchParams]);
 
-  // Auto-refresh ledger info when component mounts and when wallet connection changes
+  // Refresh ledger info when navigating to wallet page
   useEffect(() => {
     if (isConnected && refreshLedgerInfo) {
       refreshLedgerInfo();

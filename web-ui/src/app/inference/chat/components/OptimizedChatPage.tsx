@@ -98,10 +98,6 @@ export function OptimizedChatPage() {
   const [isTopping, setIsTopping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
-  const isStreamingRef = useRef(isStreaming);
-  const isLoadingRef = useRef(isLoading);
-  isStreamingRef.current = isStreaming;
-  isLoadingRef.current = isLoading;
   
   // Initialize chat history hook first - shared across all providers for the same wallet
   const chatHistory = useChatHistory({
@@ -241,14 +237,6 @@ export function OptimizedChatPage() {
 
   // Note: Global ledger check is now handled in LayoutContent component
 
-  // Refresh ledger info when broker is available
-  useEffect(() => {
-    if (broker && refreshLedgerInfo) {
-      refreshLedgerInfo();
-    }
-  }, [broker, refreshLedgerInfo]);
-
-
   // Function to scroll to a specific message
   const scrollToMessage = useCallback((targetContent: string) => {
     const messageElements = document.querySelectorAll('[data-message-content]');
@@ -367,7 +355,7 @@ export function OptimizedChatPage() {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-      if (isStreamingRef.current || isLoadingRef.current) {
+      if (isStreaming || isLoading) {
         const isAtBottom = distanceFromBottom <= CHAT_CONFIG.SCROLL_THRESHOLD;
         isUserScrollingRef.current = !isAtBottom;
       }
@@ -375,7 +363,7 @@ export function OptimizedChatPage() {
 
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isStreaming, isLoading]);
 
   // Reset scroll tracking when streaming/loading ends
   useEffect(() => {
