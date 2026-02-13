@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { X, MessageCircle, Wallet, Send, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-const ONBOARDING_STORAGE_KEY = 'chat-onboarding-completed'
+const ONBOARDING_STORAGE_KEY = 'chat-onboarding-step'
 
 interface OnboardingStep {
     id: number
@@ -42,63 +42,19 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 ]
 
 interface ChatOnboardingProps {
-    hasProvider: boolean
-    hasBalance: boolean
-    onComplete: () => void
+    currentStep: number
+    onNext: () => void
+    onSkip: () => void
+    onStepClick: (step: number) => void
 }
 
-export function ChatOnboarding({ hasProvider, hasBalance, onComplete }: ChatOnboardingProps) {
-    const [currentStep, setCurrentStep] = useState(1)
-    const [isVisible, setIsVisible] = useState(false)
-
-    // Check if onboarding should be shown
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const completed = localStorage.getItem(ONBOARDING_STORAGE_KEY)
-            if (!completed) {
-                setIsVisible(true)
-            }
-        }
-    }, [])
-
-    // Auto-advance steps based on user progress
-    useEffect(() => {
-        if (hasProvider && currentStep === 1) {
-            setCurrentStep(2)
-        }
-        if (hasBalance && currentStep === 2) {
-            setCurrentStep(3)
-        }
-    }, [hasProvider, hasBalance, currentStep])
-
-    const handleComplete = () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
-        }
-        setIsVisible(false)
-        onComplete()
-    }
-
-    const handleSkip = () => {
-        handleComplete()
-    }
-
-    const handleNext = () => {
-        if (currentStep < ONBOARDING_STEPS.length) {
-            setCurrentStep(currentStep + 1)
-        } else {
-            handleComplete()
-        }
-    }
-
-    if (!isVisible) return null
-
+export function ChatOnboarding({ currentStep, onNext, onSkip, onStepClick }: ChatOnboardingProps) {
     const step = ONBOARDING_STEPS[currentStep - 1]
 
     return (
         <>
             {/* Overlay */}
-            <div className="fixed inset-0 bg-black/40 z-40" onClick={handleSkip} />
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={onSkip} />
 
             {/* Onboarding Card */}
             <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-md">
@@ -128,7 +84,7 @@ export function ChatOnboarding({ hasProvider, hasBalance, onComplete }: ChatOnbo
                                 </div>
                             </div>
                             <button
-                                onClick={handleSkip}
+                                onClick={onSkip}
                                 className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                 aria-label="Skip onboarding"
                             >
@@ -144,13 +100,13 @@ export function ChatOnboarding({ hasProvider, hasBalance, onComplete }: ChatOnbo
                         {/* Actions */}
                         <div className="flex items-center justify-between">
                             <button
-                                onClick={handleSkip}
+                                onClick={onSkip}
                                 className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                             >
                                 Skip tutorial
                             </button>
                             <Button
-                                onClick={handleNext}
+                                onClick={onNext}
                                 size="sm"
                                 className="bg-purple-600 hover:bg-purple-700"
                             >
@@ -165,9 +121,10 @@ export function ChatOnboarding({ hasProvider, hasBalance, onComplete }: ChatOnbo
                     {/* Step indicators */}
                     <div className="px-5 pb-4 flex justify-center gap-1.5">
                         {ONBOARDING_STEPS.map((_, index) => (
-                            <div
+                            <button
                                 key={index}
-                                className={`h-1.5 rounded-full transition-all ${
+                                onClick={() => onStepClick(index + 1)}
+                                className={`h-1.5 rounded-full transition-all cursor-pointer ${
                                     index + 1 === currentStep
                                         ? 'w-6 bg-purple-600'
                                         : index + 1 < currentStep
@@ -183,30 +140,38 @@ export function ChatOnboarding({ hasProvider, hasBalance, onComplete }: ChatOnbo
     )
 }
 
-// Hook to check and reset onboarding
+// Hook to track onboarding step via localStorage
 export function useChatOnboarding() {
     const [showOnboarding, setShowOnboarding] = useState(false)
+    const [currentStep, setCurrentStep] = useState(1)
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const completed = localStorage.getItem(ONBOARDING_STORAGE_KEY)
-            setShowOnboarding(!completed)
+        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+        if (stored === 'completed') {
+            setShowOnboarding(false)
+        } else {
+            setShowOnboarding(true)
+            setCurrentStep(stored ? parseInt(stored, 10) : 1)
         }
     }, [])
 
-    const resetOnboarding = () => {
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(ONBOARDING_STORAGE_KEY)
-            setShowOnboarding(true)
+    const advanceStep = (step: number) => {
+        if (step > currentStep) {
+            localStorage.setItem(ONBOARDING_STORAGE_KEY, String(step))
         }
+        setCurrentStep(step)
     }
 
     const completeOnboarding = () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
-            setShowOnboarding(false)
-        }
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, 'completed')
+        setShowOnboarding(false)
     }
 
-    return { showOnboarding, resetOnboarding, completeOnboarding }
+    const resetOnboarding = () => {
+        localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+        setShowOnboarding(true)
+        setCurrentStep(1)
+    }
+
+    return { showOnboarding, currentStep, advanceStep, completeOnboarding, resetOnboarding }
 }

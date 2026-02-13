@@ -110,7 +110,7 @@ export function OptimizedChatPage() {
   const { searchQuery, setSearchQuery, searchResults, isSearching, clearSearch } = useProviderSearch(chatHistory);
 
   // Onboarding
-  const { showOnboarding, completeOnboarding } = useChatOnboarding();
+  const { showOnboarding, currentStep, advanceStep, completeOnboarding } = useChatOnboarding();
 
   // Provider switch confirmation
   const [showSwitchWarning, setShowSwitchWarning] = useState(false);
@@ -644,9 +644,16 @@ export function OptimizedChatPage() {
       {/* First-time user onboarding */}
       {showOnboarding && (
         <ChatOnboarding
-          hasProvider={!!selectedProvider}
-          hasBalance={(providerBalance ?? 0) > 0}
-          onComplete={completeOnboarding}
+          currentStep={currentStep}
+          onNext={() => {
+            if (currentStep < 3) {
+              advanceStep(currentStep + 1)
+            } else {
+              completeOnboarding()
+            }
+          }}
+          onSkip={completeOnboarding}
+          onStepClick={advanceStep}
         />
       )}
 
