@@ -1,0 +1,13 @@
+# Override .gitignore for npm packaging
+# The out/ directory must be included in the published package
+# (web-ui/.gitignore excludes out/ which prevents npm from packing it)
+
+node_modules/
+.next/
+src/
+public/
+.env
+.env.*
+*.tsbuildinfo
+next-env.d.ts
+.vercel
