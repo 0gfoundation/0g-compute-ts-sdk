@@ -8,7 +8,7 @@ export const CONTRACT_ADDRESSES = {
     testnet: {
         ledger: '0xE70830508dAc0A97e6c087c75f402f9Be669E406',
         inference: '0xa79F4c8311FF93C06b8CfB403690cc987c93F91E',
-        fineTuning: '0xaC66eBd174435c04F1449BBa08157a707B6fa7b1',
+        fineTuning: '0xC6C075D8039763C8f1EbE580be5ADdf2fd6941bA',
     },
     testnetDev: {
         ledger: '0x815B93ab4Ba4BDF530dbF1552649a3c534F8BbF7',
@@ -16,10 +16,9 @@ export const CONTRACT_ADDRESSES = {
         fineTuning: '0x4e4158DF35CfdC0ac63264D3E112F5B8E9a5c569',
     },
     mainnet: {
-        // TODO: Update with actual mainnet addresses when available
         ledger: '0x2dE54c845Cd948B72D2e32e39586fe89607074E3',
         inference: '0x47340d900bdFec2BD393c626E12ea0656F938d84',
-        fineTuning: '0x0000000000000000000000000000000000000000',
+        fineTuning: '0x4e3474095518883744ddf135b7E0A23301c7F9c0',
     },
     hardhat: {
         ledger: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',

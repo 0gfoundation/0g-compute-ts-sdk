@@ -31,7 +31,8 @@ export class DatasetProcessor extends BrokerBase {
         maxGasPrice?: number
     ): Promise<string> {
         try {
-            return await upload(privateKey, dataPath, gasPrice, maxGasPrice)
+            const storageConfig = await this.getStorageConfig()
+            return await upload(privateKey, dataPath, gasPrice, maxGasPrice, storageConfig)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -46,7 +47,8 @@ export class DatasetProcessor extends BrokerBase {
      */
     async downloadDataset(dataPath: string, dataRoot: string): Promise<void> {
         try {
-            await download(dataPath, dataRoot)
+            const storageConfig = await this.getStorageConfig()
+            await download(dataPath, dataRoot, storageConfig)
         } catch (error) {
             throwFormattedError(error)
         }
