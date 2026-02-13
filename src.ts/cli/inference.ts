@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
+import { withBroker, withROBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
 import { getRpcEndpoint } from './network-setup'
 import { ensurePrivateKeyConfiguration } from './private-key-setup'
 import { interactiveSelect, textInput } from './interactive-selection'
@@ -11,7 +11,6 @@ import axios from 'axios'
 import fs from 'fs'
 import { ethers } from 'ethers'
 import { formatError } from '../sdk/common/utils/error-handler'
-import { createZGComputeNetworkReadOnlyBroker } from '../sdk'
 
 async function promptDurationSelection(): Promise<number> {
     console.log(chalk.blue('\n⏱️  API Key Duration Selection'))
@@ -80,19 +79,13 @@ export default function inference(program: Command) {
             'Include all services, even those without valid teeSignerAddress'
         )
         .action(async (options: any) => {
-            try {
+            await withROBroker(options, async (broker) => {
                 const table = new Table({
                     colWidths: [50, 50],
                 })
 
-                // Get RPC endpoint
-                const rpcEndpoint = await getRpcEndpoint(options)
-
-                // Create read-only broker (no authentication required!)
-                const readOnlyBroker = await createZGComputeNetworkReadOnlyBroker(rpcEndpoint)
-
                 // List services without authentication
-                const services = await readOnlyBroker.inference.listService(
+                const services = await broker.inference.listService(
                     0,
                     50,
                     options.includeInvalid
@@ -141,11 +134,7 @@ export default function inference(program: Command) {
                     ])
                 })
                 console.log(table.toString())
-                process.exit(0)
-            } catch (error: any) {
-                console.error(chalk.red('✗ Operation failed:'), error.message)
-                process.exit(1)
-            }
+            })
         })
 
     program
@@ -161,19 +150,13 @@ export default function inference(program: Command) {
             'Include all services, even those without valid teeSignerAddress'
         )
         .action(async (options: any) => {
-            try {
+            await withROBroker(options, async (broker) => {
                 const table = new Table({
                     colWidths: [50, 50],
                 })
 
-                // Get RPC endpoint
-                const rpcEndpoint = await getRpcEndpoint(options)
-
-                // Create read-only broker (no authentication required!)
-                const readOnlyBroker = await createZGComputeNetworkReadOnlyBroker(rpcEndpoint)
-
                 // List services with health details without authentication
-                const services = await readOnlyBroker.inference.listServiceWithDetail(
+                const services = await broker.inference.listServiceWithDetail(
                     0,
                     50,
                     options.includeInvalid
@@ -258,11 +241,7 @@ export default function inference(program: Command) {
                         'Services without metrics may be newly registered or temporarily unavailable.'
                     )
                 )
-                process.exit(0)
-            } catch (error: any) {
-                console.error(chalk.red('✗ Operation failed:'), error.message)
-                process.exit(1)
-            }
+            })
         })
 
     program

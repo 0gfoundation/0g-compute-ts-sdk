@@ -21,9 +21,8 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     public responseProcessor!: ResponseProcessor
     public verifier!: Verifier
     public accountProcessor!: AccountProcessor
-    // ModelProcessor for authenticated operations (removeService, updateService)
-    // Note: listService() and listServiceWithDetail() are inherited from base class
-    private authenticatedModelProcessor!: ModelProcessor
+    // Override base class with authenticated version
+    public declare modelProcessor: ModelProcessor
 
     private signer: JsonRpcSigner | Wallet
     private ledger: LedgerBroker
@@ -39,7 +38,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         this.ledger = ledger
     }
 
-    async initialize() {
+    async initialize(): Promise<void> {
         let userAddress: string
         try {
             userAddress = await this.signer.getAddress()
@@ -81,6 +80,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         // Initialize ModelProcessor with ledger (needed for authenticated operations)
         const modelProcessor = new ModelProcessor(
             contract,
+            this.contractAddress,
             this.ledger,
             metadata,
             cache
@@ -89,7 +89,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
 
         // Store modelProcessor reference for authenticated operations
         // The base class's contract is used for read-only operations
-        this.authenticatedModelProcessor = modelProcessor
+        this.modelProcessor = modelProcessor
     }
 
     // NOTE: listService() and listServiceWithDetail() are inherited from ReadOnlyInferenceBroker
@@ -466,7 +466,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      */
     public removeService = async (gasPrice?: number): Promise<void> => {
         try {
-            return await this.authenticatedModelProcessor.removeService(gasPrice)
+            return await this.modelProcessor.removeService(gasPrice)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -494,7 +494,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         gasPrice?: number
     }): Promise<void> => {
         try {
-            return await this.authenticatedModelProcessor.updateService(options)
+            return await this.modelProcessor.updateService(options)
         } catch (error) {
             throwFormattedError(error)
         }
