@@ -156,7 +156,9 @@ export function useChatOnboarding() {
     }, [])
 
     const advanceStep = (step: number) => {
-        if (step > currentStep) {
+        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+        const persistedStep = stored ? parseInt(stored, 10) : 1
+        if (step > persistedStep) {
             localStorage.setItem(ONBOARDING_STORAGE_KEY, String(step))
         }
         setCurrentStep(step)
