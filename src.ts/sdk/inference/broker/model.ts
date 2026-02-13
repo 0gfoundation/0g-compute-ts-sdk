@@ -2,71 +2,23 @@ import type { ServiceStructOutput } from '../contract'
 import { ZGServingUserBrokerBase } from './base'
 import { throwFormattedError } from '../../common/utils'
 import axios from 'axios'
+// Import and re-export types from read-only-model
+import type {
+    ServiceHealthMetric,
+    ServiceWithDetail,
+    Verifiability,
+    HealthStatus,
+} from './read-only-model'
+import { VerifiabilityEnum, isVerifiability } from './read-only-model'
 
-export enum VerifiabilityEnum {
-    OpML = 'OpML',
-    TeeML = 'TeeML',
-    ZKML = 'ZKML',
+// Re-export types for convenience
+export type {
+    ServiceHealthMetric,
+    ServiceWithDetail,
+    Verifiability,
+    HealthStatus,
 }
-
-export type Verifiability =
-    | VerifiabilityEnum.OpML
-    | VerifiabilityEnum.TeeML
-    | VerifiabilityEnum.ZKML
-
-export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'unknown'
-
-export interface ServiceHealthMetric {
-    serviceType: string
-    model: string
-    provider: string
-    status: HealthStatus
-    checks: {
-        total: number
-        successful: number
-        failed: number
-        uptime: number
-    }
-    performance: {
-        response_time?: {
-            avg: number
-            unit: string
-            samples: number
-        }
-        ttft?: {
-            avg: number
-            unit: string
-            samples: number
-        }
-        tokens_per_second?: {
-            avg: number
-            unit: string
-            samples: number
-        }
-    }
-    lastCheck: string
-}
-
-// Plain object interface without array indices (ethers Result types don't spread well)
-export interface ServiceWithDetail {
-    provider: string
-    serviceType: string
-    url: string
-    inputPrice: bigint
-    outputPrice: bigint
-    updatedAt: bigint
-    model: string
-    verifiability: string
-    additionalInfo: string
-    teeSignerAddress: string
-    teeSignerAcknowledged: boolean
-    healthMetrics?: {
-        status: string
-        uptime: number
-        avgResponseTime: number
-        lastCheck: string
-    }
-}
+export { VerifiabilityEnum, isVerifiability }
 
 export class ModelProcessor extends ZGServingUserBrokerBase {
     async listService(
@@ -262,8 +214,4 @@ export class ModelProcessor extends ZGServingUserBrokerBase {
             throwFormattedError(error)
         }
     }
-}
-
-export function isVerifiability(value: string): value is Verifiability {
-    return Object.values(VerifiabilityEnum).includes(value as VerifiabilityEnum)
 }

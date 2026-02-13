@@ -153,7 +153,7 @@ export async function ensureNetworkConfiguration(): Promise<string> {
 /**
  * Gets the RPC endpoint, with interactive setup if needed
  */
-export async function getRpcEndpoint(options: any): Promise<string> {
+export async function getRpcEndpoint(options: { rpc?: string }): Promise<string> {
     // Priority: CLI option > environment variable > interactive setup
     if (options.rpc) {
         return options.rpc

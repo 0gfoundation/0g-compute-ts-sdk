@@ -10,16 +10,22 @@ import { ModelProcessor } from './model'
 import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
 import { throwFormattedError } from '../../common/utils'
+import { ReadOnlyInferenceBroker } from './read-only-broker'
 
-export class InferenceBroker {
+/**
+ * Full-featured inference broker with authentication required
+ * Extends ReadOnlyInferenceBroker with additional authenticated operations
+ */
+export class InferenceBroker extends ReadOnlyInferenceBroker {
     public requestProcessor!: RequestProcessor
     public responseProcessor!: ResponseProcessor
     public verifier!: Verifier
     public accountProcessor!: AccountProcessor
-    public modelProcessor!: ModelProcessor
+    // ModelProcessor for authenticated operations (removeService, updateService)
+    // Note: listService() and listServiceWithDetail() are inherited from base class
+    private authenticatedModelProcessor!: ModelProcessor
 
     private signer: JsonRpcSigner | Wallet
-    private contractAddress: string
     private ledger: LedgerBroker
 
     constructor(
@@ -27,8 +33,9 @@ export class InferenceBroker {
         contractAddress: string,
         ledger: LedgerBroker
     ) {
+        // Initialize base class with signer
+        super(signer, contractAddress)
         this.signer = signer
-        this.contractAddress = contractAddress
         this.ledger = ledger
     }
 
@@ -39,13 +46,19 @@ export class InferenceBroker {
         } catch (error) {
             throwFormattedError(error)
         }
+
+        // Create contract wrapper for authenticated operations
         const contract = new InferenceServingContract(
             this.signer,
             this.contractAddress,
             userAddress
         )
+
+        // Create metadata and cache for processors
         const metadata = new Metadata()
         const cache = new Cache()
+
+        // Initialize authenticated processors
         this.requestProcessor = new RequestProcessor(
             contract,
             metadata,
@@ -64,79 +77,23 @@ export class InferenceBroker {
             metadata,
             cache
         )
-        this.modelProcessor = new ModelProcessor(
+
+        // Initialize ModelProcessor with ledger (needed for authenticated operations)
+        const modelProcessor = new ModelProcessor(
             contract,
             this.ledger,
             metadata,
             cache
         )
         this.verifier = new Verifier(contract, this.ledger, metadata, cache)
+
+        // Store modelProcessor reference for authenticated operations
+        // The base class's contract is used for read-only operations
+        this.authenticatedModelProcessor = modelProcessor
     }
 
-    /**
-     * Retrieves a list of services from the contract.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
-     * @throws An error if the service list cannot be retrieved.
-     */
-    public listService = async (
-        offset: number = 0,
-        limit: number = 50,
-        includeUnacknowledged: boolean = false
-    ) => {
-        try {
-            return await this.modelProcessor.listService(
-                offset,
-                limit,
-                includeUnacknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    /**
-     * Retrieves a list of services with detailed health metrics from the monitoring API.
-     *
-     * This method combines on-chain service data with real-time health metrics including
-     * uptime percentage and average response time (latency) for each service provider.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
-     * @throws An error if the service list cannot be retrieved.
-     *
-     * @example
-     * ```typescript
-     * const servicesWithHealth = await broker.inference.listServiceWithDetail();
-     * servicesWithHealth.forEach(service => {
-     *   console.log(`Provider: ${service.provider}`);
-     *   if (service.healthMetrics) {
-     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
-     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
-     *   }
-     * });
-     * ```
-     */
-    public listServiceWithDetail = async (
-        offset: number = 0,
-        limit: number = 50,
-        includeUnacknowledged: boolean = false
-    ) => {
-        try {
-            return await this.modelProcessor.listServiceWithDetail(
-                offset,
-                limit,
-                includeUnacknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
+    // NOTE: listService() and listServiceWithDetail() are inherited from ReadOnlyInferenceBroker
+    // These read-only methods don't require authentication
 
     /**
      * Retrieves the account information for a given provider address.
@@ -509,7 +466,7 @@ export class InferenceBroker {
      */
     public removeService = async (gasPrice?: number): Promise<void> => {
         try {
-            return await this.modelProcessor.removeService(gasPrice)
+            return await this.authenticatedModelProcessor.removeService(gasPrice)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -537,7 +494,7 @@ export class InferenceBroker {
         gasPrice?: number
     }): Promise<void> => {
         try {
-            return await this.modelProcessor.updateService(options)
+            return await this.authenticatedModelProcessor.updateService(options)
         } catch (error) {
             throwFormattedError(error)
         }

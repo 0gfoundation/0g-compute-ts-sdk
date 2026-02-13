@@ -11,6 +11,7 @@ import axios from 'axios'
 import fs from 'fs'
 import { ethers } from 'ethers'
 import { formatError } from '../sdk/common/utils/error-handler'
+import { createZGComputeNetworkReadOnlyBroker } from '../sdk'
 
 async function promptDurationSelection(): Promise<number> {
     console.log(chalk.blue('\n⏱️  API Key Duration Selection'))
@@ -78,17 +79,25 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
-            const table = new Table({
-                colWidths: [50, 50],
-            })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
-                const services = await broker.inference.listService(
+        .action(async (options: any) => {
+            try {
+                const table = new Table({
+                    colWidths: [50, 50],
+                })
+
+                // Get RPC endpoint
+                const rpcEndpoint = await getRpcEndpoint(options)
+
+                // Create read-only broker (no authentication required!)
+                const readOnlyBroker = await createZGComputeNetworkReadOnlyBroker(rpcEndpoint)
+
+                // List services without authentication
+                const services = await readOnlyBroker.inference.listService(
                     0,
                     50,
                     options.includeInvalid
                 )
+
                 services.forEach((service, index) => {
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
@@ -132,13 +141,17 @@ export default function inference(program: Command) {
                     ])
                 })
                 console.log(table.toString())
-            })
+                process.exit(0)
+            } catch (error: any) {
+                console.error(chalk.red('✗ Operation failed:'), error.message)
+                process.exit(1)
+            }
         })
 
     program
         .command('list-providers-detail')
         .description(
-            'List inference providers with health metrics (uptime and latency)'
+            'List inference providers with health metrics'
         )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -147,17 +160,25 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
-            const table = new Table({
-                colWidths: [50, 50],
-            })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
-                const services = await broker.inference.listServiceWithDetail(
+        .action(async (options: any) => {
+            try {
+                const table = new Table({
+                    colWidths: [50, 50],
+                })
+
+                // Get RPC endpoint
+                const rpcEndpoint = await getRpcEndpoint(options)
+
+                // Create read-only broker (no authentication required!)
+                const readOnlyBroker = await createZGComputeNetworkReadOnlyBroker(rpcEndpoint)
+
+                // List services with health details without authentication
+                const services = await readOnlyBroker.inference.listServiceWithDetail(
                     0,
                     50,
                     options.includeInvalid
                 )
+
                 services.forEach((service, index) => {
                     const health = service.healthMetrics
 
@@ -237,7 +258,11 @@ export default function inference(program: Command) {
                         'Services without metrics may be newly registered or temporarily unavailable.'
                     )
                 )
-            })
+                process.exit(0)
+            } catch (error: any) {
+                console.error(chalk.red('✗ Operation failed:'), error.message)
+                process.exit(1)
+            }
         })
 
     program
