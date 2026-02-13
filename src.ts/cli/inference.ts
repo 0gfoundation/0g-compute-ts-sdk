@@ -79,18 +79,15 @@ export default function inference(program: Command) {
             'Include all services, even those without valid teeSignerAddress'
         )
         .action(async (options: any) => {
+            const table = new Table({
+                colWidths: [50, 50],
+            })
             await withROBroker(options, async (broker) => {
-                const table = new Table({
-                    colWidths: [50, 50],
-                })
-
-                // List services without authentication
                 const services = await broker.inference.listService(
                     0,
                     50,
                     options.includeInvalid
                 )
-
                 services.forEach((service, index) => {
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
@@ -150,18 +147,15 @@ export default function inference(program: Command) {
             'Include all services, even those without valid teeSignerAddress'
         )
         .action(async (options: any) => {
+            const table = new Table({
+                colWidths: [50, 50],
+            })
             await withROBroker(options, async (broker) => {
-                const table = new Table({
-                    colWidths: [50, 50],
-                })
-
-                // List services with health details without authentication
                 const services = await broker.inference.listServiceWithDetail(
                     0,
                     50,
                     options.includeInvalid
                 )
-
                 services.forEach((service, index) => {
                     const health = service.healthMetrics
 
