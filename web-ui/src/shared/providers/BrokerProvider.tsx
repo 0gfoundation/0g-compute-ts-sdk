@@ -64,7 +64,7 @@ export function useBroker(): BrokerContextValue {
 function processLedgerData(
     rawLedgerInfo: any,
     infers: any[] | undefined,
-    fines: any[] | undefined,
+    fines: any[] | undefined | null,
 ): LedgerInfo {
     const totalBigInt = BigInt(rawLedgerInfo[0])
     const lockedBigInt = BigInt(rawLedgerInfo[1])
