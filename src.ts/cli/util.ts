@@ -1,5 +1,5 @@
-import type { ZGComputeNetworkBroker } from '../sdk'
-import { createZGComputeNetworkBroker } from '../sdk'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '../sdk'
+import { createZGComputeNetworkBroker, createZGComputeNetworkReadOnlyBroker } from '../sdk'
 import { ethers } from 'ethers'
 import chalk from 'chalk'
 import type { Table } from 'cli-table3'
@@ -38,6 +38,25 @@ export async function withBroker(
 ) {
     try {
         const broker = await initBroker(options)
+        await action(broker)
+        process.exit(0)
+    } catch (error: any) {
+        alertError(error)
+        process.exit(1)
+    }
+}
+
+/**
+ * Utility function for commands that only need read-only access (no authentication)
+ * Use this for listing providers, getting service info, etc.
+ */
+export async function withROBroker(
+    options: any,
+    action: (broker: ZGComputeNetworkReadOnlyBroker) => Promise<void>
+) {
+    try {
+        const rpcEndpoint = await getRpcEndpoint(options)
+        const broker = await createZGComputeNetworkReadOnlyBroker(rpcEndpoint)
         await action(broker)
         process.exit(0)
     } catch (error: any) {

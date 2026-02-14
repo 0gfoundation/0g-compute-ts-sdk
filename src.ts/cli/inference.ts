@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
+import { withBroker, withROBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
 import { getRpcEndpoint } from './network-setup'
 import { ensurePrivateKeyConfiguration } from './private-key-setup'
 import { interactiveSelect, textInput } from './interactive-selection'
@@ -78,12 +78,11 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
+            await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listService(
                     0,
                     50,
@@ -138,7 +137,7 @@ export default function inference(program: Command) {
     program
         .command('list-providers-detail')
         .description(
-            'List inference providers with health metrics (uptime and latency)'
+            'List inference providers with health metrics'
         )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -147,12 +146,11 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
+            await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listServiceWithDetail(
                     0,
                     50,
