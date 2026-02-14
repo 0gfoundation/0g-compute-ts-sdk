@@ -92,7 +92,7 @@ export function useProviderManagement(
                     setProviders(chatbotProviders)
 
                     // Check for provider parameter from URL
-                    const providerParam = searchParams.get('provider')
+                    const providerParam = searchParams?.get('provider')
 
                     if (providerParam && !selectedProvider) {
                         // Try to find the provider by address (only from chatbot providers)

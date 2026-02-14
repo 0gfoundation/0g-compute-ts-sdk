@@ -159,7 +159,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
           }
 
           lastCheckedStateRef.current = {
-            pathname,
+            pathname: pathname || '',
             chainId,
             checkedAt: now,
           };
@@ -171,7 +171,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
           setShowDepositModal(true);
 
           lastCheckedStateRef.current = {
-            pathname,
+            pathname: pathname || '',
             chainId,
             checkedAt: now,
           };

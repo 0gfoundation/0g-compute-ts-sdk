@@ -34,7 +34,7 @@ function LedgerContent() {
 
   // Handle tab parameter from URL
   useEffect(() => {
-    const tab = searchParams.get('tab');
+    const tab = searchParams?.get('tab');
     if (tab === 'transactions') {
       setActiveTab('detail');
     } else if (tab === 'history') {
