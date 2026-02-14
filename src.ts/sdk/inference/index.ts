@@ -12,4 +12,6 @@ export {
     SingerRAVerificationResult as InferenceSingerRAVerificationResult,
     Verifier as InferenceVerifier,
     InferenceBroker as InferenceBroker,
+    ReadOnlyInferenceBroker,
+    createReadOnlyInferenceBroker,
 } from './broker'
