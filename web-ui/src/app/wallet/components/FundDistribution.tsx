@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { BalanceCard } from './BalanceCard'
 import { ProviderFundsTable } from './ProviderFundsTable'
 import { BalanceFlowDiagram } from '@/components/ui/balance-flow-diagram'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 interface ProviderAccount {
     provider: string
@@ -54,9 +55,8 @@ interface FundDistributionProps {
     refundDetails: { [key: string]: RefundDetail[] }
     loadingRefunds: { [key: string]: boolean }
     onRefreshRefund: (provider: string, type: 'inference' | 'fine-tuning') => void
-    showSuccessAlert: { message: string; show: boolean }
+    showSuccessAlert: { message: React.ReactNode; show: boolean }
     error: string | null
-    formatNumber: (value: string | number) => string
     formatTime: (seconds: number) => string
 }
 
@@ -76,7 +76,6 @@ export function FundDistribution({
     onRefreshRefund,
     showSuccessAlert,
     error,
-    formatNumber,
     formatTime,
 }: FundDistributionProps) {
     const [isLockedExpanded, setIsLockedExpanded] = React.useState(false)
@@ -94,10 +93,9 @@ export function FundDistribution({
                 <Alert className="bg-green-50 border-green-200">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <AlertTitle className="text-sm text-green-800 font-medium">Success</AlertTitle>
-                    <AlertDescription
-                        className="text-sm text-green-700 mt-1"
-                        dangerouslySetInnerHTML={{ __html: showSuccessAlert.message }}
-                    />
+                    <AlertDescription className="text-sm text-green-700 mt-1">
+                        {showSuccessAlert.message}
+                    </AlertDescription>
                 </Alert>
             )}
 
@@ -207,7 +205,6 @@ export function FundDistribution({
                                             loadingRefunds={loadingRefunds}
                                             onRefreshRefund={(provider) => onRefreshRefund(provider, 'inference')}
                                             type="inference"
-                                            formatNumber={formatNumber}
                                             formatTime={formatTime}
                                         />
 
@@ -224,7 +221,6 @@ export function FundDistribution({
                                             loadingRefunds={loadingRefunds}
                                             onRefreshRefund={(provider) => onRefreshRefund(provider, 'fine-tuning')}
                                             type="fine-tuning"
-                                            formatNumber={formatNumber}
                                             formatTime={formatTime}
                                         />
                                     </div>

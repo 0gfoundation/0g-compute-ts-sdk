@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+"use client";
+
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useWalletClient, useChainId } from 'wagmi'
 import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
 import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
@@ -6,19 +8,8 @@ import type { JsonRpcSigner } from 'ethers'
 import { BrowserProvider } from 'ethers'
 import { APP_CONSTANTS } from '../constants/app'
 import { errorHandler } from '../utils/errorHandling'
-import { neuronToA0gi } from '../utils/currency'
-import { clearChainCache, setCurrentChainInCache } from './useOptimizedDataFetching'
-
-const formatBalance = (value: number): string => {
-    if (value === 0) return '0'
-
-    if (value < 0.000001) {
-        return value.toExponential(6)
-    }
-
-    const formatted = value.toFixed(18)
-    return formatted.replace(/\.?0+$/, '')
-}
+import { neuronToA0giString } from '../utils/currency'
+import { clearChainCache, setCurrentChainInCache } from '../utils/chainCache'
 
 interface InferenceInfo {
     provider: string
@@ -32,7 +23,7 @@ interface FineTuningInfo {
     requestedReturn: string
 }
 
-interface LedgerInfo {
+export interface LedgerInfo {
     totalBalance: string
     availableBalance: string
     locked: string
@@ -40,7 +31,7 @@ interface LedgerInfo {
     fineTunings: FineTuningInfo[]
 }
 
-interface Use0GBrokerReturn {
+export interface BrokerContextValue {
     broker: ZGComputeNetworkBroker | null
     isInitializing: boolean
     isChainSwitching: boolean
@@ -52,7 +43,65 @@ interface Use0GBrokerReturn {
     depositFund: (amount: number) => Promise<void>
 }
 
-export function use0GBroker(): Use0GBrokerReturn {
+const defaultBrokerValue: BrokerContextValue = {
+    broker: null,
+    isInitializing: true,
+    isChainSwitching: false,
+    error: null,
+    ledgerInfo: null,
+    initializeBroker: async () => {},
+    refreshLedgerInfo: async () => {},
+    addLedger: async () => { throw new Error('BrokerProvider not mounted') },
+    depositFund: async () => { throw new Error('BrokerProvider not mounted') },
+}
+
+const BrokerContext = createContext<BrokerContextValue>(defaultBrokerValue)
+
+export function useBroker(): BrokerContextValue {
+    return useContext(BrokerContext)
+}
+
+function processLedgerData(
+    rawLedgerInfo: any,
+    infers: any[] | undefined,
+    fines: any[] | undefined | null,
+): LedgerInfo {
+    const totalBigInt = BigInt(rawLedgerInfo[0])
+    const lockedBigInt = BigInt(rawLedgerInfo[1])
+    const availableBigInt = totalBigInt - lockedBigInt
+
+    const processedInferences: InferenceInfo[] = []
+    if (infers && infers.length > 0) {
+        for (const infer of infers) {
+            processedInferences.push({
+                provider: infer[0],
+                balance: neuronToA0giString(BigInt(infer[1])),
+                requestedReturn: neuronToA0giString(BigInt(infer[2])),
+            })
+        }
+    }
+
+    const processedFineTunings: FineTuningInfo[] = []
+    if (fines && fines.length > 0) {
+        for (const fine of fines) {
+            processedFineTunings.push({
+                provider: fine[0],
+                balance: neuronToA0giString(BigInt(fine[1])),
+                requestedReturn: neuronToA0giString(BigInt(fine[2])),
+            })
+        }
+    }
+
+    return {
+        totalBalance: neuronToA0giString(totalBigInt),
+        availableBalance: neuronToA0giString(availableBigInt),
+        locked: neuronToA0giString(lockedBigInt),
+        inferences: processedInferences,
+        fineTunings: processedFineTunings,
+    }
+}
+
+export function BrokerProvider({ children }: { children: React.ReactNode }) {
     const { isConnected } = useAccount()
     const { data: walletClient } = useWalletClient()
     const chainId = useChainId()
@@ -63,24 +112,30 @@ export function use0GBroker(): Use0GBrokerReturn {
     const [ledgerInfo, setLedgerInfo] = useState<LedgerInfo | null>(null)
     const [isChainSwitching, setIsChainSwitching] = useState(false)
 
+    // Cancellation token: each initializeBroker call gets a unique id;
+    // stale calls check this before writing state.
+    const initIdRef = useRef<symbol | null>(null)
+
+    // Track current chainId to detect changes (useRef to avoid extra renders)
+    const currentChainIdRef = useRef<number | undefined>(undefined)
+
     const initializeBroker = useCallback(async () => {
         if (!walletClient || !isConnected) {
+            setIsInitializing(false)
             return
         }
+
+        const thisInitId = Symbol()
+        initIdRef.current = thisInitId
 
         setIsInitializing(true)
         setError(null)
 
         try {
-            // Reduced delay for faster initialization
             await new Promise((resolve) => setTimeout(resolve, 500))
 
-            // Verify walletClient is still available after delay
-            if (!walletClient) {
-                throw new Error('Wallet client became unavailable')
-            }
+            if (initIdRef.current !== thisInitId) return
 
-            // Convert walletClient to ethers signer with retry
             let provider: BrowserProvider
             let signer: JsonRpcSigner | undefined
             let retryCount = 0
@@ -91,7 +146,6 @@ export function use0GBroker(): Use0GBrokerReturn {
                     provider = new BrowserProvider(walletClient)
                     signer = await provider.getSigner()
 
-                    // Verify signer connection and chain
                     await signer.getAddress()
                     await provider.getNetwork()
 
@@ -103,12 +157,14 @@ export function use0GBroker(): Use0GBrokerReturn {
                         throw signerError
                     }
 
-                    // Reduced retry delay
                     await new Promise((resolve) => setTimeout(resolve, 1000))
+
+                    if (initIdRef.current !== thisInitId) return
                 }
             }
 
-            // Create broker instance (auto-detects network and contract addresses)
+            if (initIdRef.current !== thisInitId) return
+
             if (!signer) {
                 throw new Error('Failed to create signer')
             }
@@ -116,12 +172,30 @@ export function use0GBroker(): Use0GBrokerReturn {
             const brokerInstance = await createZGComputeNetworkBroker(
                 signer as any // TODO: Fix this type assertion when 0g-serving-broker types are available
             )
+
+            if (initIdRef.current !== thisInitId) return
+
+            // Fetch ledger using the instance directly (bypasses stale broker closure)
+            try {
+                const { ledgerInfo: raw, infers, fines } =
+                    await brokerInstance.ledger.ledger.getLedgerWithDetail()
+                if (initIdRef.current !== thisInitId) return
+                setLedgerInfo(processLedgerData(raw, infers, fines))
+            } catch {
+                // Ledger fetch failed but broker is still usable
+            }
+
+            if (initIdRef.current !== thisInitId) return
+
             setBroker(brokerInstance as unknown as ZGComputeNetworkBroker)
         } catch (err: unknown) {
+            if (initIdRef.current !== thisInitId) return
             const appError = errorHandler.handle(err, 'BrokerInitialization')
             setError(appError.userMessage)
         } finally {
-            setIsInitializing(false)
+            if (initIdRef.current === thisInitId) {
+                setIsInitializing(false)
+            }
         }
     }, [walletClient, isConnected])
 
@@ -129,56 +203,9 @@ export function use0GBroker(): Use0GBrokerReturn {
         if (!broker) return
 
         try {
-            const { ledgerInfo, infers, fines } =
+            const { ledgerInfo: raw, infers, fines } =
                 await broker.ledger.ledger.getLedgerWithDetail()
-
-            const totalBalance = neuronToA0gi(BigInt(ledgerInfo[0])) // Convert from neuron to 0G
-            const locked = neuronToA0gi(BigInt(ledgerInfo[1])) // Convert from neuron to 0G
-            const available = totalBalance - locked
-
-            // Process inference information
-            const processedInferences: InferenceInfo[] = []
-            if (infers && infers.length > 0) {
-                for (const infer of infers) {
-                    const provider = infer[0]
-                    const balance = formatBalance(
-                        neuronToA0gi(BigInt(infer[1]))
-                    )
-                    const requestedReturn = formatBalance(
-                        neuronToA0gi(BigInt(infer[2]))
-                    )
-                    processedInferences.push({
-                        provider,
-                        balance,
-                        requestedReturn,
-                    })
-                }
-            }
-
-            // Process fine tuning information
-            const processedFineTunings: FineTuningInfo[] = []
-            if (fines && fines.length > 0) {
-                for (const fine of fines) {
-                    const provider = fine[0]
-                    const balance = formatBalance(neuronToA0gi(BigInt(fine[1])))
-                    const requestedReturn = formatBalance(
-                        neuronToA0gi(BigInt(fine[2]))
-                    )
-                    processedFineTunings.push({
-                        provider,
-                        balance,
-                        requestedReturn,
-                    })
-                }
-            }
-
-            setLedgerInfo({
-                totalBalance: formatBalance(totalBalance),
-                availableBalance: formatBalance(available),
-                locked: formatBalance(locked),
-                inferences: processedInferences,
-                fineTunings: processedFineTunings,
-            })
+            setLedgerInfo(processLedgerData(raw, infers, fines))
         } catch (err: unknown) {
             setLedgerInfo(null)
         }
@@ -209,22 +236,7 @@ export function use0GBroker(): Use0GBrokerReturn {
             }
 
             try {
-                // First try to check if ledger exists
-                let hasLedger = false
-                try {
-                    hasLedger = true
-                } catch {
-                    // Ledger doesn't exist yet
-                    hasLedger = false
-                }
-
-                if (hasLedger) {
-                    // Ledger exists, deposit funds
-                    await broker.ledger.depositFund(amount)
-                } else {
-                    await broker.ledger.addLedger(amount)
-                }
-
+                await broker.ledger.depositFund(amount)
                 await refreshLedgerInfo()
             } catch (err: unknown) {
                 const errorMessage =
@@ -239,62 +251,62 @@ export function use0GBroker(): Use0GBrokerReturn {
 
     // Auto-initialize when wallet connects with retry mechanism
     useEffect(() => {
-        if (isConnected && walletClient && !broker && !isInitializing) {
+        if (isConnected && walletClient && !broker && !isChainSwitching) {
+            let retryTimerId: ReturnType<typeof setTimeout> | undefined
+            let cancelled = false
+
             const initWithRetry = async () => {
                 try {
                     await initializeBroker()
                 } catch {
-                    setTimeout(() => {
-                        if (isConnected && walletClient && !broker) {
+                    if (!cancelled) {
+                        retryTimerId = setTimeout(() => {
                             initializeBroker()
-                        }
-                    }, 2000)
+                        }, 2000)
+                    }
                 }
             }
             initWithRetry()
-        }
-    }, [isConnected, walletClient, broker, isInitializing, initializeBroker])
 
-    // Reset state when wallet disconnects or chain changes
+            return () => {
+                cancelled = true
+                if (retryTimerId !== undefined) clearTimeout(retryTimerId)
+            }
+        }
+    }, [isConnected, walletClient, broker, isChainSwitching, initializeBroker])
+
+    // Reset state when wallet disconnects (or on initial load without wallet)
     useEffect(() => {
         if (!isConnected) {
             setBroker(null)
             setLedgerInfo(null)
             setError(null)
+            setIsInitializing(false)
+            setIsChainSwitching(false)
+            currentChainIdRef.current = undefined
         }
     }, [isConnected])
 
-    // Track current chainId to detect changes
-    const [currentChainId, setCurrentChainId] = useState<number | undefined>(chainId)
-    
     // Update cache with current chain
     useEffect(() => {
         setCurrentChainInCache(chainId)
     }, [chainId])
-    
+
     // Reset broker and reinitialize when chain changes
     useEffect(() => {
-        // Only react to actual chain changes, not initial load
-        if (currentChainId !== undefined && chainId !== currentChainId && isConnected && walletClient) {
-            console.log('Chain switched from', currentChainId, 'to', chainId)
-            
-            // Mark as chain switching to distinguish from normal initialization
+        const prevChainId = currentChainIdRef.current
+
+        if (prevChainId !== undefined && chainId !== prevChainId && isConnected && walletClient) {
             setIsChainSwitching(true)
-            
-            // Clear current data immediately to show loading state
+
             setLedgerInfo(null)
             setBroker(null)
             setError(null)
-            
-            // Clear only the previous chain's cache, not all cache
-            if (currentChainId !== undefined) {
-                clearChainCache(currentChainId)
-            }
-            
-            // Update tracked chain ID
-            setCurrentChainId(chainId)
-            
-            // Reinitialize broker for new chain
+
+            clearChainCache(prevChainId)
+
+            currentChainIdRef.current = chainId
+
             const reinitialize = async () => {
                 try {
                     await initializeBroker()
@@ -304,23 +316,16 @@ export function use0GBroker(): Use0GBrokerReturn {
                     setIsChainSwitching(false)
                 }
             }
-            
-            // Small delay to allow chain switch to complete
-            setTimeout(reinitialize, 1000)
-        } else if (currentChainId === undefined) {
-            // Set initial chain ID
-            setCurrentChainId(chainId)
-        }
-    }, [chainId, isConnected, walletClient, currentChainId, initializeBroker])
 
-    // Auto-refresh ledger info when broker is initialized
-    useEffect(() => {
-        if (broker && !isInitializing) {
-            refreshLedgerInfo()
-        }
-    }, [broker, isInitializing, refreshLedgerInfo])
+            const timerId = setTimeout(reinitialize, 1000)
 
-    return {
+            return () => clearTimeout(timerId)
+        } else if (prevChainId === undefined && isConnected) {
+            currentChainIdRef.current = chainId
+        }
+    }, [chainId, isConnected, walletClient, initializeBroker])
+
+    const value = useMemo<BrokerContextValue>(() => ({
         broker,
         isInitializing,
         isChainSwitching,
@@ -330,5 +335,12 @@ export function use0GBroker(): Use0GBrokerReturn {
         refreshLedgerInfo,
         addLedger,
         depositFund,
-    }
+    }), [broker, isInitializing, isChainSwitching, error, ledgerInfo,
+         initializeBroker, refreshLedgerInfo, addLedger, depositFund])
+
+    return (
+        <BrokerContext.Provider value={value}>
+            {children}
+        </BrokerContext.Provider>
+    )
 }

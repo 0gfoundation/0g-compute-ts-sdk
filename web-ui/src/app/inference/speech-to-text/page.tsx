@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAccount } from 'wagmi'
-import { use0GBroker } from '@/shared/hooks/use0GBroker'
+import { useBroker } from '@/shared/providers/BrokerProvider'
 import { useServiceProviders } from '../hooks/useServiceProviders'
 import { useSpeechToText } from '@/shared/hooks/useSpeechToText'
+import { formatNumber } from '@/shared/utils/formatNumber'
 import { StateDisplay } from '@/components/ui/state-display'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -37,7 +38,7 @@ import { cn, copyToClipboard } from '@/lib/utils'
 
 export default function SpeechToTextPage() {
     const { isConnected } = useAccount()
-    const { broker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker()
+    const { broker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = useBroker()
 
     // Provider management
     const {
@@ -390,7 +391,7 @@ export default function SpeechToTextPage() {
                                     <div className="flex items-center gap-2">
                                         <div className="flex-1 px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm">
                                             {providerBalance !== null ? (
-                                                <span className="font-medium">{providerBalance.toFixed(4)} 0G</span>
+                                                <span className="font-medium">{formatNumber(providerBalance)} 0G</span>
                                             ) : (
                                                 <span className="text-gray-400">--</span>
                                             )}

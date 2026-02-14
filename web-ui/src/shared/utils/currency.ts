@@ -10,11 +10,7 @@ import { APP_CONSTANTS } from '../constants/app';
  * ```
  */
 export const neuronToA0gi = (value: bigint): number => {
-  const divisor = BigInt(10 ** APP_CONSTANTS.BLOCKCHAIN.NEURON_DECIMALS);
-  const integerPart = value / divisor;
-  const remainder = value % divisor;
-  const decimalPart = Number(remainder) / Number(divisor);
-  return Number(integerPart) + decimalPart;
+  return parseFloat(neuronToA0giString(value));
 };
 
 /**
@@ -32,7 +28,7 @@ export const a0giToNeuron = (value: number): bigint => {
   
   // Handle integer part
   const integerPart = parts[0];
-  let integerPartAsBigInt = BigInt(integerPart) * BigInt(10 ** APP_CONSTANTS.BLOCKCHAIN.NEURON_DECIMALS);
+  let integerPartAsBigInt = BigInt(integerPart) * (BigInt(10) ** BigInt(APP_CONSTANTS.BLOCKCHAIN.NEURON_DECIMALS));
   
   // Handle fractional part if it exists
   if (parts.length > 1) {
@@ -52,14 +48,39 @@ export const a0giToNeuron = (value: number): bigint => {
 };
 
 /**
+ * Converts neuron units to a precise 0G decimal string without float precision loss.
+ * Uses pure BigInt arithmetic and string operations.
+ * @param value - Value in neuron (BigInt)
+ * @returns Exact decimal string representation in 0G units
+ * @example
+ * ```typescript
+ * neuronToA0giString(BigInt('1000000000000000000')); // "1"
+ * neuronToA0giString(BigInt('1234567890000000000000')); // "1234.56789"
+ * neuronToA0giString(1n); // "0.000000000000000001"
+ * ```
+ */
+export const neuronToA0giString = (value: bigint): string => {
+  if (value === BigInt(0)) return '0';
+  const isNegative = value < BigInt(0);
+  const abs = isNegative ? -value : value;
+  const decimals = APP_CONSTANTS.BLOCKCHAIN.NEURON_DECIMALS;
+  const divisor = BigInt(10) ** BigInt(decimals);
+  const intPart = abs / divisor;
+  const remainder = abs % divisor;
+  const decStr = remainder.toString().padStart(decimals, '0').replace(/0+$/, '');
+  const sign = isNegative ? '-' : '';
+  return decStr ? `${sign}${intPart}.${decStr}` : `${sign}${intPart}`;
+};
+
+/**
  * Formats a balance for display with appropriate decimal places
  * @param balance - Balance in 0G
- * @param maxDecimals - Maximum decimal places to show (default: 4)
+ * @param maxDecimals - Maximum decimal places to show (default: 6)
  * @returns Formatted balance string
  */
-export const formatBalance = (balance: number, maxDecimals: number = 4): string => {
+export const formatBalance = (balance: number, maxDecimals: number = 6): string => {
   if (balance === 0) return '0';
-  
+
   const formatted = balance.toFixed(maxDecimals);
   // Remove trailing zeros
   return formatted.replace(/\.?0+$/, '');

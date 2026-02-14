@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAccount, useDisconnect, useChainId, useSwitchChain } from "wagmi";
-import { use0GBroker } from "../../hooks/use0GBroker";
+import { useBroker } from "../../providers/BrokerProvider";
 import { NavigationProvider, useNavigation } from "../navigation/OptimizedNavigation";
 import SimpleLoader from "../ui/SimpleLoader";
 import { copyToClipboard } from "@/lib/utils";
 import { zgTestnet, zgMainnet } from "../../config/wagmi";
 import { formatBlockchainError } from "../../utils/blockchainErrors";
+import { MINIMUM_DEPOSITS } from "../../constants/limits";
 
 // Preset amounts for initial deposit (network-aware)
 const MAINNET_DEPOSIT_PRESETS = [
@@ -63,7 +64,7 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitchingNetwork } = useSwitchChain();
-  const { broker, isInitializing, isChainSwitching } = use0GBroker();
+  const { broker, isInitializing, isChainSwitching } = useBroker();
 
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,9 +72,9 @@ export const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
 
   // Network-aware default values
   const isTestnet = chainId === zgTestnet.id;
-  const minimumDeposit = isTestnet ? 0.1 : 3;
-  const defaultDeposit = isTestnet ? "0.1" : "3";
-  const defaultPreset = isTestnet ? 0.1 : 3;
+  const minimumDeposit = isTestnet ? MINIMUM_DEPOSITS.INITIAL_TESTNET : MINIMUM_DEPOSITS.INITIAL_MAINNET;
+  const defaultDeposit = isTestnet ? `${MINIMUM_DEPOSITS.INITIAL_TESTNET}` : `${MINIMUM_DEPOSITS.INITIAL_MAINNET}`;
+  const defaultPreset = minimumDeposit;
   const depositPresets = isTestnet ? TESTNET_DEPOSIT_PRESETS : MAINNET_DEPOSIT_PRESETS;
 
   const [initialDeposit, setInitialDeposit] = useState<string>(defaultDeposit);

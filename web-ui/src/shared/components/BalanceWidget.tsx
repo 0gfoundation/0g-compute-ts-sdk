@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 interface BalanceWidgetProps {
   totalBalance: string | number
@@ -20,31 +21,6 @@ interface BalanceWidgetProps {
   onViewDetails?: () => void
   compact?: boolean
   showProviderBalance?: boolean
-}
-
-// Helper function to format numbers
-const formatNumber = (value: string | number): string => {
-  if (!value || value === '0' || value === 0) return '0'
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(num)) return '0'
-
-  // For very small numbers, show more precision
-  if (Math.abs(num) < 0.000001) {
-    return num.toFixed(12).replace(/\.?0+$/, '')
-  }
-  // For small numbers
-  else if (Math.abs(num) < 0.01) {
-    return num.toFixed(8).replace(/\.?0+$/, '')
-  }
-  // For normal numbers
-  else if (Math.abs(num) < 1000) {
-    return num.toFixed(4).replace(/\.?0+$/, '')
-  }
-  // For large numbers, use comma separators
-  return num.toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  })
 }
 
 export function BalanceWidget({

@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useState } from 'react'
-import { use0GBroker } from './use0GBroker'
+import { useBroker } from '../providers/BrokerProvider'
 
 export interface VerificationLog {
     timestamp: number
@@ -34,7 +34,7 @@ export interface VerificationResult {
 }
 
 export function useProviderVerification() {
-    const { broker } = use0GBroker()
+    const { broker } = useBroker()
     const [isVerifying, setIsVerifying] = useState(false)
     const [logs, setLogs] = useState<VerificationLog[]>([])
 

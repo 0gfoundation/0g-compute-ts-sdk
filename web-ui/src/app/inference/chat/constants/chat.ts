@@ -2,7 +2,7 @@
 
 export const CHAT_CONFIG = {
   // Scroll behavior
-  SCROLL_THRESHOLD: 100, // Distance from bottom to consider "near bottom"
+  SCROLL_THRESHOLD: 50, // Distance from bottom to consider "near bottom"
   SCROLL_DELAY: 100, // Delay before auto-scrolling in ms
   
   // Message highlighting

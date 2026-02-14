@@ -2,7 +2,10 @@
 
 import React from "react";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { Github, Globe } from "lucide-react";
+import { BalanceWidget } from '@/shared/components/BalanceWidget';
+import { useBroker } from '@/shared/providers/BrokerProvider';
 
 const CONNECT_BUTTON_CONFIG = {
   chainStatus: "icon" as const,
@@ -12,7 +15,7 @@ const CONNECT_BUTTON_CONFIG = {
   },
   showBalance: {
     smallScreen: false,
-    largeScreen: true,
+    largeScreen: false,  // Hide wallet balance, show ledger balance instead
   }
 } as const;
 
@@ -54,7 +57,10 @@ const NavbarLogo = React.memo(() => (
 
 NavbarLogo.displayName = 'NavbarLogo';
 
-export const Navbar: React.FC = React.memo(() => {
+export const Navbar: React.FC = () => {
+  const { isConnected } = useAccount();
+  const { ledgerInfo, isInitializing } = useBroker();
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
       <NavbarLogo />
@@ -65,10 +71,18 @@ export const Navbar: React.FC = React.memo(() => {
           <WebsiteLink />
         </div>
 
+        {isConnected && (
+          <BalanceWidget
+            totalBalance={ledgerInfo?.totalBalance ?? "0"}
+            availableBalance={ledgerInfo?.availableBalance}
+            lockedBalance={ledgerInfo?.locked}
+            isLoading={isInitializing}
+            compact={true}
+          />
+        )}
+
         <ConnectButton {...CONNECT_BUTTON_CONFIG} />
       </div>
     </header>
   );
-});
-
-Navbar.displayName = 'Navbar';
+};

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { use0GBroker } from "../../../../shared/hooks/use0GBroker";
+import { useBroker } from "@/shared/providers/BrokerProvider";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
 import { useStreamingState } from "../../../../shared/hooks/useStreamingState";
@@ -43,7 +43,7 @@ interface Message {
 
 export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
-  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
+  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = useBroker();
   const { toast } = useToast();
 
   // Use toast for non-blocking errors
@@ -110,7 +110,7 @@ export function OptimizedChatPage() {
   const { searchQuery, setSearchQuery, searchResults, isSearching, clearSearch } = useProviderSearch(chatHistory);
 
   // Onboarding
-  const { showOnboarding, completeOnboarding } = useChatOnboarding();
+  const { showOnboarding, currentStep, advanceStep, completeOnboarding } = useChatOnboarding();
 
   // Provider switch confirmation
   const [showSwitchWarning, setShowSwitchWarning] = useState(false);
@@ -237,14 +237,6 @@ export function OptimizedChatPage() {
 
   // Note: Global ledger check is now handled in LayoutContent component
 
-  // Refresh ledger info when broker is available
-  useEffect(() => {
-    if (broker && refreshLedgerInfo) {
-      refreshLedgerInfo();
-    }
-  }, [broker, refreshLedgerInfo]);
-
-
   // Function to scroll to a specific message
   const scrollToMessage = useCallback((targetContent: string) => {
     const messageElements = document.querySelectorAll('[data-message-content]');
@@ -361,20 +353,24 @@ export function OptimizedChatPage() {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < CHAT_CONFIG.SCROLL_THRESHOLD;
-      
-      if (!isNearBottom && isStreaming) {
-        // User scrolled up during streaming, stop auto-scroll
-        isUserScrollingRef.current = true;
-      } else if (isNearBottom) {
-        // User is back near bottom, resume auto-scroll
-        isUserScrollingRef.current = false;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (isStreaming || isLoading) {
+        const isAtBottom = distanceFromBottom <= CHAT_CONFIG.SCROLL_THRESHOLD;
+        isUserScrollingRef.current = !isAtBottom;
       }
     };
 
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, [isStreaming]);
+  }, [isStreaming, isLoading]);
+
+  // Reset scroll tracking when streaming/loading ends
+  useEffect(() => {
+    if (!isStreaming && !isLoading) {
+      isUserScrollingRef.current = false;
+    }
+  }, [isStreaming, isLoading]);
   
   useEffect(() => {
     const scrollToBottom = () => {
@@ -648,9 +644,16 @@ export function OptimizedChatPage() {
       {/* First-time user onboarding */}
       {showOnboarding && (
         <ChatOnboarding
-          hasProvider={!!selectedProvider}
-          hasBalance={(providerBalance ?? 0) > 0}
-          onComplete={completeOnboarding}
+          currentStep={currentStep}
+          onNext={() => {
+            if (currentStep < 3) {
+              advanceStep(currentStep + 1)
+            } else {
+              completeOnboarding()
+            }
+          }}
+          onSkip={completeOnboarding}
+          onStepClick={advanceStep}
         />
       )}
 

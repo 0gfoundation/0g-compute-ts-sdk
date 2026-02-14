@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertTriangle, Loader2, CheckCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 interface WithdrawDialogProps {
     isOpen: boolean
@@ -24,18 +25,6 @@ interface WithdrawDialogProps {
     refund: (amount: number) => Promise<void>
     onSuccess?: () => void
     onDeleteSuccess?: () => void
-}
-
-// Helper function to format numbers
-const formatNumber = (value: string | number) => {
-    if (!value || value === "0" || value === 0) return "0"
-    const num = parseFloat(value.toString())
-    if (isNaN(num)) return "0"
-    return num.toLocaleString('en-US', {
-        useGrouping: false,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 20
-    })
 }
 
 export function WithdrawDialog({
@@ -162,7 +151,7 @@ export function WithdrawDialog({
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                            Available: {formatNumber(availableBalance)} 0G | Max withdrawable: {formatNumber(maxWithdrawable.toString())} 0G
+                            Available: {formatNumber(availableBalance, 'full')} 0G | Max withdrawable: {formatNumber(maxWithdrawable.toString(), 'full')} 0G
                         </p>
                         <p className="text-xs text-amber-600 mt-1">
                             Total balance must remain at least 3 0G
@@ -235,7 +224,7 @@ export function WithdrawDialog({
                         <Alert className="bg-red-50 border-red-200">
                             <AlertTriangle className="h-4 w-4 text-red-500" />
                             <AlertDescription className="text-sm text-red-700">
-                                You will withdraw <strong>{formatNumber(availableBalance)} 0G</strong> and your account will be permanently deleted.
+                                You will withdraw <strong>{formatNumber(availableBalance, 'full')} 0G</strong> and your account will be permanently deleted.
                             </AlertDescription>
                         </Alert>
                     </div>
