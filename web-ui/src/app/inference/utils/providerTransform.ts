@@ -1,7 +1,7 @@
 /**
  * Provider service transformation utilities
  */
-import type { Provider } from '../../../shared/types/broker';
+import type { Provider, ServiceType } from '../../../shared/types/broker';
 import { neuronToA0gi } from '../../../shared/utils/currency';
 
 /**
@@ -17,7 +17,7 @@ export interface BrokerServiceObject {
   inputPrice?: bigint | string | number;
   outputPrice?: bigint | string | number;
   teeSignerAcknowledged?: boolean;
-  serviceType?: string; // Added for UI conditional rendering
+  serviceType?: ServiceType; // Added for UI conditional rendering
 }
 
 /**
@@ -36,7 +36,7 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
     inputPrice?: bigint;
     outputPrice?: bigint;
     teeSignerAcknowledged?: boolean;
-    serviceType?: string;
+    serviceType?: ServiceType;
   };
   
   // Type guard to ensure service has the required properties

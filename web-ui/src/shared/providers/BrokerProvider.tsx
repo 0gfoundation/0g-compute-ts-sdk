@@ -231,7 +231,7 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
                 const { ledgerInfo: raw, infers, fines } =
                     await brokerInstance.ledger.ledger.getLedgerWithDetail()
                 if (abortController.signal.aborted) return
-                setLedgerInfo(processLedgerData(raw, infers, fines))
+                setLedgerInfo(processLedgerData(raw as [bigint, bigint], infers, fines))
             } catch {
                 // Ledger fetch failed but broker is still usable
             }
@@ -256,7 +256,7 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
         try {
             const { ledgerInfo: raw, infers, fines } =
                 await broker.ledger.ledger.getLedgerWithDetail()
-            const processed = processLedgerData(raw, infers, fines)
+            const processed = processLedgerData(raw as [bigint, bigint], infers, fines)
             setLedgerInfo(processed)
             return processed
         } catch (err: unknown) {
