@@ -4,6 +4,7 @@ import { useChainId } from 'wagmi'
 import { transformBrokerServicesToProviders } from '../utils/providerTransform'
 import { neuronToA0gi } from '../../../shared/utils/currency'
 import type { Provider } from '../../../shared/types/broker'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
 
 export type ServiceType = 'chatbot' | 'text-to-image' | 'speech-to-text' | 'image-editing'
 
@@ -34,8 +35,9 @@ interface ServiceProvidersActions {
  * Works for chatbot, text-to-image, and speech-to-text services.
  */
 export function useServiceProviders(
-    broker: any,
-    serviceType: ServiceType
+    broker: ZGComputeNetworkBroker | null,
+    serviceType: ServiceType,
+    readOnlyBroker?: ZGComputeNetworkReadOnlyBroker | null
 ): ServiceProvidersState & ServiceProvidersActions {
     const searchParams = useSearchParams()
     const chainId = useChainId()
@@ -52,6 +54,9 @@ export function useServiceProviders(
 
     // Track current chainId to detect changes
     const [currentChainId, setCurrentChainId] = useState<number | undefined>(chainId)
+
+    // Use broker if available, otherwise fall back to readOnlyBroker for listing
+    const activeBroker = broker || readOnlyBroker
 
     // Reset all provider-related state when chain changes
     useEffect(() => {
@@ -75,15 +80,18 @@ export function useServiceProviders(
     }, [chainId, currentChainId])
 
     // Fetch providers list
+    // TODO: Consider adding caching mechanism similar to OptimizedInferencePage
+    // (2-minute TTL) to reduce redundant API calls across multiple page visits.
+    // Current implementation refetches on every component mount.
     const fetchProviders = useCallback(async () => {
-        if (!broker) return
+        if (!activeBroker) return
 
         setIsInitializing(true)
         setError(null)
 
         try {
             // Use the broker to get real service list
-            const services = await broker.inference.listService()
+            const services = await activeBroker.inference.listService()
 
             // Transform services to Provider format
             const transformedProviders = transformBrokerServicesToProviders(services)
@@ -141,18 +149,27 @@ export function useServiceProviders(
             }
         } catch (err: unknown) {
             console.error(`Failed to fetch ${serviceType} providers:`, err)
-            setError(`Failed to load providers. Please try again.`)
+
+            // Provide context-specific error message
+            if (!broker) {
+                // Using readOnlyBroker but failed (user not connected)
+                setError(`Failed to load providers. Please refresh the page or try connecting your wallet.`)
+            } else {
+                // Using authenticated broker but failed
+                setError(`Failed to load providers. Please try again.`)
+            }
+
             setProviders([])
             setSelectedProvider(null)
         } finally {
             setIsInitializing(false)
         }
-    }, [broker, serviceType, searchParams, selectedProvider])
+    }, [activeBroker, serviceType, searchParams, selectedProvider, broker, readOnlyBroker])
 
     // Fetch providers on mount and when dependencies change
     useEffect(() => {
         fetchProviders()
-    }, [broker, serviceType])
+    }, [fetchProviders])
 
     // Fetch service metadata when provider changes
     useEffect(() => {

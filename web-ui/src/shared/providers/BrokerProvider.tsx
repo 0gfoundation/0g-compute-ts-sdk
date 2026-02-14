@@ -1,15 +1,18 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useAccount, useWalletClient, useChainId } from 'wagmi'
-import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
-import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
+import { useAccount, useWalletClient, useChainId, useSwitchChain } from 'wagmi'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
+import { createZGComputeNetworkBroker, createZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
 import type { JsonRpcSigner } from 'ethers'
 import { BrowserProvider } from 'ethers'
 import { APP_CONSTANTS } from '../constants/app'
 import { errorHandler } from '../utils/errorHandling'
 import { neuronToA0giString } from '../utils/currency'
 import { clearChainCache, setCurrentChainInCache } from '../utils/chainCache'
+import { zgMainnet, zgTestnet } from '../config/wagmi'
+import { useChainRestore } from '../hooks/useChainRestore'
+import { useReadOnlyBroker } from '../hooks/useReadOnlyBroker'
 
 interface InferenceInfo {
     provider: string
@@ -33,24 +36,24 @@ export interface LedgerInfo {
 
 export interface BrokerContextValue {
     broker: ZGComputeNetworkBroker | null
+    readOnlyBroker: ZGComputeNetworkReadOnlyBroker | null
     isInitializing: boolean
-    isChainSwitching: boolean
     error: string | null
     ledgerInfo: LedgerInfo | null
     initializeBroker: () => Promise<void>
-    refreshLedgerInfo: () => Promise<void>
+    refreshLedgerInfo: () => Promise<LedgerInfo | null>
     addLedger: (balance: number) => Promise<void>
     depositFund: (amount: number) => Promise<void>
 }
 
 const defaultBrokerValue: BrokerContextValue = {
     broker: null,
+    readOnlyBroker: null,
     isInitializing: true,
-    isChainSwitching: false,
     error: null,
     ledgerInfo: null,
     initializeBroker: async () => {},
-    refreshLedgerInfo: async () => {},
+    refreshLedgerInfo: async () => null,
     addLedger: async () => { throw new Error('BrokerProvider not mounted') },
     depositFund: async () => { throw new Error('BrokerProvider not mounted') },
 }
@@ -62,9 +65,9 @@ export function useBroker(): BrokerContextValue {
 }
 
 function processLedgerData(
-    rawLedgerInfo: any,
-    infers: any[] | undefined,
-    fines: any[] | undefined | null,
+    rawLedgerInfo: [bigint, bigint],
+    infers: Array<[string, bigint, bigint]> | undefined,
+    fines: Array<[string, bigint, bigint]> | undefined | null,
 ): LedgerInfo {
     const totalBigInt = BigInt(rawLedgerInfo[0])
     const lockedBigInt = BigInt(rawLedgerInfo[1])
@@ -101,23 +104,104 @@ function processLedgerData(
     }
 }
 
+/**
+ * Create broker instance with abort support and chain validation
+ *
+ * @param walletClient - Wallet client from wagmi
+ * @param expectedChainId - Expected chain ID to validate against
+ * @param signal - AbortSignal for cancellation
+ * @returns Promise resolving to broker instance
+ * @throws Error if signer creation fails or chain mismatch detected
+ */
+async function createBrokerWithAbort(
+    walletClient: any,
+    expectedChainId: number,
+    signal: AbortSignal
+): Promise<ZGComputeNetworkBroker> {
+    // Initial delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    if (signal.aborted) throw new Error('Aborted')
+
+    // Create signer with retry logic
+    let signer: JsonRpcSigner | undefined
+    let signerChainId: number | undefined
+    const provider = new BrowserProvider(walletClient)
+    const maxRetries = APP_CONSTANTS.BLOCKCHAIN.MAX_SIGNER_RETRIES
+
+    for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
+        if (signal.aborted) throw new Error('Aborted')
+
+        try {
+            signer = await provider.getSigner()
+            await signer.getAddress()
+            const network = await provider.getNetwork()
+            signerChainId = Number(network.chainId)
+            break
+        } catch (signerError) {
+            if (retryCount >= maxRetries - 1) {
+                throw signerError
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+    }
+
+    if (!signer) {
+        throw new Error('Failed to create signer')
+    }
+
+    // Validate chain ID
+    if (signerChainId !== expectedChainId) {
+        throw new Error(
+            `Chain mismatch: expected ${expectedChainId}, got ${signerChainId}`
+        )
+    }
+
+    if (signal.aborted) throw new Error('Aborted')
+
+    // Create broker instance
+    const brokerInstance = await createZGComputeNetworkBroker(
+        signer as Parameters<typeof createZGComputeNetworkBroker>[0]
+    )
+
+    if (signal.aborted) throw new Error('Aborted')
+
+    return brokerInstance
+}
+
 export function BrokerProvider({ children }: { children: React.ReactNode }) {
     const { isConnected } = useAccount()
     const { data: walletClient } = useWalletClient()
     const chainId = useChainId()
+    const { switchChain } = useSwitchChain()
 
     const [broker, setBroker] = useState<ZGComputeNetworkBroker | null>(null)
     const [isInitializing, setIsInitializing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [ledgerInfo, setLedgerInfo] = useState<LedgerInfo | null>(null)
-    const [isChainSwitching, setIsChainSwitching] = useState(false)
 
-    // Cancellation token: each initializeBroker call gets a unique id;
-    // stale calls check this before writing state.
-    const initIdRef = useRef<symbol | null>(null)
+    // Cancellation token: AbortController for cancelling in-flight initialization
+    const abortControllerRef = useRef<AbortController | null>(null)
 
     // Track current chainId to detect changes (useRef to avoid extra renders)
     const currentChainIdRef = useRef<number | undefined>(undefined)
+
+    // Always-current chainId ref — updated during render so async code
+    // can compare the broker's chain against the latest value.
+    const chainIdRef = useRef(chainId)
+    chainIdRef.current = chainId
+
+    // Chain restoration hook
+    const { shouldSkipInit } = useChainRestore({
+        isConnected,
+        currentChainId: chainId,
+        switchChain,
+    })
+
+    // Read-only broker hook
+    const readOnlyBroker = useReadOnlyBroker({
+        chainId,
+        enabled: !shouldSkipInit || !isConnected,
+    })
 
     const initializeBroker = useCallback(async () => {
         if (!walletClient || !isConnected) {
@@ -125,89 +209,62 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
             return
         }
 
-        const thisInitId = Symbol()
-        initIdRef.current = thisInitId
+        // Create new AbortController for this initialization
+        const abortController = new AbortController()
+        abortControllerRef.current = abortController
 
         setIsInitializing(true)
         setError(null)
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 500))
-
-            if (initIdRef.current !== thisInitId) return
-
-            let provider: BrowserProvider
-            let signer: JsonRpcSigner | undefined
-            let retryCount = 0
-            const maxRetries = APP_CONSTANTS.BLOCKCHAIN.MAX_SIGNER_RETRIES
-
-            while (retryCount < maxRetries) {
-                try {
-                    provider = new BrowserProvider(walletClient)
-                    signer = await provider.getSigner()
-
-                    await signer.getAddress()
-                    await provider.getNetwork()
-
-                    break
-                } catch (signerError) {
-                    retryCount++
-
-                    if (retryCount >= maxRetries) {
-                        throw signerError
-                    }
-
-                    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-                    if (initIdRef.current !== thisInitId) return
-                }
-            }
-
-            if (initIdRef.current !== thisInitId) return
-
-            if (!signer) {
-                throw new Error('Failed to create signer')
-            }
-
-            const brokerInstance = await createZGComputeNetworkBroker(
-                signer as any // TODO: Fix this type assertion when 0g-serving-broker types are available
+            // Create broker with abort support and chain validation
+            const brokerInstance = await createBrokerWithAbort(
+                walletClient,
+                chainIdRef.current,
+                abortController.signal
             )
 
-            if (initIdRef.current !== thisInitId) return
+            if (abortController.signal.aborted) return
 
-            // Fetch ledger using the instance directly (bypasses stale broker closure)
+            // Fetch ledger info (non-fatal if it fails)
             try {
                 const { ledgerInfo: raw, infers, fines } =
                     await brokerInstance.ledger.ledger.getLedgerWithDetail()
-                if (initIdRef.current !== thisInitId) return
+                if (abortController.signal.aborted) return
                 setLedgerInfo(processLedgerData(raw, infers, fines))
             } catch {
                 // Ledger fetch failed but broker is still usable
             }
 
-            if (initIdRef.current !== thisInitId) return
+            if (abortController.signal.aborted) return
 
-            setBroker(brokerInstance as unknown as ZGComputeNetworkBroker)
+            setBroker(brokerInstance)
         } catch (err: unknown) {
-            if (initIdRef.current !== thisInitId) return
+            if (abortController.signal.aborted) return
             const appError = errorHandler.handle(err, 'BrokerInitialization')
             setError(appError.userMessage)
         } finally {
-            if (initIdRef.current === thisInitId) {
+            if (!abortController.signal.aborted) {
                 setIsInitializing(false)
             }
         }
     }, [walletClient, isConnected])
 
-    const refreshLedgerInfo = useCallback(async () => {
-        if (!broker) return
+    const refreshLedgerInfo = useCallback(async (): Promise<LedgerInfo | null> => {
+        if (!broker) return null
 
         try {
             const { ledgerInfo: raw, infers, fines } =
                 await broker.ledger.ledger.getLedgerWithDetail()
-            setLedgerInfo(processLedgerData(raw, infers, fines))
+            const processed = processLedgerData(raw, infers, fines)
+            setLedgerInfo(processed)
+            return processed
         } catch (err: unknown) {
-            setLedgerInfo(null)
+            if (err instanceof Error && err.message.includes('Account does not exist')) {
+                setLedgerInfo(null)
+                return null
+            }
+            throw err
         }
     }, [broker])
 
@@ -249,9 +306,47 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
         [broker, refreshLedgerInfo]
     )
 
-    // Auto-initialize when wallet connects with retry mechanism
+    // Reset state when wallet disconnects
     useEffect(() => {
-        if (isConnected && walletClient && !broker && !isChainSwitching) {
+        if (!isConnected) {
+            setBroker(null)
+            setLedgerInfo(null)
+            setError(null)
+            setIsInitializing(false)
+            currentChainIdRef.current = undefined
+        }
+    }, [isConnected])
+
+    // Update chain cache
+    useEffect(() => {
+        setCurrentChainInCache(chainId)
+    }, [chainId])
+
+    // Auto-initialize broker and handle chain switching
+    useEffect(() => {
+        if (shouldSkipInit || !isConnected || !walletClient) return
+
+        const prevChainId = currentChainIdRef.current
+
+        // Handle chain change
+        if (prevChainId !== undefined && chainId !== prevChainId) {
+            // Abort any in-flight initialization
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+            }
+
+            // Clear state
+            setLedgerInfo(null)
+            setBroker(null)
+            setError(null)
+            clearChainCache(prevChainId)
+        }
+
+        // Update current chain tracking
+        currentChainIdRef.current = chainId
+
+        // Initialize if no broker exists
+        if (!broker) {
             let retryTimerId: ReturnType<typeof setTimeout> | undefined
             let cancelled = false
 
@@ -273,69 +368,19 @@ export function BrokerProvider({ children }: { children: React.ReactNode }) {
                 if (retryTimerId !== undefined) clearTimeout(retryTimerId)
             }
         }
-    }, [isConnected, walletClient, broker, isChainSwitching, initializeBroker])
-
-    // Reset state when wallet disconnects (or on initial load without wallet)
-    useEffect(() => {
-        if (!isConnected) {
-            setBroker(null)
-            setLedgerInfo(null)
-            setError(null)
-            setIsInitializing(false)
-            setIsChainSwitching(false)
-            currentChainIdRef.current = undefined
-        }
-    }, [isConnected])
-
-    // Update cache with current chain
-    useEffect(() => {
-        setCurrentChainInCache(chainId)
-    }, [chainId])
-
-    // Reset broker and reinitialize when chain changes
-    useEffect(() => {
-        const prevChainId = currentChainIdRef.current
-
-        if (prevChainId !== undefined && chainId !== prevChainId && isConnected && walletClient) {
-            setIsChainSwitching(true)
-
-            setLedgerInfo(null)
-            setBroker(null)
-            setError(null)
-
-            clearChainCache(prevChainId)
-
-            currentChainIdRef.current = chainId
-
-            const reinitialize = async () => {
-                try {
-                    await initializeBroker()
-                } catch (err) {
-                    console.error('Failed to reinitialize broker after chain switch:', err)
-                } finally {
-                    setIsChainSwitching(false)
-                }
-            }
-
-            const timerId = setTimeout(reinitialize, 1000)
-
-            return () => clearTimeout(timerId)
-        } else if (prevChainId === undefined && isConnected) {
-            currentChainIdRef.current = chainId
-        }
-    }, [chainId, isConnected, walletClient, initializeBroker])
+    }, [shouldSkipInit, isConnected, walletClient, chainId, broker, initializeBroker])
 
     const value = useMemo<BrokerContextValue>(() => ({
         broker,
+        readOnlyBroker,
         isInitializing,
-        isChainSwitching,
         error,
         ledgerInfo,
         initializeBroker,
         refreshLedgerInfo,
         addLedger,
         depositFund,
-    }), [broker, isInitializing, isChainSwitching, error, ledgerInfo,
+    }), [broker, readOnlyBroker, isInitializing, error, ledgerInfo,
          initializeBroker, refreshLedgerInfo, addLedger, depositFund])
 
     return (

@@ -2,6 +2,8 @@
  * Type definitions for the 0G Broker system
  */
 
+export type ServiceType = 'chatbot' | 'text-to-image' | 'image-editing' | 'speech-to-text'
+
 export interface ServiceInfo {
   provider: string;
   model: string;
@@ -20,10 +22,21 @@ export interface ServiceMetadata {
   outputPrice?: bigint;
 }
 
-export interface LedgerInfo {
+export interface RawLedgerData {
   ledgerInfo: [bigint, bigint];
   infers: Array<[string, bigint, bigint]>;
   fines: Array<[string, bigint, bigint]>;
+}
+
+export interface ModelSummary {
+  model: string;
+  displayName: string;
+  serviceType: ServiceType;
+  providerCount: number;
+  verifiedCount: number;
+  inputPriceRange: { min: number; max: number } | null;
+  outputPriceRange: { min: number; max: number } | null;
+  providers: Provider[];
 }
 
 export interface Provider {
@@ -38,7 +51,7 @@ export interface Provider {
   inputPriceNeuron?: bigint;
   outputPriceNeuron?: bigint;
   teeSignerAcknowledged?: boolean;
-  serviceType?: string; // Added for UI conditional rendering
+  serviceType?: ServiceType;
   // Health status from compute-status API
   healthStatus?: 'healthy' | 'warning' | 'critical' | 'unknown';
   uptime?: number; // percentage

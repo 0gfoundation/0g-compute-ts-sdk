@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import { useAccount } from 'wagmi'
 import type { Provider } from '../../../../shared/types/broker'
 import { OFFICIAL_PROVIDERS } from '../../constants/providers'
 import { copyToClipboard } from '@/lib/utils'
@@ -17,6 +18,7 @@ import {
     getModelHealthStatus,
     getHealthStatusColor,
     getHealthStatusText,
+    type ProviderHealthStatus,
 } from '@/shared/hooks/useProviderHealth'
 import { formatNumber } from '@/shared/utils/formatNumber'
 
@@ -78,7 +80,7 @@ function MobileProviderCard({
     isSelected: boolean
     isRecentlyUsed: boolean
     onSelect: () => void
-    healthData: Map<string, any[]>
+    healthData: Map<string, ProviderHealthStatus[]>
     isLoadingHealth: boolean
 }) {
     const isTeeVerified =
@@ -217,16 +219,14 @@ export function ProviderSelector({
     onAddFunds,
 }: ProviderSelectorProps) {
     const isMobile = useIsMobile()
+    const { isConnected } = useAccount()
     const [mobileSearchQuery, setMobileSearchQuery] = useState('')
 
     // Get health data using SWR hook (automatically cached across components)
     const { healthData, isLoading: isLoadingHealth } = useProviderHealth()
 
     // Recently used providers set for quick lookup
-    const recentlyUsedSet = useMemo(() => {
-        const used = getRecentlyUsedProviders()
-        return new Set(used)
-    }, [])
+    const recentlyUsedSet = new Set(getRecentlyUsedProviders())
 
     // Filter out unverified providers - only show verified providers that can be used
     const verifiedProviders = useMemo(() => {
@@ -715,7 +715,13 @@ export function ProviderSelector({
                     )}
                     {/* Right Section: Balance and Add Funds */}
                     <div className="flex items-center gap-1 sm:gap-1.5 px-1 sm:px-2 py-1 rounded-md">
-                        <div
+                        {!isConnected ? (
+                            <span className="text-xs text-red-500 whitespace-nowrap px-1.5 py-1">
+                                Wallet not connected
+                            </span>
+                        ) : (
+                            <>
+                            <div
                             className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded-md text-xs ${
                                 (providerBalanceNeuron !== null &&
                                     providerBalanceNeuron === BigInt(0)) ||
@@ -864,6 +870,8 @@ export function ProviderSelector({
                             </svg>
                             <span className="hidden sm:inline">Add Funds</span>
                         </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
+import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
 import { a0giToNeuron } from "../../../../shared/utils/currency";
 import { formatNumber } from "../../../../shared/utils/formatNumber";
 import {
@@ -44,7 +45,7 @@ interface LedgerInfo {
 interface TopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  broker: any; // TODO: Replace with proper broker type when available
+  broker: ZGComputeNetworkBroker | null;
   selectedProvider: Provider | null;
   topUpAmount: string;
   setTopUpAmount: (amount: string) => void;
@@ -53,7 +54,7 @@ interface TopUpModalProps {
   providerBalance: number | null;
   providerPendingRefund: number | null;
   ledgerInfo: LedgerInfo | null;
-  refreshLedgerInfo: () => Promise<void>;
+  refreshLedgerInfo: () => Promise<LedgerInfo | null>;
   refreshProviderBalance: () => Promise<void>;
   setErrorWithTimeout: (error: string | null) => void;
 }
@@ -275,6 +276,8 @@ export function TopUpModal({
           <Button
             onClick={handleTopUp}
             disabled={
+              !broker ||
+              !selectedProvider ||
               isTopping ||
               !topUpAmount ||
               parseFloat(topUpAmount) < MINIMUM_DEPOSITS.TOPUP_PROVIDER ||

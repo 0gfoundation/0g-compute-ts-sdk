@@ -26,7 +26,7 @@
  */
 
 import { useCallback } from 'react'
-import { useBroker } from '../providers/BrokerProvider'
+import { useBroker, type LedgerInfo } from '../providers/BrokerProvider'
 import { a0giToNeuron, neuronToA0gi } from '../utils/currency'
 import { formatBlockchainError } from '../utils/blockchainErrors'
 
@@ -44,7 +44,7 @@ export interface BrokerOperationsReturn {
   // Provider operations
   verifyProvider: (provider: string) => Promise<{
     success: boolean
-    report?: any
+    report?: unknown
   }>
 
   // API key operations
@@ -171,7 +171,7 @@ export function useBrokerOperations(): BrokerOperationsReturn {
 
         // Refresh both ledger and provider balance in parallel (from TopUpModal pattern)
         // This ensures UI stays in sync with blockchain state
-        const refreshTasks = [refreshLedgerInfo()]
+        const refreshTasks: Promise<LedgerInfo | null | void>[] = [refreshLedgerInfo()]
         if (onRefreshProvider) {
           refreshTasks.push(onRefreshProvider())
         }
