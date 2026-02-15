@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useAccount } from 'wagmi'
 import { useBroker } from '@/shared/providers/BrokerProvider'
+import { useWalletGuard } from '@/shared/hooks/useWalletGuard'
 import { useServiceProviders } from '../hooks/useServiceProviders'
 import { useImageEditing } from '@/shared/hooks/useImageEditing'
 import { StateDisplay } from '@/components/ui/state-display'
@@ -23,7 +24,8 @@ import { formatNumber } from '@/shared/utils/formatNumber'
 
 function ImageEditContent() {
     const { isConnected } = useAccount()
-    const { broker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = useBroker()
+    const { broker, readOnlyBroker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = useBroker()
+    const { requireWallet } = useWalletGuard()
 
     // Provider management for image-editing services
     const {
@@ -37,7 +39,7 @@ function ImageEditContent() {
         isInitializing,
         error: providerError,
         refreshProviderBalance,
-    } = useServiceProviders(broker, 'image-editing')
+    } = useServiceProviders(broker, 'image-editing', readOnlyBroker)
 
     // Image editing hook
     const [editingError, setEditingError] = useState<string | null>(null)
@@ -144,6 +146,7 @@ function ImageEditContent() {
     // Handle edit
     const handleEdit = useCallback(async () => {
         if (!prompt.trim() || !selectedFile) return
+        if (!requireWallet()) return
 
         // Check balance
         if (providerBalance === 0 || providerBalance === null) {
@@ -154,7 +157,7 @@ function ImageEditContent() {
         await editImage({ image: selectedFile, prompt })
         // Refresh balance after editing
         refreshProviderBalance()
-    }, [prompt, selectedFile, editImage, providerBalance, refreshProviderBalance])
+    }, [prompt, selectedFile, editImage, providerBalance, refreshProviderBalance, requireWallet])
 
     // Handle download
     const handleDownload = useCallback((imageData: string, filename: string) => {
@@ -165,18 +168,6 @@ function ImageEditContent() {
         link.click()
         document.body.removeChild(link)
     }, [])
-
-    // Wallet not connected
-    if (!isConnected) {
-        return (
-            <div className="w-full">
-                <StateDisplay
-                    type="wallet-disconnected"
-                    description="Please connect your wallet to edit images."
-                />
-            </div>
-        )
-    }
 
     const isLoading = brokerInitializing || isInitializing
 
@@ -233,7 +224,10 @@ function ImageEditContent() {
                                             size="sm"
                                             variant="outline"
                                             className="h-6 px-2 text-xs"
-                                            onClick={() => setShowTopUpModal(true)}
+                                            onClick={() => {
+                                                if (!requireWallet()) return
+                                                setShowTopUpModal(true)
+                                            }}
                                         >
                                             <Plus className="h-3 w-3 mr-1" />
                                             Add

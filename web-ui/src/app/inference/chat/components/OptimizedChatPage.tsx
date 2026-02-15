@@ -3,7 +3,9 @@
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useBroker } from "@/shared/providers/BrokerProvider";
+import { useDepositGuard } from "@/shared/providers/DepositGuardProvider";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
 import { useStreamingState } from "../../../../shared/hooks/useStreamingState";
@@ -27,23 +29,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Provider } from "../../../../shared/types/broker";
-
-
-
-interface Message {
-  role: "system" | "user" | "assistant";
-  content: string;
-  timestamp?: number;
-  chatId?: string;
-  isVerified?: boolean | null;
-  isVerifying?: boolean;
-}
+import type { Provider, Message } from "../../../../shared/types/broker";
 
 
 export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
-  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = useBroker();
+  const { broker, readOnlyBroker, isInitializing, ledgerInfo, refreshLedgerInfo } = useBroker();
+  const { openConnectModal } = useConnectModal();
+  const { requestDeposit } = useDepositGuard();
   const { toast } = useToast();
 
   // Use toast for non-blocking errors
@@ -67,7 +60,7 @@ export function OptimizedChatPage() {
     providerPendingRefund,
     setSelectedProvider,
     refreshProviderBalance,
-  } = useProviderManagement(broker);
+  } = useProviderManagement(broker, readOnlyBroker);
   
   // Provider dropdown state (UI only)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -171,6 +164,8 @@ export function OptimizedChatPage() {
     setErrorWithTimeout,
     isUserScrollingRef,
     messagesEndRef,
+    openConnectModal,
+    requestDeposit,
   });
 
   // Handle editing a user message - truncates conversation and resends
@@ -445,38 +440,6 @@ export function OptimizedChatPage() {
   // Note: handleDeposit is now handled globally in LayoutContent
 
 
-  if (!isConnected) {
-    return (
-      <div className="w-full">
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center border border-purple-200">
-              <svg
-                className="w-8 h-8 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Wallet Not Connected
-          </h3>
-          <p className="text-gray-600">
-            Please connect your wallet to access AI inference features.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full">
       <div className="mb-1 sm:mb-3">
@@ -564,7 +527,10 @@ export function OptimizedChatPage() {
               providerBalanceNeuron={providerBalanceNeuron}
               providerPendingRefund={providerPendingRefund}
               onAddFunds={() => {
-                // Use the existing top-up modal logic
+                if (!broker) {
+                  openConnectModal?.();
+                  return;
+                }
                 setShowTopUpModal(true);
               }}
             />

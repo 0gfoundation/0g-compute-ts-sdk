@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useChainId } from 'wagmi'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
 import { transformBrokerServicesToProviders } from '../utils/providerTransform'
 import { neuronToA0gi } from '../../../shared/utils/currency'
 import type { Provider } from '../../../shared/types/broker'
@@ -26,7 +27,8 @@ interface ProviderManagementActions {
 }
 
 export function useProviderManagement(
-    broker: any // TODO: Replace with proper broker type when available
+    broker: ZGComputeNetworkBroker | null,
+    readOnlyBroker?: ZGComputeNetworkReadOnlyBroker | null
 ): ProviderManagementState & ProviderManagementActions {
     const searchParams = useSearchParams()
     const chainId = useChainId()
@@ -72,15 +74,18 @@ export function useProviderManagement(
         }
     }, [chainId, currentChainId])
 
-    // Fetch providers list
+    // Fetch providers list (use full broker if available, otherwise readOnlyBroker)
+    const activeBroker = broker || readOnlyBroker
     useEffect(() => {
-        const fetchProviders = async () => {
-            if (broker) {
-                try {
-                    // Use the broker to get real service list
-                    const services = await broker.inference.listService()
+        let cancelled = false
 
-                    // Transform services to Provider format
+        const fetchProviders = async () => {
+            if (activeBroker) {
+                try {
+                    const services = await activeBroker.inference.listService()
+
+                    if (cancelled) return
+
                     const transformedProviders =
                         transformBrokerServicesToProviders(services)
 
@@ -95,7 +100,6 @@ export function useProviderManagement(
                     const providerParam = searchParams.get('provider')
 
                     if (providerParam && !selectedProvider) {
-                        // Try to find the provider by address (only from chatbot providers)
                         const targetProvider = chatbotProviders.find(
                             (p) =>
                                 p.address.toLowerCase() ===
@@ -104,38 +108,43 @@ export function useProviderManagement(
                         if (targetProvider) {
                             setSelectedProvider(targetProvider)
                         } else if (chatbotProviders.length > 0) {
-                            // Fallback to first chatbot provider if specified provider not found
                             setSelectedProvider(chatbotProviders[0])
                         }
                     } else if (
                         !selectedProvider &&
                         chatbotProviders.length > 0
                     ) {
-                        // Set the first chatbot provider as selected if none is selected
                         setSelectedProvider(chatbotProviders[0])
                     }
                 } catch (err: unknown) {
+                    if (cancelled) return
                     console.log('Failed to fetch providers from broker:', err)
-                    // Fallback to empty array
                     setProviders([])
                     setSelectedProvider(null)
+                } finally {
+                    if (!cancelled) setIsInitializing(false)
                 }
+            } else {
+                setIsInitializing(false)
             }
         }
 
         fetchProviders()
-        setIsInitializing(false)
-    }, [broker, selectedProvider, searchParams])
+
+        return () => { cancelled = true }
+    }, [activeBroker, selectedProvider, searchParams])
 
     // Fetch service metadata when provider changes
     useEffect(() => {
+        let cancelled = false
+
         const fetchServiceMetadata = async () => {
             if (broker && selectedProvider) {
                 try {
-                    // Step 5.1: Get the request metadata
                     const metadata = await broker.inference.getServiceMetadata(
                         selectedProvider.address
                     )
+                    if (cancelled) return
                     if (metadata?.endpoint && metadata?.model) {
                         setServiceMetadata({
                             endpoint: metadata.endpoint,
@@ -145,16 +154,19 @@ export function useProviderManagement(
                         setServiceMetadata(null)
                     }
                 } catch {
+                    if (cancelled) return
                     setServiceMetadata(null)
                 }
             }
         }
 
         fetchServiceMetadata()
+
+        return () => { cancelled = true }
     }, [broker, selectedProvider])
 
     // Fetch provider balance
-    const refreshProviderBalance = async () => {
+    const refreshProviderBalance = useCallback(async () => {
         if (broker && selectedProvider) {
             try {
                 const account = await broker.inference.getAccount(
@@ -176,30 +188,21 @@ export function useProviderManagement(
                     setProviderPendingRefund(0)
                 }
             } catch {
-                // Account doesn't exist yet or other error - set to 0
                 setProviderBalance(0)
                 setProviderBalanceNeuron(BigInt(0))
                 setProviderPendingRefund(0)
             }
         } else if (!selectedProvider) {
-            // Reset balance states when no provider is selected
-            setProviderBalance(null)
-            setProviderBalanceNeuron(null)
-            setProviderPendingRefund(null)
-        }
-    }
-
-    // Fetch balance when provider changes
-    useEffect(() => {
-        if (broker && selectedProvider) {
-            refreshProviderBalance()
-        } else {
-            // Reset balance states when no provider selected
             setProviderBalance(null)
             setProviderBalanceNeuron(null)
             setProviderPendingRefund(null)
         }
     }, [broker, selectedProvider])
+
+    // Fetch balance when provider changes
+    useEffect(() => {
+        refreshProviderBalance()
+    }, [refreshProviderBalance])
 
     return {
         // State

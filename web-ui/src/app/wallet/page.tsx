@@ -48,7 +48,9 @@ function LedgerContent() {
   // Refresh ledger info when navigating to wallet page
   useEffect(() => {
     if (isConnected && refreshLedgerInfo) {
-      refreshLedgerInfo();
+      refreshLedgerInfo().catch((err) => {
+        console.warn('[WalletPage] Failed to refresh ledger info:', err);
+      });
     }
   }, [isConnected, refreshLedgerInfo]);
 

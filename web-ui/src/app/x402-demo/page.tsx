@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useX402Demo } from '../../shared/hooks/useX402Demo'
 import { useAccount } from 'wagmi'
+import { useWalletGuard } from '@/shared/hooks/useWalletGuard'
 import { formatNumber } from '@/shared/utils/formatNumber'
 
 export default function X402DemoPage() {
   const { isConnected } = useAccount()
+  const { requireWallet } = useWalletGuard()
   const {
     x402Wrapper,
     isInitializing,
@@ -35,11 +37,15 @@ export default function X402DemoPage() {
 
   useEffect(() => {
     if (x402Wrapper) {
-      refreshLedgerInfo()
+      refreshLedgerInfo().catch((err) => {
+        console.warn('[X402Demo] Failed to refresh ledger info:', err)
+      })
     }
   }, [x402Wrapper, refreshLedgerInfo])
 
   const handleDeposit = async () => {
+    if (!requireWallet()) return
+
     setErrorMessage(null)
     try {
       if (paymentMethod === 'x402') {
@@ -47,32 +53,23 @@ export default function X402DemoPage() {
       } else {
         await depositTraditional(parseFloat(amount))
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Deposit failed')
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Deposit failed')
     }
   }
 
   const handleFaucet = async () => {
+    if (!requireWallet()) return
+
     setErrorMessage(null)
     setIsFaucetLoading(true)
     try {
       await callFaucet()
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Faucet call failed')
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Faucet call failed')
     } finally {
       setIsFaucetLoading(false)
     }
-  }
-
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">x402 Payment Demo</h1>
-          <p className="text-gray-600">Please connect your wallet to continue</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -151,13 +148,33 @@ export default function X402DemoPage() {
           </div>
         </div>
 
+        {/* Wallet Connection Notice - Show when not connected */}
+        {!isConnected && (
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-6 mb-8">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">👀</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-purple-900 mb-2">Browse Demo Without Wallet</h3>
+                <p className="text-sm text-purple-800 mb-3">
+                  You can explore the x402 Payment Protocol features below. Connect your wallet when you&apos;re ready to try the actual deposit functionality.
+                </p>
+                <div className="text-xs text-purple-700 bg-white/50 rounded-lg p-2">
+                  💡 <strong>What you can do:</strong> Compare payment methods, view feature differences, and understand x402 benefits
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Balance Display */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-gray-900">Account Balances</h3>
             <button
               onClick={handleFaucet}
-              disabled={isFaucetLoading || !x402Wrapper}
+              disabled={isFaucetLoading || !x402Wrapper || !isConnected}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {isFaucetLoading ? '🚰 Getting USDC...' : '🚰 Get Test USDC'}
@@ -167,23 +184,29 @@ export default function X402DemoPage() {
             <div>
               <div className="text-sm text-gray-700 font-medium">Ledger Balance</div>
               <div className="text-2xl font-bold text-purple-600">
-                {ledgerInfo ? `${formatNumber(ledgerInfo.availableBalance)} A0GI` : 'Loading...'}
+                {!isConnected ? '--' : ledgerInfo ? `${formatNumber(ledgerInfo.availableBalance)} A0GI` : 'Loading...'}
               </div>
+              {!isConnected && (
+                <div className="text-xs text-gray-500 mt-1">Connect wallet to view</div>
+              )}
             </div>
             <div>
               <div className="text-sm text-gray-700 font-medium">USDC Balance (Real)</div>
               <div className="text-2xl font-bold text-green-600">
-                {isFetchingBalance ? 'Loading...' : `${usdcBalance} USDC`}
+                {!isConnected ? '--' : isFetchingBalance ? 'Loading...' : `${usdcBalance} USDC`}
               </div>
               <div className="text-xs text-gray-500 mt-1">
-                Contract: {process.env.NEXT_PUBLIC_USDC_ADDRESS?.substring(0, 8)}...
+                {!isConnected ? 'Connect wallet to view' : `Contract: ${process.env.NEXT_PUBLIC_USDC_ADDRESS?.substring(0, 8)}...`}
               </div>
             </div>
             <div>
               <div className="text-sm text-gray-700 font-medium">Total Balance</div>
               <div className="text-2xl font-bold text-gray-900">
-                {ledgerInfo ? `${formatNumber(ledgerInfo.totalBalance)} A0GI` : 'Loading...'}
+                {!isConnected ? '--' : ledgerInfo ? `${formatNumber(ledgerInfo.totalBalance)} A0GI` : 'Loading...'}
               </div>
+              {!isConnected && (
+                <div className="text-xs text-gray-500 mt-1">Connect wallet to view</div>
+              )}
             </div>
           </div>
         </div>
@@ -255,6 +278,8 @@ export default function X402DemoPage() {
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
                 Processing...
               </span>
+            ) : !isConnected ? (
+              '🔗 Connect Wallet to Deposit'
             ) : (
               `Deposit ${amount} A0GI via ${paymentMethod === 'x402' ? 'x402' : 'Traditional'}`
             )}
