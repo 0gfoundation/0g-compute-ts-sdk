@@ -4,6 +4,7 @@ export const CHAT_CONFIG = {
   // Scroll behavior
   SCROLL_THRESHOLD: 50, // Distance from bottom to consider "near bottom"
   SCROLL_DELAY: 100, // Delay before auto-scrolling in ms
+  SCROLL_DEBOUNCE: 150, // Debounce for user scroll detection; also throttles auto-scroll during streaming
   
   // Message highlighting
   HIGHLIGHT_DURATION: 2000, // How long to highlight a message in ms
