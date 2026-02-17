@@ -89,8 +89,8 @@ export function OptimizedChatPage() {
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isTopping, setIsTopping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
+  const isAtBottomRef = useRef(true);
   
   // Initialize chat history hook first - shared across all providers for the same wallet
   const chatHistory = useChatHistory({
@@ -163,7 +163,6 @@ export function OptimizedChatPage() {
     setIsStreaming,
     setErrorWithTimeout,
     isUserScrollingRef,
-    messagesEndRef,
     openConnectModal,
     requestDeposit,
   });
@@ -341,24 +340,36 @@ export function OptimizedChatPage() {
 
   // Database will initialize automatically when needed (Dexie.js is lightweight)
   
-  // Track user scroll behavior to stop auto-scroll when user manually scrolls up
+  // Track user scroll behavior with debounce.
+  // Uses scroll event for position tracking (isAtBottom) and a SCROLL_DEBOUNCE ms
+  // debounce for isUserScrolling. Because programmatic scrollTo also fires scroll
+  // events, this effectively throttles auto-scroll during streaming to ~1/SCROLL_DEBOUNCE
+  // interval — an intentional tradeoff that reduces DOM operations while remaining
+  // visually smooth. Auto-scroll uses behavior:"instant" to avoid animation conflicts.
   useEffect(() => {
     const messagesContainer = messagesContainerRef.current;
     if (!messagesContainer) return;
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    let scrollTimeout: ReturnType<typeof setTimeout>;
 
-      if (isStreaming || isLoading) {
-        const isAtBottom = distanceFromBottom <= CHAT_CONFIG.SCROLL_THRESHOLD;
-        isUserScrollingRef.current = !isAtBottom;
-      }
+    const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      clearTimeout(scrollTimeout);
+
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+      isAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - CHAT_CONFIG.SCROLL_THRESHOLD;
+
+      scrollTimeout = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, CHAT_CONFIG.SCROLL_DEBOUNCE);
     };
 
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, [isStreaming, isLoading]);
+    return () => {
+      messagesContainer.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
 
   // Reset scroll tracking when streaming/loading ends
   useEffect(() => {
@@ -366,25 +377,15 @@ export function OptimizedChatPage() {
       isUserScrollingRef.current = false;
     }
   }, [isStreaming, isLoading]);
-  
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (isUserScrollingRef.current) return; // Don't scroll if user is manually scrolling
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
 
-    // Check if this is just a verification status update
+  useEffect(() => {
     const isVerificationUpdate = () => {
       const prev = previousMessagesRef.current;
       if (prev.length !== messages.length) return false;
-      
-      // Check if only verification fields changed
       for (let i = 0; i < messages.length; i++) {
         const current = messages[i];
         const previous = prev[i];
-        
-        // If content, role, or timestamp changed, it's not just verification
-        if (current.content !== previous.content || 
+        if (current.content !== previous.content ||
             current.role !== previous.role ||
             current.timestamp !== previous.timestamp ||
             current.chatId !== previous.chatId) {
@@ -394,20 +395,28 @@ export function OptimizedChatPage() {
       return true;
     };
 
-    // Don't auto-scroll if:
-    // 1. It's just a verification update
-    // 2. It's a history navigation (loading history)
-    // 3. User is manually scrolling during streaming
-    if (!isVerificationUpdate() && !isLoadingHistoryRef.current && !isUserScrollingRef.current) {
-      const timeoutId = setTimeout(scrollToBottom, CHAT_CONFIG.SCROLL_DELAY);
-      // Update the ref after scrolling decision
+    if (isVerificationUpdate() || isLoadingHistoryRef.current) {
       previousMessagesRef.current = [...messages];
-      return () => clearTimeout(timeoutId);
+      return;
     }
-    
-    // Update the ref even if we don't scroll
+
+    // New message added (user sent or assistant started): always scroll
+    // Content update during streaming: only scroll if user is at bottom
+    const isNewMessage = messages.length !== previousMessagesRef.current.length;
+    const shouldScroll = isNewMessage || (isAtBottomRef.current && !isUserScrollingRef.current);
+
+    if (shouldScroll) {
+      requestAnimationFrame(() => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'instant' });
+          isAtBottomRef.current = true;
+        }
+      });
+    }
+
     previousMessagesRef.current = [...messages];
-  }, [messages, isLoading, isStreaming]);
+  }, [messages]);
 
 
   // Remove clearChat function since we removed the Clear Chat button
@@ -586,7 +595,6 @@ export function OptimizedChatPage() {
           isStreaming={isStreaming}
           verifyResponse={verifyResponse}
           messagesContainerRef={messagesContainerRef}
-          messagesEndRef={messagesEndRef}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
         />

@@ -35,7 +35,6 @@ interface MessageHandlingConfig {
   setIsStreaming: (streaming: boolean) => void;
   setErrorWithTimeout: (error: string | null) => void;
   isUserScrollingRef: React.RefObject<boolean>;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
   openConnectModal?: () => void;
   requestDeposit?: () => Promise<void>;
 }
@@ -54,7 +53,6 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     setIsStreaming,
     setErrorWithTimeout,
     isUserScrollingRef,
-    messagesEndRef,
     openConnectModal,
     requestDeposit,
   } = config;
@@ -210,13 +208,8 @@ export function useMessageHandling(config: MessageHandlingConfig) {
                     )
                   );
 
-                  setTimeout(() => {
-                    if (!isUserScrollingRef.current) {
-                      messagesEndRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                      });
-                    }
-                  }, 50);
+                  // Auto-scroll is handled by the useEffect in OptimizedChatPage
+                  // that watches messages state changes.
                 }
               } catch {
                 // Skip invalid JSON
@@ -301,7 +294,7 @@ export function useMessageHandling(config: MessageHandlingConfig) {
       abortControllerRef.current = null;
     }
   }, [serviceMetadata, setMessages, setIsLoading, setIsStreaming,
-    setErrorWithTimeout, isUserScrollingRef, messagesEndRef]);
+    setErrorWithTimeout, isUserScrollingRef]);
 
   const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !selectedProvider) return;
