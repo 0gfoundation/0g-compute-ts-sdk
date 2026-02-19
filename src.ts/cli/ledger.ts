@@ -143,6 +143,10 @@ export default function ledger(program: Command) {
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .option('--service <type>', 'Service type: inference or fine-tuning')
+        .option(
+            '--provider <address>',
+            'Provider address to retrieve funds from (if not specified, shows interactive selection)'
+        )
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price calculation')
@@ -150,11 +154,61 @@ export default function ledger(program: Command) {
             const serviceType = await selectServiceType(options)
 
             withBroker(options, async (broker) => {
-                console.log(
-                    `Retrieving funds from ${serviceType} sub accounts...`
-                )
-                await broker.ledger.retrieveFund(serviceType)
-                console.log(`Funds retrieved from ${serviceType} sub accounts`)
+                let selectedProvider: string | undefined = options.provider
+
+                if (!selectedProvider) {
+                    // Get providers with balance for interactive selection
+                    const providers =
+                        await broker.ledger.getProvidersWithBalance(serviceType)
+
+                    if (!providers || providers.length === 0) {
+                        console.log(
+                            chalk.yellow(
+                                `No providers with balance found for ${serviceType}.`
+                            )
+                        )
+                        return
+                    }
+
+                    const providerOptions = [
+                        {
+                            title: 'All providers',
+                            value: 'all',
+                            description: `Retrieve funds from all ${providers.length} provider(s)`,
+                        },
+                        ...providers.map(([address, balance, pendingRefund]) => ({
+                            title: address,
+                            value: address,
+                            description: `Balance: ${neuronToA0gi(balance).toFixed(6)} 0G, Pending refund: ${neuronToA0gi(pendingRefund).toFixed(6)} 0G`,
+                        })),
+                    ]
+
+                    selectedProvider = await interactiveSelect({
+                        message: `Select provider to retrieve funds from (${serviceType}):`,
+                        options: providerOptions,
+                    })
+                }
+
+                if (selectedProvider === 'all') {
+                    console.log(
+                        `Retrieving funds from all ${serviceType} sub accounts...`
+                    )
+                    await broker.ledger.retrieveFund(serviceType)
+                    console.log(
+                        `Funds retrieved from all ${serviceType} sub accounts`
+                    )
+                } else {
+                    console.log(
+                        `Retrieving funds from ${serviceType} sub account for provider ${selectedProvider}...`
+                    )
+                    await broker.ledger.retrieveFundFromProvider(
+                        serviceType,
+                        selectedProvider
+                    )
+                    console.log(
+                        `Funds retrieved from ${serviceType} sub account for provider ${selectedProvider}`
+                    )
+                }
 
                 // Add helpful information about checking lock time
                 console.log(
