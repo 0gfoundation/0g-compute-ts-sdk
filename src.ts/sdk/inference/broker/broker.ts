@@ -304,14 +304,12 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      *
      * @example
      *
-     * const { endpoint, model } = await broker.getServiceMetadata(
+     * const { endpoint, model } = await broker.inference.getServiceMetadata(
      *   providerAddress,
-     *   serviceName,
      * );
      *
-     * const headers = await broker.getServiceMetadata(
+     * const headers = await broker.inference.getRequestHeaders(
      *   providerAddress,
-     *   serviceName,
      *   content,
      * );
      *
@@ -322,12 +320,10 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      *
      * const completion = await openai.chat.completions.create(
      *   {
-     *     messages: [{ role: "system", content }],
+     *     messages: [{ role: "user", content }],
      *     model,
      *   },
-     *   headers: {
-     *     ...headers,
-     *   },
+     *   { headers: { ...headers } },
      * );
      *
      * @throws An error if errors occur during the processing of the request.
