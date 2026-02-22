@@ -12,7 +12,7 @@ Access decentralized AI computing through the 0G Compute Network - a GPU marketp
 
 ## Requirements
 
-- Node.js >= 22.0.0
+- Node.js >= 20.0.0
 - A wallet with 0G tokens
 
 ## Installation

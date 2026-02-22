@@ -4,7 +4,7 @@ import type { InferenceServingContract } from '../contract'
 import type { LedgerBroker } from '../../ledger'
 import { Automata } from '../../common/automata'
 import { throwFormattedError } from '../../common/utils'
-// import { Verifier } from './verifier'
+
 
 /**
  * ServingRequestHeaders contains headers related to request.

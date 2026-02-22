@@ -42,21 +42,17 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
 
             const svc = await extractor.getSvcInfo()
             if (!isVerifiability(svc.verifiability)) {
-                console.warn('this service is not verifiable')
+                logger.warn('this service is not verifiable')
                 return false
             }
 
             if (!svc.teeSignerAcknowledged) {
-                console.warn('TEE Signer is not acknowledged')
+                logger.warn('TEE Signer is not acknowledged')
                 return false
             }
 
-            if (!chatID) {
-                throw new Error('Chat ID does not exist')
-            }
-
             if (!svc.additionalInfo) {
-                console.warn('Service additionalInfo does not exist')
+                logger.warn('Service additionalInfo does not exist')
                 return false
             }
 

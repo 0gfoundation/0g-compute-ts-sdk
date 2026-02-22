@@ -223,6 +223,30 @@ export class LedgerProcessor {
         }
     }
 
+    /**
+     * Returns the list of providers with their balance info for a given service type.
+     *
+     * @param serviceTypeStr - 'inference' or 'fine-tuning'
+     * @returns Array of [providerAddress, balance, pendingRefund] tuples
+     */
+    async getProvidersWithBalance(
+        serviceTypeStr: 'inference' | 'fine-tuning'
+    ): Promise<[string, bigint, bigint][]> {
+        try {
+            const ledger = await this.getLedgerWithDetail()
+            const providers =
+                serviceTypeStr === 'inference' ? ledger.infers : ledger.fines
+            if (!providers) {
+                throw new Error(
+                    'No providers found, please ensure you are using Wallet instance to create the broker'
+                )
+            }
+            return providers.filter((x) => x[1] > 0n || x[2] > 0n)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
     async retrieveFund(
         serviceTypeStr: 'inference' | 'fine-tuning',
         gasPrice?: number
@@ -260,6 +284,49 @@ export class LedgerProcessor {
             )
 
             if (serviceTypeStr == 'inference') {
+                await this.cache.setItem(
+                    CACHE_KEYS.FIRST_ROUND,
+                    'true',
+                    10000000 * 60 * 1000,
+                    CacheValueTypeEnum.Other
+                )
+            }
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Retrieves funds from a specific provider's sub-account.
+     *
+     * @param serviceTypeStr - 'inference' or 'fine-tuning'
+     * @param providerAddress - The address of the provider to retrieve funds from
+     * @param gasPrice - Optional gas price for the transaction
+     */
+    async retrieveFundFromProvider(
+        serviceTypeStr: 'inference' | 'fine-tuning',
+        providerAddress: string,
+        gasPrice?: number
+    ) {
+        try {
+            const serviceName =
+                serviceTypeStr === 'inference'
+                    ? this.serviceNames.inference
+                    : this.serviceNames.fineTuning
+
+            if (!serviceName) {
+                throw new Error(
+                    `Service name not available for ${serviceTypeStr}`
+                )
+            }
+
+            await this.ledgerContract.retrieveFund(
+                [providerAddress],
+                serviceName,
+                gasPrice
+            )
+
+            if (serviceTypeStr === 'inference') {
                 await this.cache.setItem(
                     CACHE_KEYS.FIRST_ROUND,
                     'true',

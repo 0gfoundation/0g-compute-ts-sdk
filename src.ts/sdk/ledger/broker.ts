@@ -250,7 +250,24 @@ export class LedgerBroker {
     }
 
     /**
-     * Retrieves funds from the all sub-accounts (for inference and fine-tuning) of the current wallet address.
+     * Returns the list of providers with non-zero balance or pending refund for a given service type.
+     *
+     * @param serviceTypeStr - The type of service. It can be either 'inference' or 'fine-tuning'.
+     * @returns A promise that resolves to an array of [providerAddress, balance, pendingRefund] tuples.
+     * @throws Will throw an error if the retrieval fails.
+     */
+    public getProvidersWithBalance = async (
+        serviceTypeStr: 'inference' | 'fine-tuning'
+    ): Promise<[string, bigint, bigint][]> => {
+        try {
+            return await this.ledger.getProvidersWithBalance(serviceTypeStr)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Retrieves funds from all sub-accounts (for inference and fine-tuning) of the current wallet address.
      *
      * @param serviceTypeStr - The type of service for which the funds are being retrieved.
      *                         It can be either 'inference' or 'fine-tuning'.
@@ -266,6 +283,33 @@ export class LedgerBroker {
     ) => {
         try {
             return await this.ledger.retrieveFund(serviceTypeStr, gasPrice)
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Retrieves funds from a specific provider's sub-account.
+     *
+     * @param serviceTypeStr - The type of service. It can be either 'inference' or 'fine-tuning'.
+     * @param providerAddress - The address of the provider to retrieve funds from.
+     * @param {number} gasPrice - The gas price to be used for the transaction. If not provided,
+     *                            the default/auto-generated gas price will be used. Units are in neuron.
+     *
+     * @returns A promise that resolves with the result of the fund retrieval operation.
+     * @throws Will throw an error if the fund retrieval operation fails.
+     */
+    public retrieveFundFromProvider = async (
+        serviceTypeStr: 'inference' | 'fine-tuning',
+        providerAddress: string,
+        gasPrice?: number
+    ) => {
+        try {
+            return await this.ledger.retrieveFundFromProvider(
+                serviceTypeStr,
+                providerAddress,
+                gasPrice
+            )
         } catch (error) {
             throwFormattedError(error)
         }
