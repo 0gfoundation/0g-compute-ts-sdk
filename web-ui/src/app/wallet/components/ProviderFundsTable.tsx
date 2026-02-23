@@ -123,7 +123,7 @@ export function ProviderFundsTable({
     const getRefundKey = (provider: string) => `${type}-${provider}`
 
     const allProvidersUnavailable = providers.length === 0 || providers.every(
-        p => parseFloat(p.balance) === 0
+        p => parseFloat(p.balance) - parseFloat(p.requestedReturn) <= 0
     )
 
     return (
@@ -202,7 +202,7 @@ export function ProviderFundsTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => onRetrieveProvider(provider.provider)}
-                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAny || parseFloat(provider.balance) === 0}
+                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAny || parseFloat(provider.balance) - parseFloat(provider.requestedReturn) <= 0}
                                                 className="flex-shrink-0 text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 h-7 px-2"
                                             >
                                                 {retrievingProviders[refundKey] && <Loader2 className="h-3 w-3 animate-spin mr-1" />}

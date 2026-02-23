@@ -86,7 +86,7 @@ export function FundDistribution({
 
     const allProviders = [...ledgerInfo.inferences, ...ledgerInfo.fineTunings]
     const allProvidersUnavailable = allProviders.length === 0 || allProviders.every(
-        p => parseFloat(p.balance) === 0
+        p => parseFloat(p.balance) - parseFloat(p.requestedReturn) <= 0
     )
     const hasAnyProviderRetrieving = Object.values(retrievingProviders).some(Boolean)
 
