@@ -152,6 +152,15 @@ export function SlotStatusCompact({ provider, refreshTrigger }: SlotStatusCompac
             <span className="inline-block w-2 h-2 rounded-full bg-gray-400" title="Available"></span>
             <span className="text-gray-600">{slotStats.available} available</span>
           </div>
+          {slotStats.unknown > 0 && (
+            <>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-400" title="Possible external keys"></span>
+                <span className="text-amber-600">{slotStats.unknown} unknown</span>
+              </div>
+            </>
+          )}
           {slotStats.revoked > 0 && (
             <>
               <span className="text-gray-300">•</span>

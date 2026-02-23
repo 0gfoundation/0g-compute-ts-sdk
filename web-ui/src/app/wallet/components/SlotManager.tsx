@@ -54,6 +54,7 @@ export function SlotManager({
   // Separate slots by status
   const activeSlots = allSlots.filter((s) => s.status === "active")
   const revokedSlots = allSlots.filter((s) => s.status === "revoked" && s.id !== 255)
+  const unknownSlots = allSlots.filter((s) => s.status === "unknown")
   const availableSlots = allSlots.filter((s) => s.status === "available")
 
   const handleRevoke = async (slot: Slot) => {
@@ -186,6 +187,7 @@ export function SlotManager({
           <p className="text-xs text-gray-500 mt-1">
             {slotStats.active + slotStats.revoked} / {slotStats.total} slots used •{" "}
             {slotStats.available} available
+            {slotStats.unknown > 0 && ` • ${slotStats.unknown} unknown`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -237,11 +239,17 @@ export function SlotManager({
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-4 text-xs flex-wrap">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-full bg-green-500" />
               <span className="text-gray-600">Active: {slotStats.active}</span>
             </div>
+            {slotStats.unknown > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                <span className="text-amber-600">Unknown: {slotStats.unknown}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-full bg-gray-600" />
               <span className="text-gray-600">Revoked: {slotStats.revoked}</span>
@@ -338,6 +346,23 @@ export function SlotManager({
         </div>
       )}
 
+      {/* Unknown Slots Warning */}
+      {unknownSlots.length > 0 && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-xs text-amber-800">
+            <p className="font-medium mb-1">
+              {unknownSlots.length} slot{unknownSlots.length > 1 ? 's' : ''} may have keys from another device or browser
+            </p>
+            <p>
+              These slots are not revoked and have no locally stored keys. They may have been
+              created from a different browser origin. Generating a new key could reuse one of
+              these slots and invalidate the original key.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Revoked Slots (Collapsible) */}
       {revokedSlots.length > 0 && (
         <div className="space-y-2">
@@ -388,12 +413,14 @@ export function SlotManager({
             <div className="grid grid-cols-16 gap-1">
               {allSlots.map((slot) => {
                 const icon =
-                  slot.status === "active" ? "🟢" : slot.status === "revoked" ? "⚫" : "⚪"
+                  slot.status === "active" ? "🟢" : slot.status === "revoked" ? "⚫" : slot.status === "unknown" ? "🟡" : "⚪"
                 const title =
                   slot.status === "active"
                     ? `Slot #${slot.id}: ${slot.keyLabel || "Active"}`
                     : slot.status === "revoked"
                     ? `Slot #${slot.id}: Revoked`
+                    : slot.status === "unknown"
+                    ? `Slot #${slot.id}: Unknown (possible external key)`
                     : `Slot #${slot.id}: Available`
 
                 return (
@@ -409,7 +436,8 @@ export function SlotManager({
             </div>
             <div className="mt-3 text-xs text-gray-500 space-y-1">
               <p>🟢 = Active key (hover to see details)</p>
-              <p>⚫ = Revoked slot (can't reuse)</p>
+              <p>🟡 = Unknown (possible key from another device/browser)</p>
+              <p>⚫ = Revoked slot (can&apos;t reuse)</p>
               <p>⚪ = Available slot</p>
             </div>
           </Card>

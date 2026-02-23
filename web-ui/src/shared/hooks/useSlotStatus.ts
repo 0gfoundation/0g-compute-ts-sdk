@@ -23,7 +23,7 @@ import { useMemo, useCallback } from 'react'
 import { useOnChainTokens, type OnChainToken } from './useOnChainTokens'
 import { getApiKeysForProvider, type StoredApiKey } from '../utils/apiKeyStorage'
 
-export type SlotStatus = 'available' | 'active' | 'revoked'
+export type SlotStatus = 'available' | 'active' | 'revoked' | 'unknown'
 
 export interface Slot {
   /** Slot number (0-255) */
@@ -54,6 +54,9 @@ export interface SlotStats {
 
   /** Available slots ready for use */
   available: number
+
+  /** Slots that may have keys from another origin/device */
+  unknown: number
 
   /** Percentage of used slots (active + revoked) */
   usagePercent: number
@@ -95,7 +98,7 @@ const MAX_TOKEN_ID = 254 // Slots 0-254 are usable (slot 255 reserved for epheme
  * @param userAddress - User's wallet address for localStorage lookup (optional)
  */
 export function useSlotStatus(provider: string, userAddress?: string): UseSlotStatusReturn {
-  const { tokens, generation, isLoading, error, refresh } = useOnChainTokens(provider, userAddress)
+  const { tokens, generation, externalSlotCount, isLoading, error, refresh } = useOnChainTokens(provider, userAddress)
 
   /**
    * Calculate slot statistics and build detailed slot list
@@ -103,7 +106,12 @@ export function useSlotStatus(provider: string, userAddress?: string): UseSlotSt
   const { slotStats, allSlots } = useMemo(() => {
     let activeCount = 0
     let revokedCount = 0
+    let unknownCount = 0
     const slots: Slot[] = []
+
+    // Determine if user has interacted with the key system before
+    const localKeyCount = tokens.filter(t => t.localData).length
+    const hasInteracted = generation > 0 || localKeyCount > 0
 
     // Process slots 0-254 (usable slots)
     for (let i = 0; i <= MAX_TOKEN_ID; i++) {
@@ -135,11 +143,16 @@ export function useSlotStatus(provider: string, userAddress?: string): UseSlotSt
           keyLabel: token.localData.label,
           keyData: token.localData,
         })
+      } else if (hasInteracted) {
+        // Not revoked, no local data, but user has interacted before.
+        // This slot may have a key from another origin/device.
+        unknownCount++
+        slots.push({
+          id: i,
+          status: 'unknown',
+        })
       } else {
-        // Not revoked but no local data - could be:
-        // 1. Never used (available)
-        // 2. Used but localStorage lost (unknown)
-        // For slot visualization, we treat it as available unless we know it's occupied
+        // Not revoked, no local data, brand new user — truly available
         slots.push({
           id: i,
           status: 'available',
@@ -153,7 +166,7 @@ export function useSlotStatus(provider: string, userAddress?: string): UseSlotSt
       status: 'revoked', // Always show as unavailable since it's reserved
     })
 
-    const availableCount = TOTAL_SLOTS - activeCount - revokedCount
+    const availableCount = TOTAL_SLOTS - activeCount - revokedCount - unknownCount
     const usagePercent = Math.round(((activeCount + revokedCount) / TOTAL_SLOTS) * 100)
 
     const stats: SlotStats = {
@@ -161,6 +174,7 @@ export function useSlotStatus(provider: string, userAddress?: string): UseSlotSt
       active: activeCount,
       revoked: revokedCount,
       available: availableCount,
+      unknown: unknownCount,
       usagePercent,
       generation,
     }
