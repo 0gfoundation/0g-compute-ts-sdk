@@ -73,6 +73,30 @@ export const neuronToA0giString = (value: bigint): string => {
 };
 
 /**
+ * Converts a 0G decimal string (as produced by neuronToA0giString) back to neuron BigInt
+ * without any floating-point intermediate step.
+ * @param value - Decimal string in 0G units (e.g. "1234.56789")
+ * @returns Value in neuron (BigInt)
+ * @example
+ * ```typescript
+ * a0giStringToNeuron("1");                    // BigInt('1000000000000000000')
+ * a0giStringToNeuron("1234.56789");           // BigInt('1234567890000000000000')
+ * a0giStringToNeuron("0.000000000000000001"); // BigInt(1)
+ * a0giStringToNeuron("0");                    // BigInt(0)
+ * ```
+ */
+export const a0giStringToNeuron = (value: string): bigint => {
+  if (!value || value === '0') return BigInt(0);
+  const isNegative = value.startsWith('-');
+  const abs = isNegative ? value.slice(1) : value;
+  const [intPart, decPart = ''] = abs.split('.');
+  const decimals = APP_CONSTANTS.BLOCKCHAIN.NEURON_DECIMALS;
+  const padded = decPart.padEnd(decimals, '0').slice(0, decimals);
+  const result = BigInt(intPart) * (BigInt(10) ** BigInt(decimals)) + BigInt(padded);
+  return isNegative ? -result : result;
+};
+
+/**
  * Formats a balance for display with appropriate decimal places
  * @param balance - Balance in 0G
  * @param maxDecimals - Maximum decimal places to show (default: 6)

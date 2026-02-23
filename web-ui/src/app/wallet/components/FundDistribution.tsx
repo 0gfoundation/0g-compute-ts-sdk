@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
     Collapsible,
     CollapsibleContent,
@@ -15,12 +14,13 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { ArrowDown, ArrowUp, ChevronDown, Info, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BalanceCard } from './BalanceCard'
 import { ProviderFundsTable } from './ProviderFundsTable'
 import { BalanceFlowDiagram } from '@/components/ui/balance-flow-diagram'
 import { formatNumber } from '@/shared/utils/formatNumber'
+import { a0giStringToNeuron } from '@/shared/utils/currency'
 
 interface ProviderAccount {
     provider: string
@@ -51,12 +51,12 @@ interface FundDistributionProps {
     isRetrievingInference: boolean
     isRetrievingFineTuning: boolean
     expandedRefunds: { [key: string]: boolean }
+    onRetrieveProvider: (provider: string, type: 'inference' | 'fine-tuning') => void
+    retrievingProviders: { [key: string]: boolean }
     onToggleRefund: (provider: string, type: 'inference' | 'fine-tuning') => void
     refundDetails: { [key: string]: RefundDetail[] }
     loadingRefunds: { [key: string]: boolean }
     onRefreshRefund: (provider: string, type: 'inference' | 'fine-tuning') => void
-    showSuccessAlert: { message: React.ReactNode; show: boolean }
-    error: string | null
     formatTime: (seconds: number) => string
 }
 
@@ -69,16 +69,22 @@ export function FundDistribution({
     isRetrievingAll,
     isRetrievingInference,
     isRetrievingFineTuning,
+    onRetrieveProvider,
+    retrievingProviders,
     expandedRefunds,
     onToggleRefund,
     refundDetails,
     loadingRefunds,
     onRefreshRefund,
-    showSuccessAlert,
-    error,
     formatTime,
 }: FundDistributionProps) {
     const [isLockedExpanded, setIsLockedExpanded] = React.useState(false)
+
+    const allProviders = [...ledgerInfo.inferences, ...ledgerInfo.fineTunings]
+    const allProvidersUnavailable = allProviders.length === 0 || allProviders.every(
+        p => a0giStringToNeuron(p.balance) <= a0giStringToNeuron(p.requestedReturn)
+    )
+    const hasAnyProviderRetrieving = Object.values(retrievingProviders).some(Boolean)
 
     return (
         <div className="space-y-6">
@@ -87,17 +93,6 @@ export function FundDistribution({
                 availableBalance={`${formatNumber(ledgerInfo.availableBalance)} 0G`}
                 lockedBalance={`${formatNumber(ledgerInfo.locked)} 0G`}
             />
-
-            {/* Success Alert */}
-            {showSuccessAlert.show && (
-                <Alert className="bg-green-50 border-green-200">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <AlertTitle className="text-sm text-green-800 font-medium">Success</AlertTitle>
-                    <AlertDescription className="text-sm text-green-700 mt-1">
-                        {showSuccessAlert.message}
-                    </AlertDescription>
-                </Alert>
-            )}
 
             {/* Total Balance Container */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
@@ -117,7 +112,7 @@ export function FundDistribution({
                         action={{
                             label: 'Withdraw',
                             onClick: onWithdraw,
-                            disabled: parseFloat(ledgerInfo.availableBalance) === 0,
+                            disabled: a0giStringToNeuron(ledgerInfo.availableBalance) === BigInt(0),
                         }}
                     />
 
@@ -146,11 +141,10 @@ export function FundDistribution({
                                     <Button
                                         size="sm"
                                         onClick={onRetrieveAll}
-                                        disabled={isRetrievingAll}
+                                        disabled={isRetrievingAll || isRetrievingInference || isRetrievingFineTuning || hasAnyProviderRetrieving || allProvidersUnavailable}
                                         className="bg-purple-600 hover:bg-purple-700 text-xs px-2 py-1 h-auto"
                                     >
-                                        <ArrowUp className="w-3 h-3 mr-1" />
-                                        {isRetrievingAll && <Loader2 className="h-2 w-2 animate-spin mr-1" />}
+                                        {isRetrievingAll ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <ArrowUp className="w-3 h-3 mr-1" />}
                                         Retrieve
                                     </Button>
                                 </TooltipTrigger>
@@ -199,6 +193,9 @@ export function FundDistribution({
                                             emptyMessage="No inference services have been used yet"
                                             onRetrieve={onRetrieveInference}
                                             isRetrieving={isRetrievingInference}
+                                            onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'inference')}
+                                            retrievingProviders={retrievingProviders}
+                                            isRetrievingAll={isRetrievingAll}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'inference')}
                                             refundDetails={refundDetails}
@@ -215,6 +212,9 @@ export function FundDistribution({
                                             emptyMessage="Fine-tuning services details are temporarily unavailable. Support coming soon."
                                             onRetrieve={onRetrieveFineTuning}
                                             isRetrieving={isRetrievingFineTuning}
+                                            onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'fine-tuning')}
+                                            retrievingProviders={retrievingProviders}
+                                            isRetrievingAll={isRetrievingAll}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'fine-tuning')}
                                             refundDetails={refundDetails}
@@ -230,15 +230,6 @@ export function FundDistribution({
                     </Card>
                 </div>
             </div>
-
-            {/* Error Alert */}
-            {error && (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
         </div>
     )
 }

@@ -10,6 +10,7 @@ import { BalanceCard, AddFundsForm, WithdrawDialog, FundDistribution } from './c
 import { TransactionHistory, useTransactionHistory } from './components/TransactionHistory';
 import { Loader2 } from 'lucide-react';
 import { formatNumber } from '@/shared/utils/formatNumber';
+import { useToast } from '@/hooks/use-toast';
 
 function LedgerContent() {
   const { isConnected } = useAccount();
@@ -29,9 +30,9 @@ function LedgerContent() {
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
   const [isRetrievingAll, setIsRetrievingAll] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: React.ReactNode, show: boolean }>({ message: '', show: false });
+  const [retrievingProviders, setRetrievingProviders] = useState<{ [key: string]: boolean }>({});
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Handle tab parameter from URL
   useEffect(() => {
@@ -113,59 +114,96 @@ function LedgerContent() {
   };
 
   const handleRetrieveAll = async () => {
-    if (!broker) return;
+    if (!broker || isRetrievingAll) return;
     setIsRetrievingAll(true);
-    setError(null);
     try {
       await Promise.all([
         broker.ledger.retrieveFund('inference'),
         broker.ledger.retrieveFund('fine-tuning')
       ]);
-      setShowSuccessAlert({
-        message: <>All provider fund retrieval has been requested successfully, please wait for <strong>lock period</strong>. Check the Distributed Provider Funds details section for wait times.<br/>Funds that have passed the lock period have been retrieved to your Available Balance.</>,
-        show: true
+      toast({
+        title: 'Retrieve Requested',
+        description: 'All provider fund retrieval has been requested. Please wait for the lock period. Check the Distributed Provider Funds details section for wait times.',
       });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 8000);
-      await refreshLedgerInfo();
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve all funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve all funds',
+      });
     } finally {
       setIsRetrievingAll(false);
     }
   };
 
   const handleRetrieveInference = async () => {
-    if (!broker) return;
+    if (!broker || isRetrieving.inference) return;
     setIsRetrieving(prev => ({ ...prev, inference: true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('inference');
-      setShowSuccessAlert({ message: 'Inference funds retrieve request submitted', show: true });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      toast({
+        title: 'Retrieve Requested',
+        description: 'Inference funds retrieve request submitted.',
+      });
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve inference funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve inference funds',
+      });
     } finally {
       setIsRetrieving(prev => ({ ...prev, inference: false }));
     }
   };
 
   const handleRetrieveFineTuning = async () => {
-    if (!broker) return;
+    if (!broker || isRetrieving['fine-tuning']) return;
     setIsRetrieving(prev => ({ ...prev, 'fine-tuning': true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('fine-tuning');
-      setShowSuccessAlert({ message: 'Fine-tuning funds retrieve request submitted', show: true });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      toast({
+        title: 'Retrieve Requested',
+        description: 'Fine-tuning funds retrieve request submitted.',
+      });
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve fine-tuning funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve fine-tuning funds',
+      });
     } finally {
       setIsRetrieving(prev => ({ ...prev, 'fine-tuning': false }));
+    }
+  };
+
+  const handleRetrieveProvider = async (providerAddress: string, type: 'inference' | 'fine-tuning') => {
+    if (!broker) return;
+    const key = `${type}-${providerAddress}`;
+    if (retrievingProviders[key]) return;
+    setRetrievingProviders(prev => ({ ...prev, [key]: true }));
+    try {
+      await broker.ledger.retrieveFundFromProvider(type, providerAddress);
+      const shortAddr = `${providerAddress.slice(0, 6)}...${providerAddress.slice(-4)}`;
+      toast({
+        title: 'Retrieve Requested',
+        description: `Retrieve request submitted for provider ${shortAddr}.`,
+      });
+      await refreshLedgerInfo().catch(() => {});
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve funds from provider',
+      });
+    } finally {
+      setRetrievingProviders(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     }
   };
 
@@ -250,9 +288,9 @@ function LedgerContent() {
                 onToggleRefund={toggleRefundDetails}
                 refundDetails={refundDetails}
                 loadingRefunds={loadingRefunds}
+                onRetrieveProvider={handleRetrieveProvider}
+                retrievingProviders={retrievingProviders}
                 onRefreshRefund={fetchRefundDetails}
-                showSuccessAlert={showSuccessAlert}
-                error={error}
                 formatTime={formatTime}
               />
             </TabsContent>
