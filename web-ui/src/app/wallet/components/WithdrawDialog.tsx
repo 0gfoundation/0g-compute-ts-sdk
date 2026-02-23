@@ -23,7 +23,7 @@ interface WithdrawDialogProps {
     totalBalance: string
     lockedBalance: string
     refund: (amount: number) => Promise<void>
-    onSuccess?: () => void
+    onSuccess?: (amount: number) => void
     onDeleteSuccess?: () => void
 }
 
@@ -85,7 +85,7 @@ export function WithdrawDialog({
                 title: "Withdrawal Successful",
                 description: `Successfully withdrew ${formatNumber(amount.toString())} 0G to your wallet.`,
             })
-            onSuccess?.()
+            onSuccess?.(amount)
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to withdraw'
             setError(errorMessage)

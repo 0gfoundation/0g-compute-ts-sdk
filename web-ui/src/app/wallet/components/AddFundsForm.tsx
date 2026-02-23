@@ -18,7 +18,7 @@ const PRESET_AMOUNTS = [
 
 interface AddFundsFormProps {
     depositFund: (amount: number) => Promise<void>
-    onSuccess?: () => void
+    onSuccess?: (amount: number) => void
 }
 
 export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
@@ -56,7 +56,7 @@ export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
                 description: `Added ${amount} 0G tokens to your account.`,
             })
             setAmount('')
-            onSuccess?.()
+            onSuccess?.(numAmount)
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to add funds'
             setError(errorMessage)
