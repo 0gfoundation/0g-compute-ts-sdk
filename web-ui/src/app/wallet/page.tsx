@@ -116,18 +116,18 @@ function LedgerContent() {
   const handleRetrieveAll = async () => {
     if (!broker) return;
     setIsRetrievingAll(true);
-    setError(null);
     try {
       await Promise.all([
         broker.ledger.retrieveFund('inference'),
         broker.ledger.retrieveFund('fine-tuning')
       ]);
+      setError(null);
       setShowSuccessAlert({
         message: <>All provider fund retrieval has been requested successfully, please wait for <strong>lock period</strong>. Check the Distributed Provider Funds details section for wait times.<br/>Funds that have passed the lock period have been retrieved to your Available Balance.</>,
         show: true
       });
       setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 8000);
-      await refreshLedgerInfo();
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve all funds';
       setError(errorMessage);
@@ -139,12 +139,12 @@ function LedgerContent() {
   const handleRetrieveInference = async () => {
     if (!broker) return;
     setIsRetrieving(prev => ({ ...prev, inference: true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('inference');
+      setError(null);
       setShowSuccessAlert({ message: 'Inference funds retrieve request submitted', show: true });
       setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve inference funds';
       setError(errorMessage);
@@ -156,12 +156,12 @@ function LedgerContent() {
   const handleRetrieveFineTuning = async () => {
     if (!broker) return;
     setIsRetrieving(prev => ({ ...prev, 'fine-tuning': true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('fine-tuning');
+      setError(null);
       setShowSuccessAlert({ message: 'Fine-tuning funds retrieve request submitted', show: true });
       setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve fine-tuning funds';
       setError(errorMessage);
@@ -174,13 +174,13 @@ function LedgerContent() {
     if (!broker) return;
     const key = `${type}-${providerAddress}`;
     setRetrievingProviders(prev => ({ ...prev, [key]: true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFundFromProvider(type, providerAddress);
+      setError(null);
       const shortAddr = `${providerAddress.slice(0, 6)}...${providerAddress.slice(-4)}`;
       setShowSuccessAlert({ message: `Retrieve request submitted for provider ${shortAddr}`, show: true });
       setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve funds from provider';
       setError(errorMessage);
