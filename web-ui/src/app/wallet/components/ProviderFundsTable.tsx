@@ -18,6 +18,7 @@ import { ChevronUp, RefreshCw, Loader2, HelpCircle, Clock, CheckCircle2 } from '
 import { cn } from '@/lib/utils'
 import { isProviderUnstable } from '@/shared/config/unstableProviders'
 import { formatNumber } from '@/shared/utils/formatNumber'
+import { a0giStringToNeuron } from '@/shared/utils/currency'
 
 // Live countdown component
 function CountdownTimer({ remainSeconds, formatTime }: { remainSeconds: number; formatTime: (s: number) => string }) {
@@ -123,7 +124,7 @@ export function ProviderFundsTable({
     const getRefundKey = (provider: string) => `${type}-${provider}`
 
     const allProvidersUnavailable = providers.length === 0 || providers.every(
-        p => parseFloat(p.balance) - parseFloat(p.requestedReturn) <= 0
+        p => a0giStringToNeuron(p.balance) <= a0giStringToNeuron(p.requestedReturn)
     )
     const hasOwnProviderRetrieving = providers.some(
         p => retrievingProviders[getRefundKey(p.provider)]
@@ -171,7 +172,7 @@ export function ProviderFundsTable({
                     {providers.map((provider, index) => {
                         const refundKey = getRefundKey(provider.provider)
                         const isExpanded = expandedRefunds[refundKey]
-                        const hasPendingRetrieval = parseFloat(provider.requestedReturn) > 0
+                        const hasPendingRetrieval = a0giStringToNeuron(provider.requestedReturn) > BigInt(0)
 
                         return (
                             <Collapsible
@@ -205,7 +206,7 @@ export function ProviderFundsTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => onRetrieveProvider(provider.provider)}
-                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAll || parseFloat(provider.balance) - parseFloat(provider.requestedReturn) <= 0}
+                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAll || a0giStringToNeuron(provider.balance) <= a0giStringToNeuron(provider.requestedReturn)}
                                                 className="flex-shrink-0 text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 h-7 px-2"
                                             >
                                                 {retrievingProviders[refundKey] && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
