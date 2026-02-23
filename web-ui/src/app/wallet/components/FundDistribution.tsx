@@ -211,7 +211,7 @@ export function FundDistribution({
                                             isRetrieving={isRetrievingInference}
                                             onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'inference')}
                                             retrievingProviders={retrievingProviders}
-                                            isRetrievingAny={isRetrievingAll || isRetrievingFineTuning || hasAnyProviderRetrieving}
+                                            isRetrievingAll={isRetrievingAll}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'inference')}
                                             refundDetails={refundDetails}
@@ -230,7 +230,7 @@ export function FundDistribution({
                                             isRetrieving={isRetrievingFineTuning}
                                             onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'fine-tuning')}
                                             retrievingProviders={retrievingProviders}
-                                            isRetrievingAny={isRetrievingAll || isRetrievingInference || hasAnyProviderRetrieving}
+                                            isRetrievingAll={isRetrievingAll}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'fine-tuning')}
                                             refundDetails={refundDetails}

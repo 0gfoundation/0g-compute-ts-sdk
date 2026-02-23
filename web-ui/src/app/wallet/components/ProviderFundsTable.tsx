@@ -93,7 +93,7 @@ interface ProviderFundsTableProps {
     isRetrieving: boolean
     onRetrieveProvider: (provider: string) => void
     retrievingProviders: { [key: string]: boolean }
-    isRetrievingAny: boolean
+    isRetrievingAll: boolean
     expandedRefunds: { [key: string]: boolean }
     onToggleRefund: (provider: string) => void
     refundDetails: { [key: string]: RefundDetail[] }
@@ -111,7 +111,7 @@ export function ProviderFundsTable({
     isRetrieving,
     onRetrieveProvider,
     retrievingProviders,
-    isRetrievingAny,
+    isRetrievingAll,
     expandedRefunds,
     onToggleRefund,
     refundDetails,
@@ -124,6 +124,9 @@ export function ProviderFundsTable({
 
     const allProvidersUnavailable = providers.length === 0 || providers.every(
         p => parseFloat(p.balance) - parseFloat(p.requestedReturn) <= 0
+    )
+    const hasOwnProviderRetrieving = providers.some(
+        p => retrievingProviders[getRefundKey(p.provider)]
     )
 
     return (
@@ -155,7 +158,7 @@ export function ProviderFundsTable({
                         variant="ghost"
                         size="sm"
                         onClick={onRetrieve}
-                        disabled={isRetrieving || isRetrievingAny || allProvidersUnavailable}
+                        disabled={isRetrieving || isRetrievingAll || hasOwnProviderRetrieving || allProvidersUnavailable}
                         className="text-gray-600 hover:text-purple-600 hover:bg-purple-50"
                     >
                         {isRetrieving && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
@@ -202,7 +205,7 @@ export function ProviderFundsTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => onRetrieveProvider(provider.provider)}
-                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAny || parseFloat(provider.balance) - parseFloat(provider.requestedReturn) <= 0}
+                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAll || parseFloat(provider.balance) - parseFloat(provider.requestedReturn) <= 0}
                                                 className="flex-shrink-0 text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 h-7 px-2"
                                             >
                                                 {retrievingProviders[refundKey] && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
