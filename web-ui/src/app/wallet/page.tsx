@@ -29,6 +29,7 @@ function LedgerContent() {
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
   const [isRetrievingAll, setIsRetrievingAll] = useState(false);
+  const [retrievingProviders, setRetrievingProviders] = useState<{ [key: string]: boolean }>({});
   const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: React.ReactNode, show: boolean }>({ message: '', show: false });
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +170,29 @@ function LedgerContent() {
     }
   };
 
+  const handleRetrieveProvider = async (providerAddress: string, type: 'inference' | 'fine-tuning') => {
+    if (!broker) return;
+    const key = `${type}-${providerAddress}`;
+    setRetrievingProviders(prev => ({ ...prev, [key]: true }));
+    setError(null);
+    try {
+      await broker.ledger.retrieveFundFromProvider(type, providerAddress);
+      const shortAddr = `${providerAddress.slice(0, 6)}...${providerAddress.slice(-4)}`;
+      setShowSuccessAlert({ message: `Retrieve request submitted for provider ${shortAddr}`, show: true });
+      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
+      await refreshLedgerInfo();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve funds from provider';
+      setError(errorMessage);
+    } finally {
+      setRetrievingProviders(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
   if (!isConnected) {
     return (
       <div className="w-full">
@@ -250,6 +274,8 @@ function LedgerContent() {
                 onToggleRefund={toggleRefundDetails}
                 refundDetails={refundDetails}
                 loadingRefunds={loadingRefunds}
+                onRetrieveProvider={handleRetrieveProvider}
+                retrievingProviders={retrievingProviders}
                 onRefreshRefund={fetchRefundDetails}
                 showSuccessAlert={showSuccessAlert}
                 error={error}

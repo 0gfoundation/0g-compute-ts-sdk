@@ -51,6 +51,8 @@ interface FundDistributionProps {
     isRetrievingInference: boolean
     isRetrievingFineTuning: boolean
     expandedRefunds: { [key: string]: boolean }
+    onRetrieveProvider: (provider: string, type: 'inference' | 'fine-tuning') => void
+    retrievingProviders: { [key: string]: boolean }
     onToggleRefund: (provider: string, type: 'inference' | 'fine-tuning') => void
     refundDetails: { [key: string]: RefundDetail[] }
     loadingRefunds: { [key: string]: boolean }
@@ -69,6 +71,8 @@ export function FundDistribution({
     isRetrievingAll,
     isRetrievingInference,
     isRetrievingFineTuning,
+    onRetrieveProvider,
+    retrievingProviders,
     expandedRefunds,
     onToggleRefund,
     refundDetails,
@@ -79,6 +83,12 @@ export function FundDistribution({
     formatTime,
 }: FundDistributionProps) {
     const [isLockedExpanded, setIsLockedExpanded] = React.useState(false)
+
+    const allProviders = [...ledgerInfo.inferences, ...ledgerInfo.fineTunings]
+    const allProvidersUnavailable = allProviders.length === 0 || allProviders.every(
+        p => parseFloat(p.balance) === 0
+    )
+    const hasAnyProviderRetrieving = Object.values(retrievingProviders).some(Boolean)
 
     return (
         <div className="space-y-6">
@@ -146,7 +156,7 @@ export function FundDistribution({
                                     <Button
                                         size="sm"
                                         onClick={onRetrieveAll}
-                                        disabled={isRetrievingAll}
+                                        disabled={isRetrievingAll || isRetrievingInference || isRetrievingFineTuning || hasAnyProviderRetrieving || allProvidersUnavailable}
                                         className="bg-purple-600 hover:bg-purple-700 text-xs px-2 py-1 h-auto"
                                     >
                                         <ArrowUp className="w-3 h-3 mr-1" />
@@ -199,6 +209,9 @@ export function FundDistribution({
                                             emptyMessage="No inference services have been used yet"
                                             onRetrieve={onRetrieveInference}
                                             isRetrieving={isRetrievingInference}
+                                            onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'inference')}
+                                            retrievingProviders={retrievingProviders}
+                                            isRetrievingAny={isRetrievingAll || isRetrievingFineTuning || hasAnyProviderRetrieving}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'inference')}
                                             refundDetails={refundDetails}
@@ -215,6 +228,9 @@ export function FundDistribution({
                                             emptyMessage="Fine-tuning services details are temporarily unavailable. Support coming soon."
                                             onRetrieve={onRetrieveFineTuning}
                                             isRetrieving={isRetrievingFineTuning}
+                                            onRetrieveProvider={(provider) => onRetrieveProvider(provider, 'fine-tuning')}
+                                            retrievingProviders={retrievingProviders}
+                                            isRetrievingAny={isRetrievingAll || isRetrievingInference || hasAnyProviderRetrieving}
                                             expandedRefunds={expandedRefunds}
                                             onToggleRefund={(provider) => onToggleRefund(provider, 'fine-tuning')}
                                             refundDetails={refundDetails}

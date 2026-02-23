@@ -91,6 +91,9 @@ interface ProviderFundsTableProps {
     emptyMessage: string
     onRetrieve: () => void
     isRetrieving: boolean
+    onRetrieveProvider: (provider: string) => void
+    retrievingProviders: { [key: string]: boolean }
+    isRetrievingAny: boolean
     expandedRefunds: { [key: string]: boolean }
     onToggleRefund: (provider: string) => void
     refundDetails: { [key: string]: RefundDetail[] }
@@ -106,6 +109,9 @@ export function ProviderFundsTable({
     emptyMessage,
     onRetrieve,
     isRetrieving,
+    onRetrieveProvider,
+    retrievingProviders,
+    isRetrievingAny,
     expandedRefunds,
     onToggleRefund,
     refundDetails,
@@ -115,6 +121,10 @@ export function ProviderFundsTable({
     formatTime,
 }: ProviderFundsTableProps) {
     const getRefundKey = (provider: string) => `${type}-${provider}`
+
+    const allProvidersUnavailable = providers.length === 0 || providers.every(
+        p => parseFloat(p.balance) === 0
+    )
 
     return (
         <TooltipProvider>
@@ -145,7 +155,7 @@ export function ProviderFundsTable({
                         variant="ghost"
                         size="sm"
                         onClick={onRetrieve}
-                        disabled={isRetrieving}
+                        disabled={isRetrieving || isRetrievingAny || allProvidersUnavailable}
                         className="text-gray-600 hover:text-purple-600 hover:bg-purple-50"
                     >
                         {isRetrieving && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
@@ -168,24 +178,36 @@ export function ProviderFundsTable({
                             >
                                 <Card className="bg-white">
                                     <CardContent className="p-4">
-                                        {/* Provider Address - always full width on mobile */}
-                                        <div className="mb-3 md:mb-0">
-                                            <div className="text-xs font-medium text-gray-500 mb-1">Provider Address</div>
-                                            <div className="text-sm font-medium text-gray-900 font-mono break-all flex items-center gap-2">
-                                                <span>{provider.provider}</span>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                                            isProviderUnstable(provider.provider)
-                                                                ? 'bg-yellow-500 animate-pulse'
-                                                                : 'bg-green-500'
-                                                        }`} />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>{isProviderUnstable(provider.provider) ? 'Limited Availability' : 'High Availability'}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
+                                        {/* Provider Address with per-provider retrieve */}
+                                        <div className="mb-3 md:mb-0 flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-medium text-gray-500 mb-1">Provider Address</div>
+                                                <div className="text-sm font-medium text-gray-900 font-mono break-all flex items-center gap-2">
+                                                    <span>{provider.provider}</span>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                                isProviderUnstable(provider.provider)
+                                                                    ? 'bg-yellow-500 animate-pulse'
+                                                                    : 'bg-green-500'
+                                                            }`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>{isProviderUnstable(provider.provider) ? 'Limited Availability' : 'High Availability'}</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
                                             </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => onRetrieveProvider(provider.provider)}
+                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAny || parseFloat(provider.balance) === 0}
+                                                className="flex-shrink-0 text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 h-7 px-2"
+                                            >
+                                                {retrievingProviders[refundKey] && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                                Retrieve
+                                            </Button>
                                         </div>
                                         {/* Fund info - side by side on mobile, grid on desktop */}
                                         <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
