@@ -1,6 +1,6 @@
 import type { JsonRpcProvider, JsonRpcSigner, Wallet } from 'ethers'
 import { JsonRpcProvider as JsonRpcProviderClass } from 'ethers'
-import { FineTuningServing__factory } from '../contract/typechain'
+import { ReadOnlyFineTuningServingContract } from '../contract'
 import type { ServiceStructOutput } from '../contract'
 import { ReadOnlyServiceProcessor } from './read-only-service'
 import { ReadOnlyModelProcessor } from './read-only-model'
@@ -23,12 +23,9 @@ export class ReadOnlyFineTuningBroker {
         provider: JsonRpcProvider | JsonRpcSigner | Wallet,
         contractAddress: string
     ) {
-        const serving = FineTuningServing__factory.connect(
-            contractAddress,
-            provider
-        )
-        this.serviceProcessor = new ReadOnlyServiceProcessor(serving)
-        this.modelProcessor = new ReadOnlyModelProcessor(serving)
+        const contract = new ReadOnlyFineTuningServingContract(provider, contractAddress)
+        this.serviceProcessor = new ReadOnlyServiceProcessor(contract)
+        this.modelProcessor = new ReadOnlyModelProcessor(contract)
     }
 
     /**

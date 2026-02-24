@@ -2,6 +2,7 @@ import type { JsonRpcProvider } from 'ethers'
 import type { JsonRpcSigner, Wallet } from 'ethers'
 import { JsonRpcProvider as JsonRpcProviderClass } from 'ethers'
 import type { ServiceStructOutput } from '../contract'
+import { ReadOnlyInferenceServingContract } from '../contract'
 import { ReadOnlyModelProcessor } from './read-only-model'
 import type { ServiceWithDetail } from './read-only-model'
 import { CONTRACT_ADDRESSES, TESTNET_CHAIN_ID, MAINNET_CHAIN_ID, HARDHAT_CHAIN_ID, isDevMode } from '../../constants'
@@ -27,7 +28,8 @@ export class ReadOnlyInferenceBroker {
         contractAddress: string
     ) {
         this.contractAddress = contractAddress
-        this.modelProcessor = new ReadOnlyModelProcessor(provider, contractAddress)
+        const contract = new ReadOnlyInferenceServingContract(provider, contractAddress)
+        this.modelProcessor = new ReadOnlyModelProcessor(contract)
     }
 
     /**

@@ -1,4 +1,4 @@
-import type { FineTuningServing } from '../contract/typechain/FineTuningServing'
+import type { ReadOnlyFineTuningServingContract } from '../contract'
 import { throwFormattedError } from '../../common/utils'
 import { getNetworkType, isDevMode } from '../../constants'
 import {
@@ -10,13 +10,13 @@ import {
 
 /**
  * Read-only model processor for listing fine-tuning models.
- * Works without authentication - only requires a provider-connected contract.
+ * Works without authentication - only requires a read-only contract.
  */
 export class ReadOnlyModelProcessor {
-    protected serving: FineTuningServing
+    protected contract: ReadOnlyFineTuningServingContract
 
-    constructor(serving: FineTuningServing) {
-        this.serving = serving
+    constructor(contract: ReadOnlyFineTuningServingContract) {
+        this.contract = contract
     }
 
     /**
@@ -43,9 +43,7 @@ export class ReadOnlyModelProcessor {
      */
     async listModel(): Promise<[string, { [key: string]: string }][][]> {
         try {
-            const chainId = await this.serving.runner?.provider
-                ?.getNetwork()
-                .then((n) => n.chainId)
+            const chainId = await this.contract.getChainId()
             const networkType = chainId ? getNetworkType(chainId) : 'unknown'
             const devMode = isDevMode()
 
@@ -62,7 +60,7 @@ export class ReadOnlyModelProcessor {
 
             const availableModels = Object.entries(modelConfig)
 
-            const services = await this.serving.getAllServices()
+            const services = await this.contract.listService(true)
             const customizedModels: [string, { [key: string]: string }][] = []
 
             for (const service of services) {

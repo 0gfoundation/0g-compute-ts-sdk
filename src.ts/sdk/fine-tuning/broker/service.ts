@@ -68,7 +68,7 @@ export interface FineTuningAccountDetail {
     refunds: { amount: bigint; remainTime: bigint }[]
 }
 export class ServiceProcessor extends ReadOnlyServiceProcessor {
-    protected contract: FineTuningServingContract
+    protected declare contract: FineTuningServingContract
     protected ledger: LedgerBroker
     protected servingProvider: Provider
     protected automata: Automata
@@ -78,7 +78,7 @@ export class ServiceProcessor extends ReadOnlyServiceProcessor {
         ledger: LedgerBroker,
         servingProvider: Provider
     ) {
-        super(contract.serving)
+        super(contract)
         this.contract = contract
         this.ledger = ledger
         this.servingProvider = servingProvider

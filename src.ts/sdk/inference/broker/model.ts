@@ -30,22 +30,19 @@ export { VerifiabilityEnum, isVerifiability }
  * - listServiceWithDetail() - List services with health metrics
  */
 export class ModelProcessor extends ReadOnlyModelProcessor {
-    // Additional properties for authenticated operations
-    protected contract: InferenceServingContract
+    // Narrow the contract type to the authenticated version
+    protected declare contract: InferenceServingContract
     protected ledger: LedgerBroker
     protected metadata: Metadata
     protected cache: Cache
 
     constructor(
         contract: InferenceServingContract,
-        contractAddress: string,
         ledger: LedgerBroker,
         metadata: Metadata,
         cache: Cache
     ) {
-        // Initialize base class with the signer from contract
-        // Get contract address from the serving contract instance
-        super(contract.signer, contractAddress)
+        super(contract)
 
         this.contract = contract
         this.ledger = ledger

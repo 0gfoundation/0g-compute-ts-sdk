@@ -28,7 +28,7 @@ import { getNetworkType } from '../../constants'
  * Extends ReadOnlyModelProcessor to inherit listModel() for read-only operations.
  */
 export class ModelProcessor extends ReadOnlyModelProcessor {
-    protected contract: FineTuningServingContract
+    protected declare contract: FineTuningServingContract
     protected ledger: LedgerBroker
     protected servingProvider: Provider
 
@@ -37,7 +37,7 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         ledger: LedgerBroker,
         servingProvider: Provider
     ) {
-        super(contract.serving)
+        super(contract)
         this.contract = contract
         this.ledger = ledger
         this.servingProvider = servingProvider

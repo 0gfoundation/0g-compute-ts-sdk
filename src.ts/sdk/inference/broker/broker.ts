@@ -80,7 +80,6 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         // Initialize ModelProcessor with ledger (needed for authenticated operations)
         const modelProcessor = new ModelProcessor(
             contract,
-            this.contractAddress,
             this.ledger,
             metadata,
             cache

@@ -1,15 +1,15 @@
-import type { FineTuningServing, ServiceStructOutput } from '../contract/typechain/FineTuningServing'
-import { throwFormattedError } from '../../common/utils'
+import type { ServiceStructOutput } from '../contract'
+import type { ReadOnlyFineTuningServingContract } from '../contract'
 
 /**
  * Read-only service processor for listing fine-tuning services.
- * Works without authentication - only requires a provider-connected contract.
+ * Works without authentication - only requires a read-only contract.
  */
 export class ReadOnlyServiceProcessor {
-    protected serving: FineTuningServing
+    protected contract: ReadOnlyFineTuningServingContract
 
-    constructor(serving: FineTuningServing) {
-        this.serving = serving
+    constructor(contract: ReadOnlyFineTuningServingContract) {
+        this.contract = contract
     }
 
     /**
@@ -21,16 +21,6 @@ export class ReadOnlyServiceProcessor {
     async listService(
         includeUnacknowledged: boolean = false
     ): Promise<ServiceStructOutput[]> {
-        try {
-            const services = await this.serving.getAllServices()
-            if (includeUnacknowledged) {
-                return services
-            }
-            return services.filter(
-                (service) => service.teeSignerAcknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
+        return this.contract.listService(includeUnacknowledged)
     }
 }

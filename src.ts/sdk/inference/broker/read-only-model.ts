@@ -1,6 +1,5 @@
-import type { JsonRpcProvider, JsonRpcSigner, Wallet } from 'ethers'
-import type { InferenceServing, ServiceStructOutput } from '../contract'
-import { InferenceServing__factory } from '../contract/typechain'
+import type { ServiceStructOutput } from '../contract'
+import type { ReadOnlyInferenceServingContract } from '../contract'
 import { throwFormattedError } from '../../common/utils'
 import axios from 'axios'
 
@@ -73,21 +72,13 @@ export interface ServiceWithDetail {
 
 /**
  * Read-only model processor for listing services and fetching health metrics
- * Works without authentication - only requires a provider
+ * Works without authentication - only requires a read-only contract
  */
 export class ReadOnlyModelProcessor {
-    protected serving: InferenceServing
-    protected contractAddress: string
+    protected contract: ReadOnlyInferenceServingContract
 
-    constructor(
-        provider: JsonRpcProvider | JsonRpcSigner | Wallet,
-        contractAddress: string
-    ) {
-        this.contractAddress = contractAddress
-        this.serving = InferenceServing__factory.connect(
-            contractAddress,
-            provider
-        )
+    constructor(contract: ReadOnlyInferenceServingContract) {
+        this.contract = contract
     }
 
     /**
@@ -103,19 +94,7 @@ export class ReadOnlyModelProcessor {
         limit: number = 50,
         includeUnacknowledged: boolean = false
     ): Promise<ServiceStructOutput[]> {
-        try {
-            const result = await this.serving.getAllServices(offset, limit)
-
-            // Filter out unacknowledged providers by default
-            if (includeUnacknowledged) {
-                return result.services
-            }
-            return result.services.filter(
-                (service) => service.teeSignerAcknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
+        return this.contract.listService(offset, limit, includeUnacknowledged)
     }
 
     /**
@@ -153,9 +132,7 @@ export class ReadOnlyModelProcessor {
             )
 
             // Determine health API endpoint based on chain ID
-            const chainId = await this.serving.runner?.provider
-                ?.getNetwork()
-                .then((n) => n.chainId)
+            const chainId = await this.contract.getChainId()
             const healthApiEndpoint = this.getHealthApiEndpoint(chainId)
 
             // Fetch health metrics from API
