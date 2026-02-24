@@ -5,16 +5,13 @@ import type {
     ContractTransactionReceipt,
     ContractMethodArgs,
 } from 'ethers'
-import { InferenceServing__factory } from './typechain'
-import type { InferenceServing } from './typechain/InferenceServing'
-import type { ServiceStructOutput } from './typechain/InferenceServing'
 import { throwFormattedError } from '../../common/utils'
 import { RETRY_ERROR_SUBSTRINGS } from '../../common/utils/const'
+import { ReadOnlyInferenceServingContract } from './read-only-inference'
 
 const TIMEOUT_MS = 300_000
 
-export class InferenceServingContract {
-    public serving: InferenceServing
+export class InferenceServingContract extends ReadOnlyInferenceServingContract {
     public signer: JsonRpcSigner | Wallet
 
     private _userAddress: string
@@ -30,10 +27,7 @@ export class InferenceServingContract {
         maxGasPrice?: number,
         step?: number
     ) {
-        this.serving = InferenceServing__factory.connect(
-            contractAddress,
-            signer
-        )
+        super(signer, contractAddress)
         this.signer = signer
         this._userAddress = userAddress
         this._gasPrice = gasPrice
@@ -135,29 +129,6 @@ export class InferenceServingContract {
         }
     }
 
-    lockTime(): Promise<bigint> {
-        return this.serving.lockTime()
-    }
-
-    async listService(
-        offset: number = 0,
-        limit: number = 50,
-        includeUnacknowledged: boolean = false
-    ): Promise<ServiceStructOutput[]> {
-        try {
-            const result = await this.serving.getAllServices(offset, limit)
-            // Filter out unacknowledged providers by default
-            if (includeUnacknowledged) {
-                return result.services
-            }
-            return result.services.filter(
-                (service) => service.teeSignerAcknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
     async listAccount(offset: number = 0, limit: number = 50) {
         try {
             const result = await this.serving.getAllAccounts(offset, limit)
@@ -249,14 +220,6 @@ export class InferenceServingContract {
                 [providerAddress],
                 txOptions
             )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    async getService(providerAddress: string): Promise<ServiceStructOutput> {
-        try {
-            return this.serving.getService(providerAddress)
         } catch (error) {
             throwFormattedError(error)
         }

@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, neuronToA0gi, splitIntoChunks } from './util'
+import { withFineTuningBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -62,9 +62,9 @@ export default function fineTuning(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .action((options) => {
-            withFineTuningBroker(options, async (broker) => {
-                const models = await broker.fineTuning!.listModel()
+        .action(async (options) => {
+            await withROBroker(options, async (broker) => {
+                const models = await broker.fineTuning.listModel()
 
                 console.log(`Predefined Model:`)
                 let table = new Table({
@@ -486,12 +486,12 @@ export default function fineTuning(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withFineTuningBroker(options, async (broker) => {
-                const services = await broker.fineTuning!.listService(
+            await withROBroker(options, async (broker) => {
+                const services = await broker.fineTuning.listService(
                     options.includeInvalid
                 )
                 services.forEach((service, index) => {

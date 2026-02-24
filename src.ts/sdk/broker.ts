@@ -8,12 +8,15 @@ import type { LedgerBroker } from './ledger'
 import type { FineTuningBroker } from './fine-tuning/broker'
 import { createReadOnlyInferenceBroker } from './inference/broker/read-only-broker'
 import type { ReadOnlyInferenceBroker } from './inference/broker/read-only-broker'
+import { createReadOnlyFineTuningBroker } from './fine-tuning/broker/read-only-broker'
+import type { ReadOnlyFineTuningBroker } from './fine-tuning/broker/read-only-broker'
 import {
     TESTNET_CHAIN_ID,
     MAINNET_CHAIN_ID,
     HARDHAT_CHAIN_ID,
     CONTRACT_ADDRESSES,
     isDevMode,
+    getNetworkType,
 } from './constants'
 
 // Re-export constants for backward compatibility
@@ -23,22 +26,7 @@ export {
     HARDHAT_CHAIN_ID,
     CONTRACT_ADDRESSES,
     isDevMode,
-}
-
-/**
- * Helper function to determine network type from chain ID
- */
-export function getNetworkType(
-    chainId: bigint
-): 'mainnet' | 'testnet' | 'hardhat' | 'unknown' {
-    if (chainId === MAINNET_CHAIN_ID) {
-        return 'mainnet'
-    } else if (chainId === TESTNET_CHAIN_ID) {
-        return 'testnet'
-    } else if (chainId === HARDHAT_CHAIN_ID) {
-        return 'hardhat'
-    }
-    return 'unknown'
+    getNetworkType,
 }
 
 export class ZGComputeNetworkBroker {
@@ -177,14 +165,16 @@ export async function createZGComputeNetworkBroker(
  *
  * Limitations:
  * - Cannot perform authenticated operations (send requests, manage accounts, etc.)
- * - No ledger or fine-tuning services (require authentication)
+ * - No ledger services (require authentication)
  * - Read-only operations only
  */
 export class ZGComputeNetworkReadOnlyBroker {
     public inference!: ReadOnlyInferenceBroker
+    public fineTuning!: ReadOnlyFineTuningBroker
 
-    constructor(inferenceBroker: ReadOnlyInferenceBroker) {
+    constructor(inferenceBroker: ReadOnlyInferenceBroker, fineTuningBroker: ReadOnlyFineTuningBroker) {
         this.inference = inferenceBroker
+        this.fineTuning = fineTuningBroker
     }
 }
 
@@ -252,14 +242,18 @@ export async function createZGComputeNetworkReadOnlyBroker(
             )
         }
 
-        // Create read-only inference broker (no authentication!)
-        // The broker will auto-detect contract addresses based on chainId
+        // Create read-only brokers (no authentication!)
+        // The brokers will auto-detect contract addresses based on chainId
         const inferenceBroker = await createReadOnlyInferenceBroker(
             rpcUrl,
             detectedChainId
         )
+        const fineTuningBroker = await createReadOnlyFineTuningBroker(
+            rpcUrl,
+            detectedChainId
+        )
 
-        const broker = new ZGComputeNetworkReadOnlyBroker(inferenceBroker)
+        const broker = new ZGComputeNetworkReadOnlyBroker(inferenceBroker, fineTuningBroker)
         return broker
     } catch (error) {
         throw error

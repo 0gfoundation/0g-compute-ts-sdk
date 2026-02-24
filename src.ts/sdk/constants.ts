@@ -35,6 +35,22 @@ export const CONTRACT_ADDRESSES = {
  * - Browser: localStorage 'ZG_DEV_MODE' = 'true'
  * - Browser: URL parameter ?dev=true or ?ZG_DEV_MODE=true
  */
+/**
+ * Helper function to determine network type from chain ID
+ */
+export function getNetworkType(
+    chainId: bigint
+): 'mainnet' | 'testnet' | 'hardhat' | 'unknown' {
+    if (chainId === MAINNET_CHAIN_ID) {
+        return 'mainnet'
+    } else if (chainId === TESTNET_CHAIN_ID) {
+        return 'testnet'
+    } else if (chainId === HARDHAT_CHAIN_ID) {
+        return 'hardhat'
+    }
+    return 'unknown'
+}
+
 export function isDevMode(): boolean {
     // Check Node.js / Next.js environment variables
     if (typeof process !== 'undefined' && process.env) {

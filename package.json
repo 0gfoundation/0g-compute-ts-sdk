@@ -41,8 +41,8 @@
         "build:with-ui": "npm run build:sdk && cd web-ui && pnpm install && pnpm build",
         "gen-contract-type": "typechain --target ethers-v6 --node16-modules --out-dir src.ts/sdk/inference/contract/typechain '../0g-serving-broker/api/libs/0g-serving-contract/artifacts/contracts/inference/InferenceServing.sol/InferenceServing.json' && typechain --target ethers-v6 --node16-modules --out-dir src.ts/sdk/fine-tuning/contract/typechain '../0g-serving-broker/api/libs/0g-serving-contract/artifacts/contracts/fine-tuning/FineTuningServing.sol/FineTuningServing.json' && typechain --target ethers-v6 --node16-modules --out-dir src.ts/sdk/ledger/contract/typechain '../0g-serving-broker/api/libs/0g-serving-contract/artifacts/contracts/ledger/LedgerManager.sol/LedgerManager.json' && npm run format",
         "gen-doc": "npx typedoc --tsconfig tsconfig.esm.json",
-        "test": "npm run build && mocha 'lib.commonjs/**/*.test.js'",
-        "test:cli": "npm run build && mocha 'cli.commonjs/cli/__tests__/*.test.js' --timeout 20000",
+        "test": "mocha 'lib.commonjs/**/*.test.js'",
+        "test:cli": "mocha 'cli.commonjs/cli/__tests__/*.test.js' --timeout 60000",
         "test:all": "npm run test && npm run test:cli",
         "prepare": "npm run build",
         "prepublishOnly": "npm run build:with-ui"

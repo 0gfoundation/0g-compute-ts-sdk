@@ -48,6 +48,10 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
           pnpm pack
+
+      - name: Run CLI integration tests
+        run: pnpm test:cli
+        timeout-minutes: 10
       
       - name: Setup test environment
         run: |
@@ -98,6 +102,12 @@ jobs:
 
             echo "→ Testing inference list-providers-detail (no auth required)"
             ./node_modules/.bin/0g-compute-cli inference list-providers-detail --rpc https://evmrpc-testnet.0g.ai
+
+            echo "→ Testing fine-tuning list-providers (no auth required)"
+            ./node_modules/.bin/0g-compute-cli fine-tuning list-providers --rpc https://evmrpc-testnet.0g.ai
+
+            echo "→ Testing fine-tuning list-models (no auth required)"
+            ./node_modules/.bin/0g-compute-cli fine-tuning list-models --rpc https://evmrpc-testnet.0g.ai
           elif [ "${{ matrix.pkg-manager }}" = "yarn" ]; then
             # yarn 4+ with PnP mode
             echo "Testing basic CLI commands..."
@@ -112,6 +122,12 @@ jobs:
 
             echo "→ Testing inference list-providers-detail (no auth required)"
             yarn run 0g-compute-cli inference list-providers-detail --rpc https://evmrpc-testnet.0g.ai
+
+            echo "→ Testing fine-tuning list-providers (no auth required)"
+            yarn run 0g-compute-cli fine-tuning list-providers --rpc https://evmrpc-testnet.0g.ai
+
+            echo "→ Testing fine-tuning list-models (no auth required)"
+            yarn run 0g-compute-cli fine-tuning list-models --rpc https://evmrpc-testnet.0g.ai
           else
             echo "CLI binary not found"
             exit 1
