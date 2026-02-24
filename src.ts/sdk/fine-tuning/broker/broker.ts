@@ -10,14 +10,15 @@ import type { Task } from '../provider/provider'
 import { throwFormattedError } from '../../common/utils'
 import { Verifier } from './verifier'
 import type { VerificationResult } from './verifier'
+import { ReadOnlyFineTuningBroker } from './read-only-broker'
 
-export class FineTuningBroker {
+export class FineTuningBroker extends ReadOnlyFineTuningBroker {
     private signer: Wallet
     private fineTuningCA: string
     private ledger!: LedgerBroker
-    private modelProcessor!: ModelProcessor
+    protected declare modelProcessor: ModelProcessor
     private datasetProcessor!: DatasetProcessor
-    private serviceProcessor!: ServiceProcessor
+    protected declare serviceProcessor: ServiceProcessor
     private verifier!: Verifier
     private serviceProvider!: Provider
     private _gasPrice?: number
@@ -32,6 +33,7 @@ export class FineTuningBroker {
         maxGasPrice?: number,
         step?: number
     ) {
+        super(signer, fineTuningCA)
         this.signer = signer
         this.fineTuningCA = fineTuningCA
         this.ledger = ledger
@@ -78,14 +80,6 @@ export class FineTuningBroker {
             this.ledger,
             this.serviceProvider
         )
-    }
-
-    public listService = async (includeUnacknowledged: boolean = false) => {
-        try {
-            return await this.serviceProcessor.listService(includeUnacknowledged)
-        } catch (error) {
-            throwFormattedError(error)
-        }
     }
 
     public getLockedTime = async () => {
@@ -161,14 +155,6 @@ export class FineTuningBroker {
     public removeService = async (gasPrice?: number) => {
         try {
             return await this.serviceProcessor.removeService(gasPrice)
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    public listModel = () => {
-        try {
-            return this.modelProcessor.listModel()
         } catch (error) {
             throwFormattedError(error)
         }

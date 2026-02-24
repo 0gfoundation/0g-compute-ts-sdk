@@ -131,16 +131,6 @@ describe('0g-compute-cli Integration Tests', () => {
         it('should handle inference list-providers command', function (done) {
             this.timeout(15000)
 
-            // Set up test credentials
-            const testPrivateKey =
-                '0x0000000000000000000000000000000000000000000000000000000000000001'
-            const credDir = path.join(tempDir, '.0g-compute-cli')
-            fs.mkdirSync(credDir, { recursive: true })
-            fs.writeFileSync(
-                path.join(credDir, 'credentials.json'),
-                JSON.stringify({ privateKey: testPrivateKey })
-            )
-
             let testCompleted = false
             const child = spawn(
                 'node',
@@ -254,6 +244,14 @@ describe('0g-compute-cli Integration Tests', () => {
                 }
             }, 14000)
         })
+
+        it('should list inference providers with detail without wallet login', function (done) {
+            const output = execSync(`node ${cliPath} inference list-providers-detail`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('provider')
+            expect(output).to.include('health')
+        })
     })
 
     describe('Network Commands', () => {
@@ -285,6 +283,23 @@ describe('0g-compute-cli Integration Tests', () => {
             expect(output).to.include('Fine-tuning service commands')
             expect(output).to.include('list-models')
             expect(output).to.include('create-task')
+        })
+
+        it('should list fine-tuning providers without wallet login', function (done) {
+            const output = execSync(`node ${cliPath} fine-tuning list-providers`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('provider')
+            expect(output).to.include('available')
+        })
+
+        it('should list fine-tuning models without wallet login', function (done) {
+            const output = execSync(`node ${cliPath} fine-tuning list-models`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('predefined model')
+            expect(output).to.include('name')
+            expect(output).to.include('description')
         })
     })
 
