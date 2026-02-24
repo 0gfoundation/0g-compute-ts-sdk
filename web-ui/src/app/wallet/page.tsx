@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useAccount } from 'wagmi';
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useAccount, useChainId } from 'wagmi';
 import { useBroker } from '@/shared/providers/BrokerProvider';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,9 +11,11 @@ import { TransactionHistory, useTransactionHistory } from './components/Transact
 import { Loader2 } from 'lucide-react';
 import { formatNumber } from '@/shared/utils/formatNumber';
 import { useToast } from '@/hooks/use-toast';
+import { zgMainnet, zgTestnet } from '@/shared/config/wagmi';
 
 function LedgerContent() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const searchParams = useSearchParams();
   const {
     broker,
@@ -25,7 +27,14 @@ function LedgerContent() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'detail' | 'history'>('overview');
   const [expandedRefunds, setExpandedRefunds] = useState<{ [key: string]: boolean }>({});
-  const { transactions, isLoading: txLoading, refreshTransactions, addTransaction } = useTransactionHistory();
+  const { transactions, isLoading: txLoading, refreshTransactions, addTransaction } = useTransactionHistory(address);
+
+  // Derive explorer URL from connected chain config
+  const explorerBaseUrl = useMemo(() => {
+    const chain = chainId === zgTestnet.id ? zgTestnet : zgMainnet;
+    const url = chain.blockExplorers?.default?.url ?? 'https://chainscan.0g.ai/';
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+  }, [chainId]);
   const [refundDetails, setRefundDetails] = useState<{ [key: string]: { amount: bigint, remainTime: bigint }[] }>({});
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
@@ -125,6 +134,12 @@ function LedgerContent() {
         title: 'Retrieve Requested',
         description: 'All provider fund retrieval has been requested. Please wait for the lock period. Check the Distributed Provider Funds details section for wait times.',
       });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Requested retrieval of all provider funds (inference + fine-tuning)',
+      });
       await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       toast({
@@ -146,6 +161,12 @@ function LedgerContent() {
         title: 'Retrieve Requested',
         description: 'Inference funds retrieve request submitted.',
       });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Inference funds retrieve request submitted',
+      });
       await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
       toast({
@@ -166,6 +187,12 @@ function LedgerContent() {
       toast({
         title: 'Retrieve Requested',
         description: 'Fine-tuning funds retrieve request submitted.',
+      });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Fine-tuning funds retrieve request submitted',
       });
       await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
@@ -190,6 +217,13 @@ function LedgerContent() {
       toast({
         title: 'Retrieve Requested',
         description: `Retrieve request submitted for provider ${shortAddr}.`,
+      });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        providerAddress,
+        description: `Retrieve request submitted for ${type} provider ${shortAddr}`,
       });
       await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
@@ -270,7 +304,15 @@ function LedgerContent() {
               {/* Add Funds Section - Now self-contained */}
               <AddFundsForm
                 depositFund={depositFund}
-                onSuccess={refreshLedgerInfo}
+                onSuccess={(amount) => {
+                  addTransaction({
+                    type: 'deposit',
+                    amount: String(amount),
+                    status: 'completed',
+                    description: `Deposited ${amount} 0G to account`,
+                  });
+                  refreshLedgerInfo();
+                }}
               />
             </TabsContent>
 
@@ -300,7 +342,7 @@ function LedgerContent() {
                 transactions={transactions}
                 isLoading={txLoading}
                 onRefresh={refreshTransactions}
-                explorerBaseUrl="https://chainscan-newton.0g.ai"
+                explorerBaseUrl={explorerBaseUrl}
               />
             </TabsContent>
         </div>
@@ -317,7 +359,15 @@ function LedgerContent() {
           if (!broker) throw new Error('Broker not initialized');
           return broker.ledger.refund(amount);
         }}
-        onSuccess={refreshLedgerInfo}
+        onSuccess={(amount) => {
+          addTransaction({
+            type: 'retrieve',
+            amount: String(amount),
+            status: 'completed',
+            description: `Withdrew ${amount} 0G to wallet`,
+          });
+          refreshLedgerInfo();
+        }}
         onDeleteSuccess={() => window.location.href = '/'}
       />
     </div>
