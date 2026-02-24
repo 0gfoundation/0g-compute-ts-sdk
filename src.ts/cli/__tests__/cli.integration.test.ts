@@ -245,7 +245,7 @@ describe('0g-compute-cli Integration Tests', () => {
             }, 14000)
         })
 
-        it('should list inference providers with detail without wallet login', function (done) {
+        it('should list inference providers with detail without wallet login', () => {
             const output = execSync(`node ${cliPath} inference list-providers-detail`, {
                 encoding: 'utf8',
             }).toLowerCase()
@@ -285,7 +285,7 @@ describe('0g-compute-cli Integration Tests', () => {
             expect(output).to.include('create-task')
         })
 
-        it('should list fine-tuning providers without wallet login', function (done) {
+        it('should list fine-tuning providers without wallet login', () => {
             const output = execSync(`node ${cliPath} fine-tuning list-providers`, {
                 encoding: 'utf8',
             }).toLowerCase()
@@ -293,7 +293,7 @@ describe('0g-compute-cli Integration Tests', () => {
             expect(output).to.include('available')
         })
 
-        it('should list fine-tuning models without wallet login', function (done) {
+        it('should list fine-tuning models without wallet login', () => {
             const output = execSync(`node ${cliPath} fine-tuning list-models`, {
                 encoding: 'utf8',
             }).toLowerCase()
