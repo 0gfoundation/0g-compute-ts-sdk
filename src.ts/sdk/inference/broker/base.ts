@@ -95,8 +95,16 @@ export abstract class ZGServingUserBrokerBase {
     protected cache: Cache
 
     private checkAccountThreshold = BigInt(100)
+
+    // Threshold factors for chatbot/speech-to-text/zgStorage
+    // Should align with ResponseFeeReservationFactor in provider broker
     private topUpTriggerThreshold = BigInt(1000000)
     private topUpTargetThreshold = BigInt(2000000)
+
+    // Threshold factors for text-to-image/image-editing
+    // Should align with ResponseFeeReservationFactorForImage in provider broker
+    private topUpTriggerThresholdForImage = BigInt(100)
+    private topUpTargetThresholdForImage = BigInt(200)
     protected ledger: LedgerBroker
 
     constructor(
@@ -723,19 +731,37 @@ export abstract class ZGServingUserBrokerBase {
             const extractor = await this.getExtractor(provider)
             const svc = await extractor.getSvcInfo()
 
+            // Select threshold factors based on service type
+            // Image services use smaller factors since each unit costs more
+            const isImageService =
+                svc.serviceType === 'text-to-image' ||
+                svc.serviceType === 'image-editing'
+            const targetFactor = isImageService
+                ? this.topUpTargetThresholdForImage
+                : this.topUpTargetThreshold
+            const triggerFactor = isImageService
+                ? this.topUpTriggerThresholdForImage
+                : this.topUpTriggerThreshold
+
             // Calculate target and trigger thresholds
             // Minimum target threshold is 1 0G (10^18 neuron)
             const minTargetThreshold = BigInt(10 ** 18)
             const calculatedTargetThreshold =
-                this.topUpTargetThreshold *
+                targetFactor *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice))
             const targetThreshold =
                 calculatedTargetThreshold > minTargetThreshold
                     ? calculatedTargetThreshold
                     : minTargetThreshold
             const triggerThreshold =
-                this.topUpTriggerThreshold *
+                triggerFactor *
                 (BigInt(svc.inputPrice) + BigInt(svc.outputPrice))
+
+            logger.debug(
+                `topUpAccountIfNeeded: serviceType=${svc.serviceType}, isImageService=${isImageService}, ` +
+                `triggerFactor=${triggerFactor}, targetFactor=${targetFactor}, ` +
+                `triggerThreshold=${triggerThreshold}, targetThreshold=${targetThreshold}`
+            )
 
             // Check if it's the first round
             const isFirstRound =
