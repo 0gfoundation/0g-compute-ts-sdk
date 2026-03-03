@@ -423,6 +423,165 @@ export async function runInferenceServer(options: InferenceServerOptions) {
         }
     )
 
+    // ---------------------------------------------------------------------------
+    // Async image endpoints
+    //
+    // Instead of blocking until the provider responds, these endpoints submit a
+    // job to the provider's async queue and immediately return the jobId.
+    // The client is responsible for polling GET /v1/async/jobs/:jobId until the
+    // job reaches "completed" or "failed" status.
+    //
+    // Submit async image generation job
+    // POST /v1/async/images/generations
+    // Body: { prompt, n?, size?, response_format?, ... }  (same as sync endpoint)
+    // Response 202: { jobId, status: "pending" }
+    app.post(
+        '/v1/async/images/generations',
+        async (req: any, res: any): Promise<void> => {
+            const body = req.body
+            logger.debug(
+                `Received async images/generations request: ${JSON.stringify(body)}`
+            )
+
+            if (!body.prompt) {
+                res.status(400).json({
+                    error: 'Missing prompt in request body',
+                })
+                return
+            }
+
+            try {
+                const headers = await broker.inference.getRequestHeaders(
+                    providerAddress,
+                    JSON.stringify(body)
+                )
+
+                const requestBody = {
+                    model,
+                    prompt: body.prompt,
+                    size: body.size || '512x512',
+                    n: body.n || 1,
+                    ...body,
+                }
+
+                const result = await fetch(
+                    `${endpoint.replace('/v1/proxy', '')}/v1/async/images/generations`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...headers,
+                        },
+                        body: JSON.stringify(requestBody),
+                    }
+                )
+
+                const data = await result.json()
+                res.status(result.status).json(data)
+            } catch (err: any) {
+                res.status(500).json({ error: err.message })
+            }
+        }
+    )
+
+    // Submit async image editing job
+    // POST /v1/async/images/edits
+    // Body: multipart/form-data with image file + prompt (same fields as sync endpoint)
+    // Response 202: { jobId, status: "pending" }
+    app.post(
+        '/v1/async/images/edits',
+        async (req: any, res: any): Promise<void> => {
+            logger.debug(`Received async images/edits request`)
+
+            try {
+                const headers = await broker.inference.getRequestHeaders(
+                    providerAddress,
+                    'image editing request'
+                )
+
+                const contentType = req.headers['content-type']
+                const chunks: any[] = []
+                for await (const chunk of req) {
+                    chunks.push(chunk)
+                }
+                const rawBody = Buffer.concat(chunks)
+
+                const result = await fetch(
+                    `${endpoint.replace('/v1/proxy', '')}/v1/async/images/edits`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'content-type': contentType,
+                            'content-length': String(rawBody.length),
+                        },
+                        body: rawBody,
+                    }
+                )
+
+                const data = await result.json()
+                res.status(result.status).json(data)
+            } catch (err: any) {
+                res.status(500).json({ error: err.message })
+            }
+        }
+    )
+
+    // Poll async job status
+    // GET /v1/async/jobs/:jobId
+    // Response: { jobId, status, createdAt, updatedAt, errorMessage?, data? }
+    // Headers: Retry-After is forwarded when status is pending/processing
+    app.get(
+        '/v1/async/jobs/:jobId',
+        async (req: any, res: any): Promise<void> => {
+            const { jobId } = req.params
+            logger.debug(`Polling async job status: ${jobId}`)
+
+            try {
+                const headers = await broker.inference.getRequestHeaders(
+                    providerAddress
+                )
+
+                const result = await fetch(
+                    `${endpoint.replace('/v1/proxy', '')}/v1/async/jobs/${jobId}`,
+                    {
+                        method: 'GET',
+                        headers,
+                    }
+                )
+
+                // Forward Retry-After hint when job is still running
+                const retryAfter = result.headers.get('Retry-After')
+                if (retryAfter) {
+                    res.setHeader('Retry-After', retryAfter)
+                }
+
+                const data = await result.json()
+
+                // Once completed, cache the fee so balance management stays accurate
+                if (data.status === 'completed') {
+                    try {
+                        await broker.inference.processResponse(
+                            providerAddress,
+                            undefined,
+                            JSON.stringify({ n: data.data?.data?.length ?? 1 })
+                        )
+                    } catch (processErr: any) {
+                        logger.warn(
+                            'Failed to process async job response for fee calculation:',
+                            processErr.message
+                        )
+                    }
+                }
+
+                res.status(result.status).json(data)
+            } catch (err: any) {
+                res.status(500).json({ error: err.message })
+            }
+        }
+    )
+    // ---------------------------------------------------------------------------
+
     app.post('/v1/verify', async (req: any, res: any): Promise<void> => {
         const { id } = req.body
         if (!id) {
