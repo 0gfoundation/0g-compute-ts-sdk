@@ -9,6 +9,7 @@ import type {
     ServiceWithDetail,
     Verifiability,
     HealthStatus,
+    ProviderModelInfo,
 } from './read-only-model'
 import { VerifiabilityEnum, isVerifiability } from './read-only-model'
 
@@ -18,6 +19,7 @@ export type {
     ServiceWithDetail,
     Verifiability,
     HealthStatus,
+    ProviderModelInfo,
 }
 export { VerifiabilityEnum, isVerifiability }
 

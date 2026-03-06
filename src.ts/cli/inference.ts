@@ -158,12 +158,36 @@ export default function inference(program: Command) {
                 )
                 services.forEach((service, index) => {
                     const health = service.healthMetrics
+                    const modelInfo = service.modelInfo
 
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
                         chalk.blue(service.provider),
                     ])
                     table.push(['Model', service.model || 'N/A'])
+
+                    // Human-readable model name and description from /v1/models
+                    if (modelInfo?.name) {
+                        table.push(['Model Name', modelInfo.name])
+                    }
+                    if (modelInfo?.description) {
+                        const desc = modelInfo.description.length > 80
+                            ? modelInfo.description.slice(0, 77) + '...'
+                            : modelInfo.description
+                        table.push(['Description', desc])
+                    }
+                    if (modelInfo?.context_length) {
+                        table.push([
+                            'Context Length',
+                            modelInfo.context_length.toLocaleString() + ' tokens',
+                        ])
+                    }
+                    if (modelInfo?.supported_parameters?.length) {
+                        table.push([
+                            'Supported Parameters',
+                            modelInfo.supported_parameters.join(', '),
+                        ])
+                    }
 
                     // Only show input price for non text-to-image and non image-editing services
                     if (
@@ -232,7 +256,8 @@ export default function inference(program: Command) {
                 console.log(
                     chalk.gray(
                         '\nNote: Health metrics are fetched from the monitoring API. ' +
-                        'Services without metrics may be newly registered or temporarily unavailable.'
+                        'Services without metrics may be newly registered or temporarily unavailable. ' +
+                        'Model details (name, context length, etc.) are fetched from each provider and cached for 10 minutes.'
                     )
                 )
             })

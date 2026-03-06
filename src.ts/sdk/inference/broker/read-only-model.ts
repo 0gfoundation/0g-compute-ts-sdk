@@ -48,7 +48,34 @@ export interface ServiceHealthMetric {
 }
 
 /**
- * Service information with optional health metrics
+ * Model information returned by the provider's /v1/models endpoint
+ */
+export interface ProviderModelInfo {
+    id: string
+    object?: string
+    created?: number
+    owned_by?: string
+    name?: string
+    description?: string
+    type?: string
+    context_length?: number
+    architecture?: {
+        modality?: string
+        input_modalities?: string[]
+        output_modalities?: string[]
+    }
+    supported_parameters?: string[]
+    pricing?: {
+        prompt?: string
+        completion?: string
+    }
+    verifiability?: string
+    tee_attested?: boolean
+    tee_verifier?: string
+}
+
+/**
+ * Service information with optional health metrics and provider model info
  */
 export interface ServiceWithDetail {
     provider: string
@@ -68,6 +95,7 @@ export interface ServiceWithDetail {
         avgResponseTime: number
         lastCheck: string
     }
+    modelInfo?: ProviderModelInfo
 }
 
 /**
@@ -77,8 +105,46 @@ export interface ServiceWithDetail {
 export class ReadOnlyModelProcessor {
     protected contract: ReadOnlyInferenceServingContract
 
+    /** In-memory cache for /v1/models responses keyed by provider URL */
+    private providerModelsCache: Map<
+        string,
+        { data: ProviderModelInfo[]; expiry: number }
+    > = new Map()
+
+    /** TTL for provider model info cache: 10 minutes */
+    private readonly MODELS_CACHE_TTL = 10 * 60 * 1000
+
     constructor(contract: ReadOnlyInferenceServingContract) {
         this.contract = contract
+    }
+
+    /**
+     * Fetch model list from a provider's /v1/models endpoint, with TTL caching.
+     * Returns an empty array if the endpoint is unreachable or returns an error.
+     */
+    private async fetchProviderModels(
+        providerUrl: string
+    ): Promise<ProviderModelInfo[]> {
+        const now = Date.now()
+        const cached = this.providerModelsCache.get(providerUrl)
+        if (cached && cached.expiry > now) {
+            return cached.data
+        }
+
+        try {
+            const baseUrl = providerUrl.replace(/\/$/, '')
+            const response = await axios.get(`${baseUrl}/v1/models`, {
+                timeout: 10000,
+            })
+            const models: ProviderModelInfo[] = response.data?.data ?? []
+            this.providerModelsCache.set(providerUrl, {
+                data: models,
+                expiry: now + this.MODELS_CACHE_TTL,
+            })
+            return models
+        } catch {
+            return []
+        }
     }
 
     /**
@@ -155,11 +221,27 @@ export class ReadOnlyModelProcessor {
                 healthMap.set(metric.provider.toLowerCase(), metric)
             }
 
-            // Merge health metrics with services
+            // Fetch /v1/models from each unique provider URL (results are cached per-instance)
+            const uniqueUrls = [...new Set(services.map((s) => s.url))]
+            const urlToModels = new Map<string, ProviderModelInfo[]>()
+            await Promise.all(
+                uniqueUrls.map(async (url) => {
+                    const models = await this.fetchProviderModels(url)
+                    urlToModels.set(url, models)
+                })
+            )
+
+            // Merge health metrics and model info with services
             // Note: Explicitly construct clean objects to avoid numeric indices from ethers Result type
             const servicesWithDetail: ServiceWithDetail[] = services.map(
                 (service) => {
                     const health = healthMap.get(service.provider.toLowerCase())
+                    const providerModels = urlToModels.get(service.url) ?? []
+                    const modelInfo =
+                        providerModels.find((m) => m.id === service.model) ??
+                        (providerModels.length === 1
+                            ? providerModels[0]
+                            : undefined)
                     return {
                         provider: service.provider,
                         serviceType: service.serviceType,
@@ -181,6 +263,7 @@ export class ReadOnlyModelProcessor {
                                 lastCheck: health.lastCheck,
                             }
                             : undefined,
+                        modelInfo,
                     }
                 }
             )
