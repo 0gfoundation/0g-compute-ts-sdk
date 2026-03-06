@@ -63,12 +63,25 @@ export interface ProviderModelInfo {
         modality?: string
         input_modalities?: string[]
         output_modalities?: string[]
+        /** Instruction format the model expects, e.g. "none" | "alpaca" | "chatml" */
+        instruct_type?: string
     }
     supported_parameters?: string[]
+    /** Default parameter values to use when constructing requests */
+    default_parameters?: {
+        temperature?: number
+        top_p?: number
+        top_k?: number
+        [key: string]: number | string | boolean | undefined
+    }
     pricing?: {
         prompt?: string
         completion?: string
+        /** Price per generated image (text-to-image services) */
+        image?: string
     }
+    /** ISO 8601 date string indicating when this model will no longer be served */
+    expiration_date?: string
     verifiability?: string
     tee_attested?: boolean
     tee_verifier?: string
