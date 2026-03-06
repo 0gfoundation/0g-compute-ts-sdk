@@ -48,10 +48,11 @@ export interface ServiceHealthMetric {
 }
 
 /**
- * Model information returned by the provider's /v1/models endpoint
+ * Model information returned by the status API's /v1/models endpoint
  */
 export interface ProviderModelInfo {
     id: string
+    provider?: string
     object?: string
     created?: number
     owned_by?: string
@@ -118,46 +119,8 @@ export interface ServiceWithDetail {
 export class ReadOnlyModelProcessor {
     protected contract: ReadOnlyInferenceServingContract
 
-    /** In-memory cache for /v1/models responses keyed by provider URL */
-    private providerModelsCache: Map<
-        string,
-        { data: ProviderModelInfo[]; expiry: number }
-    > = new Map()
-
-    /** TTL for provider model info cache: 10 minutes */
-    private readonly MODELS_CACHE_TTL = 10 * 60 * 1000
-
     constructor(contract: ReadOnlyInferenceServingContract) {
         this.contract = contract
-    }
-
-    /**
-     * Fetch model list from a provider's /v1/models endpoint, with TTL caching.
-     * Returns an empty array if the endpoint is unreachable or returns an error.
-     */
-    private async fetchProviderModels(
-        providerUrl: string
-    ): Promise<ProviderModelInfo[]> {
-        const now = Date.now()
-        const cached = this.providerModelsCache.get(providerUrl)
-        if (cached && cached.expiry > now) {
-            return cached.data
-        }
-
-        try {
-            const baseUrl = providerUrl.replace(/\/$/, '')
-            const response = await axios.get(`${baseUrl}/v1/models`, {
-                timeout: 10000,
-            })
-            const models: ProviderModelInfo[] = response.data?.data ?? []
-            this.providerModelsCache.set(providerUrl, {
-                data: models,
-                expiry: now + this.MODELS_CACHE_TTL,
-            })
-            return models
-        } catch {
-            return []
-        }
     }
 
     /**
@@ -210,23 +173,27 @@ export class ReadOnlyModelProcessor {
                 includeUnacknowledged
             )
 
-            // Determine health API endpoint based on chain ID
+            // Determine status API endpoint based on chain ID
             const chainId = await this.contract.getChainId()
-            const healthApiEndpoint = this.getHealthApiEndpoint(chainId)
+            const statusApiEndpoint = this.getStatusApiEndpoint(chainId)
 
-            // Fetch health metrics from API
+            // Fetch health metrics and aggregated model info from status API in parallel
             let healthMetrics: ServiceHealthMetric[] = []
-            try {
-                const response = await axios.get(
-                    `${healthApiEndpoint}/health`,
-                    {
-                        timeout: 10000, // 10 second timeout
-                    }
-                )
-                healthMetrics = response.data.services || []
-            } catch (error) {
-                // Continue without health metrics if API fails
-            }
+            let allModels: ProviderModelInfo[] = []
+            await Promise.all([
+                axios
+                    .get(`${statusApiEndpoint}/health`, { timeout: 10000 })
+                    .then((r) => {
+                        healthMetrics = r.data.services || []
+                    })
+                    .catch(() => {}),
+                axios
+                    .get(`${statusApiEndpoint}/models`, { timeout: 10000 })
+                    .then((r) => {
+                        allModels = r.data?.data ?? []
+                    })
+                    .catch(() => {}),
+            ])
 
             // Create a map of health metrics by provider address
             const healthMap = new Map<string, ServiceHealthMetric>()
@@ -234,30 +201,24 @@ export class ReadOnlyModelProcessor {
                 healthMap.set(metric.provider.toLowerCase(), metric)
             }
 
-            // Fetch /v1/models from each unique provider URL (results are cached per-instance)
-            // Concurrency is capped to avoid overwhelming providers with simultaneous connections.
-            const uniqueUrls = [...new Set(services.map((s) => s.url))]
-            const urlToModels = new Map<string, ProviderModelInfo[]>()
-            const CONCURRENCY = 5
-            const queue = [...uniqueUrls]
-            await Promise.all(
-                Array.from(
-                    { length: Math.min(CONCURRENCY, queue.length) },
-                    async () => {
-                        while (queue.length > 0) {
-                            const url = queue.shift()!
-                            urlToModels.set(url, await this.fetchProviderModels(url))
-                        }
-                    }
-                )
-            )
+            // Create a map of model info by provider address
+            const providerModelsMap = new Map<string, ProviderModelInfo[]>()
+            for (const model of allModels) {
+                if (!model.provider) continue
+                const key = model.provider.toLowerCase()
+                const list = providerModelsMap.get(key) ?? []
+                list.push(model)
+                providerModelsMap.set(key, list)
+            }
 
             // Merge health metrics and model info with services
             // Note: Explicitly construct clean objects to avoid numeric indices from ethers Result type
             const servicesWithDetail: ServiceWithDetail[] = services.map(
                 (service) => {
                     const health = healthMap.get(service.provider.toLowerCase())
-                    const providerModels = urlToModels.get(service.url) ?? []
+                    const providerModels =
+                        providerModelsMap.get(service.provider.toLowerCase()) ??
+                        []
                     const modelInfo =
                         providerModels.find((m) => m.id === service.model) ??
                         (providerModels.length === 1
@@ -296,11 +257,11 @@ export class ReadOnlyModelProcessor {
     }
 
     /**
-     * Get health API endpoint based on chain ID
+     * Get status API endpoint based on chain ID
      * @param chainId - The chain ID
-     * @returns The health API endpoint URL
+     * @returns The status API endpoint URL
      */
-    protected getHealthApiEndpoint(chainId?: bigint): string {
+    protected getStatusApiEndpoint(chainId?: bigint): string {
         // Mainnet: 16661n, Testnet: 16602n
         if (chainId === 16661n) {
             return 'https://compute-status.0g.ai'
