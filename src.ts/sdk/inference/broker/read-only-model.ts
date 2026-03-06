@@ -222,13 +222,21 @@ export class ReadOnlyModelProcessor {
             }
 
             // Fetch /v1/models from each unique provider URL (results are cached per-instance)
+            // Concurrency is capped to avoid overwhelming providers with simultaneous connections.
             const uniqueUrls = [...new Set(services.map((s) => s.url))]
             const urlToModels = new Map<string, ProviderModelInfo[]>()
+            const CONCURRENCY = 5
+            const queue = [...uniqueUrls]
             await Promise.all(
-                uniqueUrls.map(async (url) => {
-                    const models = await this.fetchProviderModels(url)
-                    urlToModels.set(url, models)
-                })
+                Array.from(
+                    { length: Math.min(CONCURRENCY, queue.length) },
+                    async () => {
+                        while (queue.length > 0) {
+                            const url = queue.shift()!
+                            urlToModels.set(url, await this.fetchProviderModels(url))
+                        }
+                    }
+                )
             )
 
             // Merge health metrics and model info with services
