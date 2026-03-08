@@ -643,7 +643,6 @@ export async function runRouterServer(options: RouterServerOptions) {
 
         // Perform health check
         try {
-            const fetch = (await import('node-fetch')).default
             const healthCheckHost = host === '0.0.0.0' ? 'localhost' : host
             const res = await fetch(
                 `http://${healthCheckHost}:${port}/v1/chat/completions`,
