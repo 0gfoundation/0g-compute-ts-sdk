@@ -635,7 +635,6 @@ export async function runInferenceServer(options: InferenceServerOptions) {
 
     const server = app.listen(port, host, async () => {
         try {
-            const fetch = (await import('node-fetch')).default
             const healthCheckHost = host === '0.0.0.0' ? 'localhost' : host
             logger.debug(
                 `Performing health check on ${healthCheckHost}:${port}...`
