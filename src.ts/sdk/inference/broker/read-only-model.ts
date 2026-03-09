@@ -60,12 +60,14 @@ export interface ProviderModelInfo {
     description?: string
     type?: string
     context_length?: number
+    max_completion_tokens?: number
     architecture?: {
         modality?: string
         input_modalities?: string[]
         output_modalities?: string[]
         /** Instruction format the model expects, e.g. "none" | "alpaca" | "chatml" */
         instruct_type?: string
+        tokenizer?: string
     }
     supported_parameters?: string[]
     /** Default parameter values to use when constructing requests */
@@ -85,6 +87,7 @@ export interface ProviderModelInfo {
     expiration_date?: string
     verifiability?: string
     tee_attested?: boolean
+    tee_type?: string
     tee_verifier?: string
 }
 

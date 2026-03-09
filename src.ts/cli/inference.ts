@@ -182,6 +182,24 @@ export default function inference(program: Command) {
                             modelInfo.context_length.toLocaleString() + ' tokens',
                         ])
                     }
+                    if (modelInfo?.max_completion_tokens) {
+                        table.push([
+                            'Max Completion Tokens',
+                            modelInfo.max_completion_tokens.toLocaleString() + ' tokens',
+                        ])
+                    }
+                    if (modelInfo?.architecture?.tokenizer) {
+                        table.push(['Tokenizer', modelInfo.architecture.tokenizer])
+                    }
+                    if (modelInfo?.owned_by) {
+                        table.push(['Owned By', modelInfo.owned_by])
+                    }
+                    if (modelInfo?.tee_type) {
+                        table.push(['TEE Type', modelInfo.tee_type])
+                    }
+                    if (modelInfo?.tee_verifier) {
+                        table.push(['TEE Verifier', modelInfo.tee_verifier])
+                    }
                     if (modelInfo?.supported_parameters?.length) {
                         table.push([
                             'Supported Parameters',
@@ -257,7 +275,7 @@ export default function inference(program: Command) {
                     chalk.gray(
                         '\nNote: Health metrics are fetched from the monitoring API. ' +
                         'Services without metrics may be newly registered or temporarily unavailable. ' +
-                        'Model details (name, context length, etc.) are fetched from each provider and cached for 10 minutes.'
+                        'Model details are fetched from the status API.'
                     )
                 )
             })
