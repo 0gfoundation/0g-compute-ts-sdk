@@ -143,22 +143,31 @@ export class ReadOnlyModelProcessor {
     }
 
     /**
-     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     * Retrieves a list of services enriched with health metrics and model info from the status API.
      *
      * @param offset - The offset for pagination (default: 0)
      * @param limit - The limit for pagination (default: 50)
      * @param includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false)
-     * @returns Promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data
-     * @throws An error if the service list cannot be retrieved or health API is unreachable
+     * @returns Promise that resolves to an array of ServiceWithDetail objects, each containing:
+     *   - Blockchain service data (provider, model, pricing, verifiability, etc.)
+     *   - `healthMetrics` — uptime, avg response time, and status (omitted if unavailable)
+     *   - `modelInfo` — rich model metadata: context length, max completion tokens, tokenizer,
+     *     TEE attestation details, supported parameters, pricing, and more (omitted if unavailable)
+     * @throws An error if the service list cannot be retrieved
      *
      * @example
      * ```typescript
-     * const servicesWithHealth = await processor.listServiceWithDetail();
-     * servicesWithHealth.forEach(service => {
+     * const services = await processor.listServiceWithDetail();
+     * services.forEach(service => {
      *   console.log(`Provider: ${service.provider}`);
      *   if (service.healthMetrics) {
      *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
      *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
+     *   }
+     *   if (service.modelInfo) {
+     *     console.log(`  Model: ${service.modelInfo.name}`);
+     *     console.log(`  Context: ${service.modelInfo.context_length} tokens`);
+     *     console.log(`  TEE Attested: ${service.modelInfo.tee_attested}`);
      *   }
      * });
      * ```
@@ -187,13 +196,17 @@ export class ReadOnlyModelProcessor {
                 axios
                     .get(`${statusApiEndpoint}/health`, { timeout: 10000 })
                     .then((r) => {
-                        healthMetrics = r.data.services || []
+                        healthMetrics = Array.isArray(r.data?.services)
+                            ? r.data.services
+                            : []
                     })
                     .catch(() => {}),
                 axios
                     .get(`${statusApiEndpoint}/models`, { timeout: 10000 })
                     .then((r) => {
-                        allModels = r.data?.data ?? []
+                        allModels = Array.isArray(r.data?.data)
+                            ? r.data.data
+                            : []
                     })
                     .catch(() => {}),
             ])
@@ -222,11 +235,9 @@ export class ReadOnlyModelProcessor {
                     const providerModels =
                         providerModelsMap.get(service.provider.toLowerCase()) ??
                         []
-                    const modelInfo =
-                        providerModels.find((m) => m.id === service.model) ??
-                        (providerModels.length === 1
-                            ? providerModels[0]
-                            : undefined)
+                    const modelInfo = providerModels.find(
+                        (m) => m.id === service.model
+                    )
                     return {
                         provider: service.provider,
                         serviceType: service.serviceType,
