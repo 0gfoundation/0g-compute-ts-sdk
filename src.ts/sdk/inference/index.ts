@@ -15,3 +15,4 @@ export {
     ReadOnlyInferenceBroker,
     createReadOnlyInferenceBroker,
 } from './broker'
+export type { ProviderModelInfo, ServiceWithDetail } from './broker'

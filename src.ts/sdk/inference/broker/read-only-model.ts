@@ -48,7 +48,51 @@ export interface ServiceHealthMetric {
 }
 
 /**
- * Service information with optional health metrics
+ * Model information returned by the status API's /v1/models endpoint
+ */
+export interface ProviderModelInfo {
+    id: string
+    provider?: string
+    object?: string
+    created?: number
+    owned_by?: string
+    name?: string
+    description?: string
+    type?: string
+    context_length?: number
+    max_completion_tokens?: number
+    architecture?: {
+        modality?: string
+        input_modalities?: string[]
+        output_modalities?: string[]
+        /** Instruction format the model expects, e.g. "none" | "alpaca" | "chatml" */
+        instruct_type?: string
+        tokenizer?: string
+    }
+    supported_parameters?: string[]
+    /** Default parameter values to use when constructing requests */
+    default_parameters?: {
+        temperature?: number
+        top_p?: number
+        top_k?: number
+        [key: string]: number | string | boolean | undefined
+    }
+    pricing?: {
+        prompt?: string
+        completion?: string
+        /** Price per generated image (text-to-image services) */
+        image?: string
+    }
+    /** ISO 8601 date string indicating when this model will no longer be served */
+    expiration_date?: string
+    verifiability?: string
+    tee_attested?: boolean
+    tee_type?: string
+    tee_verifier?: string
+}
+
+/**
+ * Service information with optional health metrics and provider model info
  */
 export interface ServiceWithDetail {
     provider: string
@@ -68,6 +112,7 @@ export interface ServiceWithDetail {
         avgResponseTime: number
         lastCheck: string
     }
+    modelInfo?: ProviderModelInfo
 }
 
 /**
@@ -98,22 +143,31 @@ export class ReadOnlyModelProcessor {
     }
 
     /**
-     * Retrieves a list of services with detailed health metrics from the monitoring API.
+     * Retrieves a list of services enriched with health metrics and model info from the status API.
      *
      * @param offset - The offset for pagination (default: 0)
      * @param limit - The limit for pagination (default: 50)
      * @param includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false)
-     * @returns Promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data
-     * @throws An error if the service list cannot be retrieved or health API is unreachable
+     * @returns Promise that resolves to an array of ServiceWithDetail objects, each containing:
+     *   - Blockchain service data (provider, model, pricing, verifiability, etc.)
+     *   - `healthMetrics` — uptime, avg response time, and status (omitted if unavailable)
+     *   - `modelInfo` — rich model metadata: context length, max completion tokens, tokenizer,
+     *     TEE attestation details, supported parameters, pricing, and more (omitted if unavailable)
+     * @throws An error if the service list cannot be retrieved
      *
      * @example
      * ```typescript
-     * const servicesWithHealth = await processor.listServiceWithDetail();
-     * servicesWithHealth.forEach(service => {
+     * const services = await processor.listServiceWithDetail();
+     * services.forEach(service => {
      *   console.log(`Provider: ${service.provider}`);
      *   if (service.healthMetrics) {
      *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
      *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
+     *   }
+     *   if (service.modelInfo) {
+     *     console.log(`  Model: ${service.modelInfo.name}`);
+     *     console.log(`  Context: ${service.modelInfo.context_length} tokens`);
+     *     console.log(`  TEE Attested: ${service.modelInfo.tee_attested}`);
      *   }
      * });
      * ```
@@ -131,23 +185,31 @@ export class ReadOnlyModelProcessor {
                 includeUnacknowledged
             )
 
-            // Determine health API endpoint based on chain ID
+            // Determine status API endpoint based on chain ID
             const chainId = await this.contract.getChainId()
-            const healthApiEndpoint = this.getHealthApiEndpoint(chainId)
+            const statusApiEndpoint = this.getStatusApiEndpoint(chainId)
 
-            // Fetch health metrics from API
+            // Fetch health metrics and aggregated model info from status API in parallel
             let healthMetrics: ServiceHealthMetric[] = []
-            try {
-                const response = await axios.get(
-                    `${healthApiEndpoint}/health`,
-                    {
-                        timeout: 10000, // 10 second timeout
-                    }
-                )
-                healthMetrics = response.data.services || []
-            } catch (error) {
-                // Continue without health metrics if API fails
-            }
+            let allModels: ProviderModelInfo[] = []
+            await Promise.all([
+                axios
+                    .get(`${statusApiEndpoint}/health`, { timeout: 10000 })
+                    .then((r) => {
+                        healthMetrics = Array.isArray(r.data?.services)
+                            ? r.data.services
+                            : []
+                    })
+                    .catch(() => {}),
+                axios
+                    .get(`${statusApiEndpoint}/models`, { timeout: 10000 })
+                    .then((r) => {
+                        allModels = Array.isArray(r.data?.data)
+                            ? r.data.data
+                            : []
+                    })
+                    .catch(() => {}),
+            ])
 
             // Create a map of health metrics by provider address
             const healthMap = new Map<string, ServiceHealthMetric>()
@@ -155,11 +217,27 @@ export class ReadOnlyModelProcessor {
                 healthMap.set(metric.provider.toLowerCase(), metric)
             }
 
-            // Merge health metrics with services
+            // Create a map of model info by provider address
+            const providerModelsMap = new Map<string, ProviderModelInfo[]>()
+            for (const model of allModels) {
+                if (!model.provider) continue
+                const key = model.provider.toLowerCase()
+                const list = providerModelsMap.get(key) ?? []
+                list.push(model)
+                providerModelsMap.set(key, list)
+            }
+
+            // Merge health metrics and model info with services
             // Note: Explicitly construct clean objects to avoid numeric indices from ethers Result type
             const servicesWithDetail: ServiceWithDetail[] = services.map(
                 (service) => {
                     const health = healthMap.get(service.provider.toLowerCase())
+                    const providerModels =
+                        providerModelsMap.get(service.provider.toLowerCase()) ??
+                        []
+                    const modelInfo = providerModels.find(
+                        (m) => m.id === service.model
+                    )
                     return {
                         provider: service.provider,
                         serviceType: service.serviceType,
@@ -181,6 +259,7 @@ export class ReadOnlyModelProcessor {
                                 lastCheck: health.lastCheck,
                             }
                             : undefined,
+                        modelInfo,
                     }
                 }
             )
@@ -192,11 +271,11 @@ export class ReadOnlyModelProcessor {
     }
 
     /**
-     * Get health API endpoint based on chain ID
+     * Get status API endpoint based on chain ID
      * @param chainId - The chain ID
-     * @returns The health API endpoint URL
+     * @returns The status API endpoint URL
      */
-    protected getHealthApiEndpoint(chainId?: bigint): string {
+    protected getStatusApiEndpoint(chainId?: bigint): string {
         // Mainnet: 16661n, Testnet: 16602n
         if (chainId === 16661n) {
             return 'https://compute-status.0g.ai'
