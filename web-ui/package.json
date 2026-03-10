@@ -35,7 +35,7 @@
         "ethers": "^6.15.0",
         "https-browserify": "^1.0.0",
         "lucide-react": "^0.555.0",
-        "next": "15.4.10",
+        "next": "15.5.10",
         "next-themes": "^0.4.6",
         "os-browserify": "^0.3.0",
         "process": "^0.11.10",
@@ -77,6 +77,14 @@
                 "react": "19",
                 "ethers": "6"
             }
+        },
+        "overrides": {
+            "hono": "4.12.4",
+            "minimatch@3": "3.1.4",
+            "minimatch@9": "9.0.7",
+            "bn.js@4": "4.12.3",
+            "bn.js@5": "5.2.3",
+            "ajv@6": "6.14.0"
         }
     }
 }
