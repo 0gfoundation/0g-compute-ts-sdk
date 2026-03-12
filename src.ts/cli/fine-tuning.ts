@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, neuronToA0gi, splitIntoChunks } from './util'
+import { withFineTuningBroker, withBroker, neuronToA0gi, splitIntoChunks } from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { download } from '../sdk/fine-tuning/zg-storage'
 import { TOKEN_COUNTER_MERKLE_ROOT } from '../sdk/fine-tuning/const'
+import { makeAdapterName } from '../sdk/common/utils/adapter-name'
 
 export default function fineTuning(program: Command) {
     program
@@ -557,6 +558,122 @@ export default function fineTuning(program: Command) {
             withFineTuningBroker(options, async (broker) => {
                 await broker.fineTuning!.removeService(options.gasPrice)
                 console.log('Service removed successfully!')
+            })
+        })
+
+    program
+        .command('get-adapter-name')
+        .description(
+            'Get the LoRA adapter model name for inference after fine-tuning'
+        )
+        .requiredOption(
+            '--model <name>',
+            'Base model name (e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .requiredOption('--task-id <id>', 'Fine-tuning task ID')
+        .action((options) => {
+            const adapterName = makeAdapterName(options.model, options.taskId)
+            console.log(adapterName)
+        })
+
+    program
+        .command('chat')
+        .description(
+            'Send a chat request to a fine-tuned model via the inference broker'
+        )
+        .requiredOption(
+            '--provider <address>',
+            'Inference provider address (serves the fine-tuned model)'
+        )
+        .option(
+            '--model <name>',
+            'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .option('--task-id <id>', 'Fine-tuning task ID')
+        .option(
+            '--adapter-name <name>',
+            'LoRA adapter name (overrides --model + --task-id)'
+        )
+        .requiredOption('--message <text>', 'User message to send')
+        .option(
+            '--system <text>',
+            'System prompt',
+            'You are a helpful assistant.'
+        )
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .action((options) => {
+            let adapterName: string
+            if (options.adapterName) {
+                adapterName = options.adapterName
+            } else if (options.model && options.taskId) {
+                adapterName = makeAdapterName(
+                    options.model,
+                    options.taskId
+                )
+            } else {
+                console.error(
+                    chalk.red(
+                        'Error: Provide either --adapter-name or both --model and --task-id'
+                    )
+                )
+                process.exit(1)
+            }
+
+            withBroker(options, async (broker) => {
+                console.log(
+                    chalk.gray(`Adapter model name: ${adapterName}`)
+                )
+
+                const { endpoint } =
+                    await broker.inference.getServiceMetadata(options.provider)
+                const headers =
+                    await broker.inference.getRequestHeaders(
+                        options.provider,
+                        JSON.stringify({
+                            model: adapterName,
+                            messages: [
+                                { role: 'system', content: options.system },
+                                { role: 'user', content: options.message },
+                            ],
+                        })
+                    )
+
+                const axios = (await import('axios')).default
+                const resp = await axios.post(
+                    `${endpoint}/chat/completions`,
+                    {
+                        model: adapterName,
+                        messages: [
+                            { role: 'system', content: options.system },
+                            { role: 'user', content: options.message },
+                        ],
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...headers,
+                        },
+                    }
+                )
+
+                const choice = resp.data?.choices?.[0]
+                if (choice) {
+                    console.log(
+                        chalk.green('\nAssistant:'),
+                        choice.message?.content || '(empty)'
+                    )
+                }
+
+                if (resp.data?.usage) {
+                    console.log(
+                        chalk.gray(
+                            `\nTokens: ${resp.data.usage.prompt_tokens} prompt + ${resp.data.usage.completion_tokens} completion = ${resp.data.usage.total_tokens} total`
+                        )
+                    )
+                }
             })
         })
 }

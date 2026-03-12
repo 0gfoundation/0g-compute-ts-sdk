@@ -11,6 +11,7 @@ const path = tslib_1.__importStar(require("path"));
 const fs = tslib_1.__importStar(require("fs/promises"));
 const zg_storage_1 = require("../sdk/fine-tuning/zg-storage");
 const const_2 = require("../sdk/fine-tuning/const");
+const adapter_name_1 = require("../sdk/common/utils/adapter-name");
 function fineTuning(program) {
     program
         .command('verify')
@@ -404,6 +405,72 @@ function fineTuning(program) {
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
             await broker.fineTuning.removeService(options.gasPrice);
             console.log('Service removed successfully!');
+        });
+    });
+    program
+        .command('get-adapter-name')
+        .description('Get the LoRA adapter model name for inference after fine-tuning')
+        .requiredOption('--model <name>', 'Base model name (e.g. Qwen2.5-0.5B-Instruct)')
+        .requiredOption('--task-id <id>', 'Fine-tuning task ID')
+        .action((options) => {
+        const adapterName = (0, adapter_name_1.makeAdapterName)(options.model, options.taskId);
+        console.log(adapterName);
+    });
+    program
+        .command('chat')
+        .description('Send a chat request to a fine-tuned model via the inference broker')
+        .requiredOption('--provider <address>', 'Inference provider address (serves the fine-tuned model)')
+        .option('--model <name>', 'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)')
+        .option('--task-id <id>', 'Fine-tuning task ID')
+        .option('--adapter-name <name>', 'LoRA adapter name (overrides --model + --task-id)')
+        .requiredOption('--message <text>', 'User message to send')
+        .option('--system <text>', 'System prompt', 'You are a helpful assistant.')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .action((options) => {
+        let adapterName;
+        if (options.adapterName) {
+            adapterName = options.adapterName;
+        }
+        else if (options.model && options.taskId) {
+            adapterName = (0, adapter_name_1.makeAdapterName)(options.model, options.taskId);
+        }
+        else {
+            console.error(chalk_1.default.red('Error: Provide either --adapter-name or both --model and --task-id'));
+            process.exit(1);
+        }
+        (0, util_1.withBroker)(options, async (broker) => {
+            console.log(chalk_1.default.gray(`Adapter model name: ${adapterName}`));
+            const { endpoint } = await broker.inference.getServiceMetadata(options.provider);
+            const headers = await broker.inference.getRequestHeaders(options.provider, JSON.stringify({
+                model: adapterName,
+                messages: [
+                    { role: 'system', content: options.system },
+                    { role: 'user', content: options.message },
+                ],
+            }));
+            const axios = (await Promise.resolve().then(() => tslib_1.__importStar(require('axios')))).default;
+            const resp = await axios.post(`${endpoint}/chat/completions`, {
+                model: adapterName,
+                messages: [
+                    { role: 'system', content: options.system },
+                    { role: 'user', content: options.message },
+                ],
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers,
+                },
+            });
+            const choice = resp.data?.choices?.[0];
+            if (choice) {
+                console.log(chalk_1.default.green('\nAssistant:'), choice.message?.content || '(empty)');
+            }
+            if (resp.data?.usage) {
+                console.log(chalk_1.default.gray(`\nTokens: ${resp.data.usage.prompt_tokens} prompt + ${resp.data.usage.completion_tokens} completion = ${resp.data.usage.total_tokens} total`));
+            }
         });
     });
 }
