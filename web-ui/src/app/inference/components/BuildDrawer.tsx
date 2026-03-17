@@ -488,7 +488,7 @@ export function BuildDrawer({ provider, isOpen, onClose }: BuildDrawerProps) {
                                 }
                                 alert={{
                                     type: 'warning',
-                                    message: 'This will automatically acknowledge the provider as trusted. We recommend depositing at least 5 0G for stable service response.'
+                                    message: 'This will automatically acknowledge the provider as trusted. We recommend depositing at least 3 0G for stable service response.'
                                 }}
                             />
 

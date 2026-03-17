@@ -3,7 +3,7 @@ import { InferenceServingContract } from '../contract'
 import type { JsonRpcSigner, Wallet } from 'ethers'
 import { RequestProcessor } from './request'
 import { ResponseProcessor } from './response'
-import type { VerificationResult } from './verifier'
+import type { VerificationResult, VerificationStep } from './verifier'
 import { Verifier } from './verifier'
 import { AccountProcessor } from './account'
 import { ModelProcessor } from './model'
@@ -385,17 +385,20 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      * verifyService is used to verify the reliability of the service.
      *
      * @param {string} providerAddress - The address of the provider.
+     * @param {string} outputDir - Directory to save attestation reports (default: current directory).
+     * @param {function} onLog - Optional callback for real-time step-by-step output.
      *
-     * @returns A <boolean | null> value. True indicates the service is reliable, otherwise it is unreliable.
+     * @returns Verification results with structured data and all log steps.
      *
      * @throws An error if errors occur during the verification process.
      */
     public verifyService = async (
         providerAddress: string,
-        outputDir: string = '.'
+        outputDir: string = '.',
+        onLog?: (step: VerificationStep) => void
     ): Promise<VerificationResult | null> => {
         try {
-            return await this.verifier.verifyService(providerAddress, outputDir)
+            return await this.verifier.verifyService(providerAddress, outputDir, onLog)
         } catch (error) {
             throwFormattedError(error)
         }

@@ -119,16 +119,19 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
         teeSignerAddress: string
     }> {
         try {
-            // Ensure user has an account with the provider
-            // Minimum transfer amount is 1 0G (10^18 neuron)
-            const minTransferAmount = BigInt(10 ** 18)
+            // Ensure user has an account with the provider.
+            // The contract requires MIN_TRANSFER_AMOUNT (1 0G) to create a new service sub-account.
+            // Balance management is handled separately by topUpAccountIfNeeded (Node.js)
+            // or explicit transferFund calls (browser dApps).
+            const MIN_TRANSFER_AMOUNT = BigInt(10 ** 18) // 1 0G in neuron, matches contract MIN_TRANSFER_AMOUNT
             try {
                 await this.contract.getAccount(providerAddress)
             } catch {
+                // Account doesn't exist, create it with minimum required transfer
                 await this.ledger.transferFund(
                     providerAddress,
                     'inference',
-                    minTransferAmount,
+                    MIN_TRANSFER_AMOUNT,
                     gasPrice
                 )
             }
@@ -166,23 +169,23 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
         gasPrice?: number
     ): Promise<void> {
         try {
-            // Ensure user has an account with the provider
-            // Minimum transfer amount is 1 0G (10^18 neuron)
-            const minTransferAmount = BigInt(10 ** 18)
+            // Only handle acknowledgement. Balance management is handled separately
+            // by topUpAccountIfNeeded (Node.js) or explicit transferFund (browser).
+            const MIN_TRANSFER_AMOUNT = BigInt(10 ** 18) // 1 0G in neuron, matches contract MIN_TRANSFER_AMOUNT
             let account
             try {
                 account = await this.contract.getAccount(providerAddress)
             } catch {
+                // Account doesn't exist, create it with minimum required transfer
                 await this.ledger.transferFund(
                     providerAddress,
                     'inference',
-                    minTransferAmount,
+                    MIN_TRANSFER_AMOUNT,
                     gasPrice
                 )
             }
 
             if (account && account.acknowledged) {
-                // Already acknowledged
                 return
             }
 
@@ -261,4 +264,5 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
             throwFormattedError(error)
         }
     }
+
 }

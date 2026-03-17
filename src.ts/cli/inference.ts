@@ -610,7 +610,8 @@ export default function inference(program: Command) {
             withBroker(options, async (broker) => {
                 const result = await broker.inference.verifyService(
                     options.provider,
-                    options.outputDir
+                    options.outputDir,
+                    (step) => console.log(step.message)
                 )
                 if (result) {
                     if (!result.success) {

@@ -96,15 +96,16 @@ export abstract class ZGServingUserBrokerBase {
 
     private checkAccountThreshold = BigInt(100)
 
-    // Threshold factors for chatbot/speech-to-text/zgStorage
-    // Should align with ResponseFeeReservationFactor in provider broker
-    private topUpTriggerThreshold = BigInt(1000000)
-    private topUpTargetThreshold = BigInt(2000000)
+    // Fixed top-up target: 3 0G (in neuron)
+    // Must match MinimumLockedBalance in broker proxy (api/inference/const/const.go)
+    protected static readonly TOP_UP_TARGET =
+        BigInt(3) * BigInt(10 ** 18)
 
-    // Threshold factors for text-to-image/image-editing
-    // Should align with ResponseFeeReservationFactorForImage in provider broker
-    private topUpTriggerThresholdForImage = BigInt(100)
-    private topUpTargetThresholdForImage = BigInt(200)
+    // Fixed top-up trigger: 1.5 0G (in neuron)
+    // When sub-account balance drops below this, auto top-up to TOP_UP_TARGET
+    protected static readonly TOP_UP_TRIGGER =
+        ZGServingUserBrokerBase.TOP_UP_TARGET / BigInt(2)
+
     protected ledger: LedgerBroker
 
     constructor(
@@ -712,7 +713,9 @@ export abstract class ZGServingUserBrokerBase {
     }
 
     /**
-     * Transfer fund from ledger if fund in the inference account is less than a topUpTriggerThreshold * (inputPrice + outputPrice)
+     * Transfer fund from ledger if fund in the inference account drops below TOP_UP_TRIGGER (1.5 0G).
+     * Tops up to TOP_UP_TARGET (3 0G) which matches broker proxy's MinimumLockedBalance.
+     * Uses fixed thresholds for all service types to keep the logic simple.
      */
     async topUpAccountIfNeeded(
         provider: string,
@@ -720,7 +723,11 @@ export abstract class ZGServingUserBrokerBase {
         gasPrice?: number
     ) {
         try {
-            // Exit early if running in browser environment
+            // Skip auto-funding in browser environments.
+            // Browser signers (e.g. MetaMask) require user confirmation for each
+            // transaction, so silent auto-funding would cause unexpected wallet popups
+            // during chat. Browser dApps should rely on acknowledgeProviderSigner()
+            // for initial funding and manual transferFund() for top-ups.
             if (
                 typeof window !== 'undefined' &&
                 typeof window.document !== 'undefined'
@@ -728,40 +735,8 @@ export abstract class ZGServingUserBrokerBase {
                 return
             }
 
-            const extractor = await this.getExtractor(provider)
-            const svc = await extractor.getSvcInfo()
-
-            // Select threshold factors based on service type
-            // Image services use smaller factors since each unit costs more
-            const isImageService =
-                svc.serviceType === 'text-to-image' ||
-                svc.serviceType === 'image-editing'
-            const targetFactor = isImageService
-                ? this.topUpTargetThresholdForImage
-                : this.topUpTargetThreshold
-            const triggerFactor = isImageService
-                ? this.topUpTriggerThresholdForImage
-                : this.topUpTriggerThreshold
-
-            // Calculate target and trigger thresholds
-            // Minimum target threshold is 1 0G (10^18 neuron)
-            const minTargetThreshold = BigInt(10 ** 18)
-            const calculatedTargetThreshold =
-                targetFactor *
-                (BigInt(svc.inputPrice) + BigInt(svc.outputPrice))
-            const targetThreshold =
-                calculatedTargetThreshold > minTargetThreshold
-                    ? calculatedTargetThreshold
-                    : minTargetThreshold
-            const triggerThreshold =
-                triggerFactor *
-                (BigInt(svc.inputPrice) + BigInt(svc.outputPrice))
-
-            logger.debug(
-                `topUpAccountIfNeeded: serviceType=${svc.serviceType}, isImageService=${isImageService}, ` +
-                `triggerFactor=${triggerFactor}, targetFactor=${targetFactor}, ` +
-                `triggerThreshold=${triggerThreshold}, targetThreshold=${targetThreshold}`
-            )
+            const triggerThreshold = ZGServingUserBrokerBase.TOP_UP_TRIGGER
+            const targetThreshold = ZGServingUserBrokerBase.TOP_UP_TARGET
 
             // Check if it's the first round
             const isFirstRound =
@@ -776,57 +751,31 @@ export abstract class ZGServingUserBrokerBase {
                 return
             }
 
-            let newFee = BigInt(0)
+            const extractor = await this.getExtractor(provider)
+            const svc = await extractor.getSvcInfo()
+
             if (content) {
-                newFee = await this.calculateFee(extractor, content)
+                const newFee = await this.calculateFee(extractor, content)
                 await this.updateCachedFee(provider, newFee)
             }
 
-            // Check if we need to check the account
+            // Check if accumulated fees warrant a balance check
             if (!(await this.shouldCheckAccount(svc))) return
 
             await this.clearBalanceCheckFee(provider)
 
-            // Re-check the account balance
-            let needTransfer = false
-            try {
-                const acc = await this.contract.getAccount(provider)
-                const lockedFund = acc.balance - acc.pendingRefund
-
-                logger.debug(
-                    `Locked fund for provider ${provider}: ${lockedFund.toString()}, trigger threshold: ${triggerThreshold.toString()}`
-                )
-                needTransfer = lockedFund < triggerThreshold
-            } catch {
-                // Account doesn't exist, need to create it by transferring funds
-                needTransfer = true
-            }
+            // Check the account balance
+            const needTransfer = await this.isBalanceBelowThreshold(
+                provider,
+                triggerThreshold
+            )
 
             if (needTransfer) {
-                try {
-                    await this.ledger.transferFund(
-                        provider,
-                        'inference',
-                        targetThreshold,
-                        gasPrice
-                    )
-                    await this.clearCacheFee(provider)
-                } catch (error: any) {
-                    // Check if it's an insufficient balance error
-                    const errorMessage = error?.message?.toLowerCase() || ''
-                    if (errorMessage.includes('insufficient')) {
-                        console.warn(
-                            `Warning: To ensure stable service from the provider, ${targetThreshold} neuron needs to be transferred from the balance, but the current balance is insufficient.`
-                        )
-                        return
-                    }
-                    console.warn(
-                        `Warning: Failed to transfer funds: ${
-                            error?.message || error
-                        }`
-                    )
-                    return
-                }
+                await this.doTransfer(
+                    provider,
+                    targetThreshold,
+                    gasPrice
+                )
             }
         } catch (error: any) {
             console.warn(
@@ -841,40 +790,13 @@ export abstract class ZGServingUserBrokerBase {
         targetThreshold: bigint,
         gasPrice?: number
     ) {
-        let needTransfer = false
-
-        try {
-            const acc = await this.contract.getAccount(provider)
-            const lockedFund = acc.balance - acc.pendingRefund
-            needTransfer = lockedFund < triggerThreshold
-        } catch {
-            needTransfer = true
-        }
+        const needTransfer = await this.isBalanceBelowThreshold(
+            provider,
+            triggerThreshold
+        )
 
         if (needTransfer) {
-            try {
-                await this.ledger.transferFund(
-                    provider,
-                    'inference',
-                    targetThreshold,
-                    gasPrice
-                )
-            } catch (error: any) {
-                // Check if it's an insufficient balance error
-                const errorMessage = error?.message?.toLowerCase() || ''
-                if (errorMessage.includes('insufficient')) {
-                    console.warn(
-                        `Warning: To ensure stable service from the provider, ${targetThreshold} neuron needs to be transferred from the balance, but the current balance is insufficient.`
-                    )
-                    return
-                }
-                console.warn(
-                    `Warning: Failed to transfer funds: ${
-                        error?.message || error
-                    }`
-                )
-                return
-            }
+            await this.doTransfer(provider, targetThreshold, gasPrice)
         }
 
         // Mark the first round as complete
@@ -884,6 +806,54 @@ export abstract class ZGServingUserBrokerBase {
             10000000 * 60 * 1000,
             CacheValueTypeEnum.Other
         )
+    }
+
+    private async isBalanceBelowThreshold(
+        provider: string,
+        triggerThreshold: bigint
+    ): Promise<boolean> {
+        try {
+            const acc = await this.contract.getAccount(provider)
+            const lockedFund = acc.balance - acc.pendingRefund
+            logger.debug(
+                `Locked fund for provider ${provider}: ${lockedFund.toString()}, trigger: ${triggerThreshold.toString()}`
+            )
+            return lockedFund < triggerThreshold
+        } catch {
+            // Account doesn't exist, need to create it by transferring funds
+            return true
+        }
+    }
+
+    private async doTransfer(
+        provider: string,
+        targetThreshold: bigint,
+        gasPrice?: number
+    ) {
+        try {
+            await this.ledger.transferFund(
+                provider,
+                'inference',
+                targetThreshold,
+                gasPrice
+            )
+            await this.clearCacheFee(provider)
+        } catch (error: any) {
+            const targetInOG = this.neuronToA0gi(targetThreshold)
+            const errorMessage = error?.message?.toLowerCase() || ''
+            if (errorMessage.includes('insufficient')) {
+                console.warn(
+                    `Warning: Auto-funding requires ${targetInOG} 0G in your ledger to transfer to the provider sub-account, but your ledger available balance is insufficient. ` +
+                        `Please deposit more funds using: broker.ledger.depositFund(${Math.ceil(targetInOG)})`
+                )
+                return
+            }
+            console.warn(
+                `Warning: Failed to transfer ${targetInOG} 0G to provider sub-account: ${
+                    error?.message || error
+                }`
+            )
+        }
     }
 
     /**

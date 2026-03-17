@@ -201,9 +201,9 @@ export function TransferFundForm({
         </a>)
       </p>
 
-      {/* Recommendations */}
+      {/* Minimum balance info */}
       <p className="text-xs text-amber-600">
-        Recommended: Transfer at least 5 0G for stable service response
+        Minimum: {MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G required per provider for stable service response
       </p>
 
       {/* Success Message */}

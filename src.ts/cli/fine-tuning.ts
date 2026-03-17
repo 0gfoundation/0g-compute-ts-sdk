@@ -29,7 +29,8 @@ export default function fineTuning(program: Command) {
             withFineTuningBroker(options, async (broker) => {
                 const result = await broker.fineTuning!.verifyService(
                     options.provider,
-                    options.outputDir
+                    options.outputDir,
+                    (step) => console.log(step.message)
                 )
 
                 if (!result) {
