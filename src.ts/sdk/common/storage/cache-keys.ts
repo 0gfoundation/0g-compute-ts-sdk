@@ -25,9 +25,6 @@ export const CACHE_KEY_PREFIXES = {
     // Cached fee
     CACHED_FEE: '_cachedFee',
 
-    // Check balance
-    CHECK_BALANCE: '_checkBalance',
-
     // Session token cache (for ephemeral tokens)
     SESSION_TOKEN: 'session_',
 } as const
@@ -53,10 +50,6 @@ export const CacheKeyHelpers = {
     // Cached fee key
     getCachedFeeKey(provider: string): string {
         return `${provider}${CACHE_KEY_PREFIXES.CACHED_FEE}`
-    },
-
-    getCheckBalanceKey(provider: string): string {
-        return `${provider}${CACHE_KEY_PREFIXES.CHECK_BALANCE}`
     },
 
     // getSettleSignerPrivateKeyKey removed - no longer needed

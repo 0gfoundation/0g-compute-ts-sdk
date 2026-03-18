@@ -686,18 +686,20 @@ export abstract class ZGServingUserBrokerBase {
     private static readonly FEE_CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
     /**
-     * Accumulate fee into the checkBalanceFee counter.
+     * Accumulate fee into the cachedFee counter.
      * Called by processResponse() to track usage between auto-funding cycles.
+     * This value is used as a fallback by fetchUnsettledFee() when the provider
+     * does not support the /unsettledfee API endpoint.
      */
     async updateCachedFee(provider: string, fee: bigint) {
         try {
-            const checkBalanceKey =
-                CacheKeyHelpers.getCheckBalanceKey(provider)
-            const curCheckFee =
-                (await this.cache.getItem(checkBalanceKey)) || BigInt(0)
+            const cacheFundKey =
+                CacheKeyHelpers.getCachedFeeKey(provider)
+            const curFee =
+                (await this.cache.getItem(cacheFundKey)) || BigInt(0)
             await this.cache.setItem(
-                checkBalanceKey,
-                BigInt(curCheckFee) + fee,
+                cacheFundKey,
+                BigInt(curFee) + fee,
                 ZGServingUserBrokerBase.FEE_CACHE_TTL,
                 CacheValueTypeEnum.BigInt
             )
