@@ -948,18 +948,23 @@ export abstract class ZGServingUserBrokerBase {
         amount: bigint,
         gasPrice?: number
     ) {
+        // Ensure minimum transfer of MIN_LOCKED_BALANCE to avoid frequent
+        // tiny transfers that trigger warnings and get rejected by provider.
+        const minTransfer = ZGServingUserBrokerBase.MIN_LOCKED_BALANCE
+        const transferAmount = amount < minTransfer ? minTransfer : amount
+
         try {
             await this.ledger.transferFund(
                 provider,
                 'inference',
-                amount,
+                transferAmount,
                 gasPrice
             )
             // Clear both counters after successful transfer
             await this.clearCacheFee(provider)
             await this.clearCheckBalanceFee(provider)
         } catch (error: any) {
-            const amountInOG = this.neuronToA0gi(amount)
+            const amountInOG = this.neuronToA0gi(transferAmount)
             const errorMessage = error?.message?.toLowerCase() || ''
             if (errorMessage.includes('insufficient')) {
                 logger.warn(
