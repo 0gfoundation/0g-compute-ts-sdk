@@ -170,7 +170,7 @@ export class LedgerProcessor {
             }
 
             // Check if ledger exists; if not, depositFund will create one.
-            // The contract requires MIN_ACCOUNT_BALANCE (3 0G) for ledger creation.
+            // The contract requires MIN_ACCOUNT_BALANCE for ledger creation.
             let ledgerExists = false
             try {
                 const ledger = await this.getLedger()
@@ -237,16 +237,16 @@ export class LedgerProcessor {
     /**
      * Minimum transfer amount for new service sub-account creation (1 0G in neuron).
      * Matches the contract's MIN_TRANSFER_AMOUNT constant.
-     * User-facing transfers should use MIN_TRANSFER_AMOUNT_OG (3 0G).
+     * User-facing transfers should use MIN_TRANSFER_AMOUNT_OG (1 0G).
      */
     static readonly MIN_TRANSFER_AMOUNT_CONTRACT = BigInt(10 ** 18)
 
     /**
-     * Recommended minimum transfer amount for user-facing operations (3 0G in neuron).
+     * Recommended minimum transfer amount for user-facing operations (1 0G in neuron).
      * Matches the MinimumLockedBalance in the broker proxy, ensuring the provider
      * sub-account has enough balance to serve requests.
      */
-    static readonly MIN_TRANSFER_AMOUNT_OG = BigInt(3) * BigInt(10 ** 18)
+    static readonly MIN_TRANSFER_AMOUNT_OG = BigInt(1) * BigInt(10 ** 18)
 
     async transferFund(
         to: AddressLike,
@@ -261,16 +261,16 @@ export class LedgerProcessor {
                 )
             }
 
-            // Warn if transferring less than the recommended minimum (3 0G),
-            // but allow it since internal operations (e.g. account creation) transfer 1 0G.
+            // Warn if transferring less than the recommended minimum (1 0G),
+            // but allow it since internal operations (e.g. account creation) may transfer smaller amounts.
             if (
-                balance > LedgerProcessor.MIN_TRANSFER_AMOUNT_CONTRACT &&
+                balance > BigInt(0) &&
                 balance < LedgerProcessor.MIN_TRANSFER_AMOUNT_OG
             ) {
                 const amountInOG = this.neuronToA0gi(balance)
                 logger.warn(
                     `Warning: Transferring ${amountInOG.toFixed(6)} 0G to provider sub-account. ` +
-                        `The recommended minimum is 3 0G to meet provider balance requirements. ` +
+                        `The recommended minimum is 1 0G to meet provider balance requirements. ` +
                         `Requests may be rejected if sub-account balance is below the provider's minimum threshold.`
                 )
             }

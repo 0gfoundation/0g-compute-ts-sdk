@@ -25,12 +25,12 @@ import { useToast } from "@/hooks/use-toast";
 import { MINIMUM_DEPOSITS } from "@/shared/constants/limits";
 
 // Preset amounts for quick top-up
-// First preset matches MINIMUM_DEPOSITS.TOPUP_PROVIDER (3 0G)
+// First preset matches MINIMUM_DEPOSITS.TOPUP_PROVIDER (1 0G)
 const TOPUP_PRESETS = [
-  { value: 3, label: '3 0G' },
+  { value: 1, label: '1 0G' },
+  { value: 5, label: '5 0G' },
   { value: 10, label: '10 0G' },
   { value: 25, label: '25 0G' },
-  { value: 50, label: '50 0G' },
 ];
 
 interface Provider {

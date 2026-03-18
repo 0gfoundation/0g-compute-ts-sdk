@@ -1,7 +1,7 @@
 /**
  * Minimum deposit and transfer amounts for the 0G Compute Network
  *
- * Provider sub-accounts require a minimum locked balance of 3 0G
+ * Provider sub-accounts require a minimum locked balance of 1 0G
  * to serve requests (matches MinimumLockedBalance in broker proxy).
  */
 
@@ -14,7 +14,7 @@ export const MINIMUM_DEPOSITS = {
   TOPUP_LEDGER: 1,         // Minimum top-up to ledger: 1 0G
 
   // Transfer to provider subaccount
-  TOPUP_PROVIDER: 3,       // Minimum transfer to provider: 3 0G (matches broker proxy MinimumLockedBalance)
+  TOPUP_PROVIDER: 1,       // Minimum transfer to provider: 1 0G (matches broker proxy MinimumLockedBalance)
 } as const;
 
 export const RECOMMENDED_DEPOSITS = {

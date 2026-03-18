@@ -129,7 +129,7 @@ export function FundDistribution({
                                 <TooltipContent className="max-w-64">
                                     <p className="font-medium mb-1">Provider Sub-Account Funding</p>
                                     <p className="text-xs text-gray-300">
-                                        For each AI service provider you use, the system creates a separate sub-account under your control. You need to transfer at least 3 0G to a provider&apos;s sub-account before using their services.
+                                        For each AI service provider you use, the system creates a separate sub-account under your control. You need to transfer at least 1 0G to a provider&apos;s sub-account before using their services.
                                     </p>
                                 </TooltipContent>
                             </Tooltip>

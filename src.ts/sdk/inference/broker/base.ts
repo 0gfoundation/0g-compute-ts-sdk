@@ -94,11 +94,11 @@ export abstract class ZGServingUserBrokerBase {
     protected metadata: Metadata
     protected cache: Cache
 
-    // Minimum locked balance required by provider broker proxy (3 0G in neuron).
+    // Minimum locked balance required by provider broker proxy (1 0G in neuron).
     // Matches MinimumLockedBalance in api/inference/const/const.go.
     // Provider requires: lockBalance >= unsettledFee + currentFee + MIN_LOCKED_BALANCE
     protected static readonly MIN_LOCKED_BALANCE =
-        BigInt(3) * BigInt(10 ** 18)
+        BigInt(1) * BigInt(10 ** 18)
 
 
     protected ledger: LedgerBroker
@@ -660,7 +660,7 @@ export abstract class ZGServingUserBrokerBase {
     // cleared explicitly after a successful transfer, not by expiration.
     private static readonly FEE_CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
-    // Throttle threshold for on-chain balance checks: 10% of MIN_LOCKED_BALANCE (0.3 0G).
+    // Throttle threshold for on-chain balance checks: 10% of MIN_LOCKED_BALANCE (0.1 0G).
     // We only query the chain when accumulated fees since last check exceed this amount,
     // avoiding an on-chain read on every request.
     private static readonly CHECK_BALANCE_THRESHOLD =
@@ -725,7 +725,7 @@ export abstract class ZGServingUserBrokerBase {
     /**
      * Transfer fund from ledger if the provider sub-account balance is insufficient.
      *
-     * Provider requires: lockBalance >= unsettledFee + currentFee + MIN_LOCKED_BALANCE (3 0G).
+     * Provider requires: lockBalance >= unsettledFee + currentFee + MIN_LOCKED_BALANCE (1 0G).
      * We use cachedFee (accumulated via processResponse) to track unsettled fee on the client side.
      *
      * Trigger:  onChainBalance < cachedFee + MIN_LOCKED_BALANCE
@@ -766,7 +766,7 @@ export abstract class ZGServingUserBrokerBase {
             }
 
             // Throttle: only query on-chain balance when accumulated fees
-            // since last check exceed CHECK_BALANCE_THRESHOLD (0.3 0G).
+            // since last check exceed CHECK_BALANCE_THRESHOLD (0.1 0G).
             if (!(await this.shouldCheckBalance(provider))) {
                 return
             }
@@ -788,7 +788,7 @@ export abstract class ZGServingUserBrokerBase {
                 )
             } else {
                 // Balance is sufficient — reset check counter so we don't
-                // query the chain again until another 0.3 0G accumulates.
+                // query the chain again until another 0.1 0G accumulates.
                 await this.clearCheckBalanceFee(provider)
             }
         } catch (error: any) {

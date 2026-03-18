@@ -169,7 +169,7 @@ export function BalanceFlowDiagram({
                 </div>
                 <div className="bg-white/60 rounded-lg p-3 text-xs">
                     <div className="font-medium text-blue-700 mb-1">Fund Provider</div>
-                    <p className="text-gray-600">Transfer at least 3 0G to a provider sub-account before using their services</p>
+                    <p className="text-gray-600">Transfer at least 1 0G to a provider sub-account before using their services</p>
                 </div>
                 <div className="bg-white/60 rounded-lg p-3 text-xs">
                     <div className="font-medium text-amber-700 mb-1">Retrieve</div>
