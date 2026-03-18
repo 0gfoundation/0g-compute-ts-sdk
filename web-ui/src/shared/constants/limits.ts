@@ -1,19 +1,20 @@
 /**
  * Minimum deposit and transfer amounts for the 0G Compute Network
  *
- * Based on feedback: unified minimum is 1 0G for all top-ups
+ * Provider sub-accounts require a minimum locked balance of 1 0G
+ * to serve requests (matches MinimumLockedBalance in broker proxy).
  */
 
 export const MINIMUM_DEPOSITS = {
   // Initial account creation (first-time deposit to ledger)
-  INITIAL_MAINNET: 3,      // Mainnet initial account
+  INITIAL_MAINNET: 3,      // Mainnet initial account (matches contract MIN_ACCOUNT_BALANCE)
   INITIAL_TESTNET: 0.1,    // Testnet initial account
 
   // Subsequent deposits to ledger (wallet page)
   TOPUP_LEDGER: 1,         // Minimum top-up to ledger: 1 0G
 
   // Transfer to provider subaccount
-  TOPUP_PROVIDER: 1,       // Minimum transfer to provider: 1 0G
+  TOPUP_PROVIDER: 1,       // Minimum transfer to provider: 1 0G (matches broker proxy MinimumLockedBalance)
 } as const;
 
 export const RECOMMENDED_DEPOSITS = {

@@ -124,7 +124,7 @@ export function ProviderFundsTable({
     const getRefundKey = (provider: string) => `${type}-${provider}`
 
     const allProvidersUnavailable = providers.length === 0 || providers.every(
-        p => a0giStringToNeuron(p.balance) <= a0giStringToNeuron(p.requestedReturn)
+        p => a0giStringToNeuron(p.balance) === BigInt(0) && a0giStringToNeuron(p.requestedReturn) === BigInt(0)
     )
     const hasOwnProviderRetrieving = providers.some(
         p => retrievingProviders[getRefundKey(p.provider)]
@@ -206,7 +206,7 @@ export function ProviderFundsTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => onRetrieveProvider(provider.provider)}
-                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAll || a0giStringToNeuron(provider.balance) <= a0giStringToNeuron(provider.requestedReturn)}
+                                                disabled={retrievingProviders[refundKey] || isRetrieving || isRetrievingAll || (a0giStringToNeuron(provider.balance) === BigInt(0) && a0giStringToNeuron(provider.requestedReturn) === BigInt(0))}
                                                 className="flex-shrink-0 text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 h-7 px-2"
                                             >
                                                 {retrievingProviders[refundKey] && <Loader2 className="h-3 w-3 animate-spin mr-1" />}

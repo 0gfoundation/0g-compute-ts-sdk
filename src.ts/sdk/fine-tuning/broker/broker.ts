@@ -9,7 +9,7 @@ import { Provider } from '../provider/provider'
 import type { Task } from '../provider/provider'
 import { throwFormattedError } from '../../common/utils'
 import { Verifier } from './verifier'
-import type { VerificationResult } from './verifier'
+import type { VerificationResult, VerificationStep } from './verifier'
 import { ReadOnlyFineTuningBroker } from './read-only-broker'
 
 export class FineTuningBroker extends ReadOnlyFineTuningBroker {
@@ -426,10 +426,11 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
      */
     public verifyService = async (
         providerAddress: string,
-        outputDir: string = '.'
+        outputDir: string = '.',
+        onLog?: (step: VerificationStep) => void
     ): Promise<VerificationResult> => {
         try {
-            return await this.verifier.verifyService(providerAddress, outputDir)
+            return await this.verifier.verifyService(providerAddress, outputDir, onLog)
         } catch (error) {
             throwFormattedError(error)
         }

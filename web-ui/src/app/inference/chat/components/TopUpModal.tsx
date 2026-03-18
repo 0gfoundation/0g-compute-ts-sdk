@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MINIMUM_DEPOSITS } from "@/shared/constants/limits";
 
 // Preset amounts for quick top-up
+// First preset matches MINIMUM_DEPOSITS.TOPUP_PROVIDER (1 0G)
 const TOPUP_PRESETS = [
   { value: 1, label: '1 0G' },
   { value: 5, label: '5 0G' },
@@ -253,7 +254,7 @@ export function TopUpModal({
                   <HelpCircle className="h-3 w-3 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>The minimum transfer ensures efficient transaction processing on the network. Smaller amounts would have disproportionate gas costs.</p>
+                  <p>Each provider requires a minimum locked balance of {MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G in your sub-account to serve requests. Transfers below this amount may result in rejected requests.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

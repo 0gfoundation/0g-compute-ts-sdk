@@ -130,7 +130,7 @@ export function BalanceFlowDiagram({
                     <div className="md:hidden">
                         <ArrowDown className="h-5 w-5 text-blue-500" />
                     </div>
-                    <span className="text-xs text-blue-600 font-medium mt-1">Auto-fund</span>
+                    <span className="text-xs text-blue-600 font-medium mt-1">Transfer</span>
                 </div>
 
                 {/* Provider Accounts */}
@@ -168,8 +168,8 @@ export function BalanceFlowDiagram({
                     <p className="text-gray-600">Transfer 0G tokens from your wallet to your account</p>
                 </div>
                 <div className="bg-white/60 rounded-lg p-3 text-xs">
-                    <div className="font-medium text-blue-700 mb-1">Auto-funding</div>
-                    <p className="text-gray-600">Funds automatically move to providers when you use their services</p>
+                    <div className="font-medium text-blue-700 mb-1">Fund Provider</div>
+                    <p className="text-gray-600">Transfer at least 1 0G to a provider sub-account before using their services</p>
                 </div>
                 <div className="bg-white/60 rounded-lg p-3 text-xs">
                     <div className="font-medium text-amber-700 mb-1">Retrieve</div>

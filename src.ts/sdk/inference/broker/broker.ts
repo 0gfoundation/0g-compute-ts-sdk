@@ -3,7 +3,7 @@ import { InferenceServingContract } from '../contract'
 import type { JsonRpcSigner, Wallet } from 'ethers'
 import { RequestProcessor } from './request'
 import { ResponseProcessor } from './response'
-import type { VerificationResult } from './verifier'
+import type { VerificationResult, VerificationStep } from './verifier'
 import { Verifier } from './verifier'
 import { AccountProcessor } from './account'
 import { ModelProcessor } from './model'
@@ -11,6 +11,7 @@ import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
 import { throwFormattedError } from '../../common/utils'
 import { ReadOnlyInferenceBroker } from './read-only-broker'
+import type { AutoFundingConfig } from './base'
 
 /**
  * Full-featured inference broker with authentication required
@@ -342,6 +343,66 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     }
 
     /**
+     * Start background auto-funding for a provider.
+     *
+     * Runs an immediate balance check, then periodically checks the provider
+     * sub-account balance and tops up from the ledger if needed. This runs
+     * entirely in the background, so {@link getRequestHeaders} has zero
+     * extra latency.
+     *
+     * Call {@link stopAutoFunding} to stop the background timer.
+     *
+     * @param {string} providerAddress - The provider address to auto-fund.
+     * @param config - Optional auto-funding configuration.
+     * @param config.interval - Polling interval in ms (default: 30000 = 30s).
+     * @param config.bufferMultiplier - Multiplier for MIN_LOCKED_BALANCE buffer (default: 2).
+     *   requiredBalance = unsettledFee + bufferMultiplier * MIN_LOCKED_BALANCE.
+     * @param {number} gasPrice - Optional gas price for transactions.
+     *
+     * @example
+     * ```typescript
+     * // Start auto-funding with defaults (30s interval, 2x buffer)
+     * await broker.inference.startAutoFunding(providerAddress);
+     *
+     * // Start with custom config
+     * await broker.inference.startAutoFunding(providerAddress, {
+     *   interval: 15000,       // check every 15s
+     *   bufferMultiplier: 3,   // keep 3x min locked balance
+     * });
+     *
+     * // ... make requests without worrying about balance ...
+     * const headers = await broker.inference.getRequestHeaders(providerAddress);
+     *
+     * // Stop when done
+     * broker.inference.stopAutoFunding(providerAddress);
+     * ```
+     */
+    public startAutoFunding = async (
+        providerAddress: string,
+        config?: AutoFundingConfig,
+        gasPrice?: number
+    ): Promise<void> => {
+        try {
+            await this.requestProcessor.startAutoFunding(
+                providerAddress,
+                config,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Stop background auto-funding for a provider.
+     *
+     * @param {string} providerAddress - The provider address. If omitted, stops all auto-funding timers.
+     */
+    public stopAutoFunding = (providerAddress?: string): void => {
+        this.requestProcessor.stopAutoFunding(providerAddress)
+    }
+
+    /**
      * processResponse is used after the user successfully obtains a response from the provider service.
      *
      * It caches the estimated fee based on usage data, which will be used by getRequestHeaders to determine
@@ -385,17 +446,20 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      * verifyService is used to verify the reliability of the service.
      *
      * @param {string} providerAddress - The address of the provider.
+     * @param {string} outputDir - Directory to save attestation reports (default: current directory).
+     * @param {function} onLog - Optional callback for real-time step-by-step output.
      *
-     * @returns A <boolean | null> value. True indicates the service is reliable, otherwise it is unreliable.
+     * @returns Verification results with structured data and all log steps.
      *
      * @throws An error if errors occur during the verification process.
      */
     public verifyService = async (
         providerAddress: string,
-        outputDir: string = '.'
+        outputDir: string = '.',
+        onLog?: (step: VerificationStep) => void
     ): Promise<VerificationResult | null> => {
         try {
-            return await this.verifier.verifyService(providerAddress, outputDir)
+            return await this.verifier.verifyService(providerAddress, outputDir, onLog)
         } catch (error) {
             throwFormattedError(error)
         }

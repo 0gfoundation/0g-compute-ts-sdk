@@ -82,7 +82,7 @@ export function FundDistribution({
 
     const allProviders = [...ledgerInfo.inferences, ...ledgerInfo.fineTunings]
     const allProvidersUnavailable = allProviders.length === 0 || allProviders.every(
-        p => a0giStringToNeuron(p.balance) <= a0giStringToNeuron(p.requestedReturn)
+        p => a0giStringToNeuron(p.balance) === BigInt(0) && a0giStringToNeuron(p.requestedReturn) === BigInt(0)
     )
     const hasAnyProviderRetrieving = Object.values(retrievingProviders).some(Boolean)
 
@@ -123,13 +123,13 @@ export function FundDistribution({
                                 <TooltipTrigger asChild>
                                     <div className="flex items-center text-green-600 cursor-help">
                                         <ArrowDown className="w-3 h-3 mr-1" />
-                                        <span className="text-xs">Auto-funds on usage</span>
+                                        <span className="text-xs">Transfer to provider</span>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-64">
-                                    <p className="font-medium mb-1">Auto-funding Process</p>
+                                    <p className="font-medium mb-1">Provider Sub-Account Funding</p>
                                     <p className="text-xs text-gray-300">
-                                        For each AI service provider you use, the system creates a separate sub-account under your control that holds funds specifically allocated for paying that provider&apos;s services.
+                                        For each AI service provider you use, the system creates a separate sub-account under your control. You need to transfer at least 1 0G to a provider&apos;s sub-account before using their services.
                                     </p>
                                 </TooltipContent>
                             </Tooltip>
