@@ -796,10 +796,20 @@ export abstract class ZGServingUserBrokerBase {
     }
 
     /**
+     * Check if a background auto-funding timer is active for the given provider.
+     */
+    hasAutoFunding(provider: string): boolean {
+        return this.autoFundingTimers.has(provider)
+    }
+
+    /**
      * Single check-and-fund cycle. Queries the provider for the real unsettled
      * fee, computes the required balance with buffer, and transfers the deficit.
+     *
+     * Called by the background timer, and also inline from getRequestHeaders()
+     * when no background timer is active (to preserve backward compatibility).
      */
-    private async checkAndFund(
+    async checkAndFund(
         provider: string,
         bufferMultiplier: number,
         gasPrice?: number

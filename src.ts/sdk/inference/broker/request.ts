@@ -99,6 +99,12 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
         _content?: string
     ): Promise<ServingRequestHeaders> {
         try {
+            // If no background auto-funding timer is active for this provider,
+            // run an inline check-and-fund to preserve backward compatibility.
+            // Users who call startAutoFunding() skip this (zero extra latency).
+            if (!this.hasAutoFunding(providerAddress)) {
+                await this.checkAndFund(providerAddress, 2)
+            }
             return await this.getHeader(providerAddress)
         } catch (error) {
             throwFormattedError(error)
