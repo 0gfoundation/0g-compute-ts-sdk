@@ -11,6 +11,7 @@ import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
 import { throwFormattedError } from '../../common/utils'
 import { ReadOnlyInferenceBroker } from './read-only-broker'
+import type { AutoFundingConfig } from './base'
 
 /**
  * Full-featured inference broker with authentication required
@@ -339,6 +340,66 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         } catch (error) {
             throwFormattedError(error)
         }
+    }
+
+    /**
+     * Start background auto-funding for a provider.
+     *
+     * Runs an immediate balance check, then periodically checks the provider
+     * sub-account balance and tops up from the ledger if needed. This runs
+     * entirely in the background, so {@link getRequestHeaders} has zero
+     * extra latency.
+     *
+     * Call {@link stopAutoFunding} to stop the background timer.
+     *
+     * @param {string} providerAddress - The provider address to auto-fund.
+     * @param config - Optional auto-funding configuration.
+     * @param config.interval - Polling interval in ms (default: 30000 = 30s).
+     * @param config.bufferMultiplier - Multiplier for MIN_LOCKED_BALANCE buffer (default: 2).
+     *   requiredBalance = unsettledFee + bufferMultiplier * MIN_LOCKED_BALANCE.
+     * @param {number} gasPrice - Optional gas price for transactions.
+     *
+     * @example
+     * ```typescript
+     * // Start auto-funding with defaults (30s interval, 2x buffer)
+     * await broker.inference.startAutoFunding(providerAddress);
+     *
+     * // Start with custom config
+     * await broker.inference.startAutoFunding(providerAddress, {
+     *   interval: 15000,       // check every 15s
+     *   bufferMultiplier: 3,   // keep 3x min locked balance
+     * });
+     *
+     * // ... make requests without worrying about balance ...
+     * const headers = await broker.inference.getRequestHeaders(providerAddress);
+     *
+     * // Stop when done
+     * broker.inference.stopAutoFunding(providerAddress);
+     * ```
+     */
+    public startAutoFunding = async (
+        providerAddress: string,
+        config?: AutoFundingConfig,
+        gasPrice?: number
+    ): Promise<void> => {
+        try {
+            await this.requestProcessor.startAutoFunding(
+                providerAddress,
+                config,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Stop background auto-funding for a provider.
+     *
+     * @param {string} providerAddress - The provider address. If omitted, stops all auto-funding timers.
+     */
+    public stopAutoFunding = (providerAddress?: string): void => {
+        this.requestProcessor.stopAutoFunding(providerAddress)
     }
 
     /**

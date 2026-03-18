@@ -8,7 +8,6 @@ import * as fs from 'fs/promises'
 import type { Cache, Metadata } from '../../common/storage'
 import {
     CacheValueTypeEnum,
-    CACHE_KEYS,
     CacheKeyHelpers,
 } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
@@ -87,6 +86,32 @@ export interface SessionTokenOptions {
     duration?: number
     /** Specific tokenId to use for persistent mode (0-254). If not provided, will find available one from bitmap */
     tokenId?: number
+}
+
+/**
+ * Configuration for automatic balance management (auto-funding).
+ *
+ * Controls how often balance checks occur and how much buffer is maintained
+ * in provider sub-accounts to prevent insufficient-balance errors.
+ */
+export interface AutoFundingConfig {
+    /**
+     * Polling interval in milliseconds for the background auto-funding timer.
+     * The timer periodically checks the provider sub-account balance and
+     * tops up if needed, completely decoupled from the request path.
+     * @default 30000 (30 seconds)
+     */
+    interval?: number
+    /**
+     * Multiplier applied to MIN_LOCKED_BALANCE when computing required balance.
+     * requiredBalance = unsettledFee + bufferMultiplier * MIN_LOCKED_BALANCE
+     *
+     * A value of 2 means we keep 2x the minimum locked balance as buffer,
+     * so the next request is unlikely to fail even if the provider checks
+     * lockBalance >= unsettledFee + currentFee + MIN_LOCKED_BALANCE.
+     * @default 2
+     */
+    bufferMultiplier?: number
 }
 
 export abstract class ZGServingUserBrokerBase {
@@ -660,46 +685,19 @@ export abstract class ZGServingUserBrokerBase {
     // cleared explicitly after a successful transfer, not by expiration.
     private static readonly FEE_CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
-    // Throttle threshold for on-chain balance checks: 10% of MIN_LOCKED_BALANCE (0.1 0G).
-    // We only query the chain when accumulated fees since last check exceed this amount,
-    // avoiding an on-chain read on every request.
-    private static readonly CHECK_BALANCE_THRESHOLD =
-        ZGServingUserBrokerBase.MIN_LOCKED_BALANCE / BigInt(10)
-
+    /**
+     * Accumulate fee into the checkBalanceFee counter.
+     * Called by processResponse() to track usage between auto-funding cycles.
+     */
     async updateCachedFee(provider: string, fee: bigint) {
         try {
-            const cacheFundKey = CacheKeyHelpers.getCachedFeeKey(provider)
             const checkBalanceKey =
                 CacheKeyHelpers.getCheckBalanceKey(provider)
-
-            // Accumulate fee in both counters
-            const curFee = (await this.cache.getItem(cacheFundKey)) || BigInt(0)
-            await this.cache.setItem(
-                cacheFundKey,
-                BigInt(curFee) + fee,
-                ZGServingUserBrokerBase.FEE_CACHE_TTL,
-                CacheValueTypeEnum.BigInt
-            )
-
             const curCheckFee =
                 (await this.cache.getItem(checkBalanceKey)) || BigInt(0)
             await this.cache.setItem(
                 checkBalanceKey,
                 BigInt(curCheckFee) + fee,
-                ZGServingUserBrokerBase.FEE_CACHE_TTL,
-                CacheValueTypeEnum.BigInt
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    private async clearCheckBalanceFee(provider: string) {
-        try {
-            const key = CacheKeyHelpers.getCheckBalanceKey(provider)
-            await this.cache.setItem(
-                key,
-                BigInt(0),
                 ZGServingUserBrokerBase.FEE_CACHE_TTL,
                 CacheValueTypeEnum.BigInt
             )
@@ -722,26 +720,92 @@ export abstract class ZGServingUserBrokerBase {
         }
     }
 
+    // ==================== Background Auto-Funding ====================
+
+    private autoFundingTimers: Map<string, ReturnType<typeof setInterval>> =
+        new Map()
+
     /**
-     * Transfer fund from ledger if the provider sub-account balance is insufficient.
+     * Start background auto-funding for a provider.
      *
-     * Provider requires: lockBalance >= unsettledFee + currentFee + MIN_LOCKED_BALANCE (1 0G).
-     * We use cachedFee (accumulated via processResponse) to track unsettled fee on the client side.
+     * Runs an immediate balance check, then periodically checks the provider
+     * sub-account balance and tops up if needed. This is completely decoupled
+     * from the request path, so getRequestHeaders() has zero extra latency.
      *
-     * Trigger:  onChainBalance < cachedFee + MIN_LOCKED_BALANCE
-     * Transfer: cachedFee + MIN_LOCKED_BALANCE (covers accumulated usage + provider minimum)
+     * @param provider - The provider address to auto-fund.
+     * @param config - Optional auto-funding configuration.
+     * @param config.interval - Polling interval in ms (default: 30000 = 30s).
+     * @param config.bufferMultiplier - Multiplier for MIN_LOCKED_BALANCE buffer (default: 2).
+     *   requiredBalance = unsettledFee + bufferMultiplier * MIN_LOCKED_BALANCE
+     * @param gasPrice - Optional gas price for transactions.
      */
-    async topUpAccountIfNeeded(
+    async startAutoFunding(
         provider: string,
-        content?: string,
+        config?: AutoFundingConfig,
+        gasPrice?: number
+    ) {
+        // Stop existing timer for this provider if any
+        this.stopAutoFunding(provider)
+
+        const interval = config?.interval ?? 30_000
+        const bufferMultiplier = config?.bufferMultiplier ?? 2
+
+        // Run immediately on start
+        await this.checkAndFund(provider, bufferMultiplier, gasPrice)
+
+        // Then run on interval
+        const timer = setInterval(async () => {
+            await this.checkAndFund(provider, bufferMultiplier, gasPrice)
+        }, interval)
+
+        this.autoFundingTimers.set(provider, timer)
+
+        logger.debug(
+            `[Auto-funding] Started for provider ${provider} ` +
+                `(interval=${interval}ms, bufferMultiplier=${bufferMultiplier})`
+        )
+    }
+
+    /**
+     * Stop background auto-funding for a provider.
+     *
+     * @param provider - The provider address. If omitted, stops all auto-funding timers.
+     */
+    stopAutoFunding(provider?: string) {
+        if (provider) {
+            const timer = this.autoFundingTimers.get(provider)
+            if (timer) {
+                clearInterval(timer)
+                this.autoFundingTimers.delete(provider)
+                logger.debug(
+                    `[Auto-funding] Stopped for provider ${provider}`
+                )
+            }
+        } else {
+            // Stop all
+            for (const [addr, timer] of this.autoFundingTimers) {
+                clearInterval(timer)
+                logger.debug(
+                    `[Auto-funding] Stopped for provider ${addr}`
+                )
+            }
+            this.autoFundingTimers.clear()
+        }
+    }
+
+    /**
+     * Single check-and-fund cycle. Queries the provider for the real unsettled
+     * fee, computes the required balance with buffer, and transfers the deficit.
+     */
+    private async checkAndFund(
+        provider: string,
+        bufferMultiplier: number,
         gasPrice?: number
     ) {
         try {
             // Skip auto-funding in browser environments.
             // Browser signers (e.g. MetaMask) require user confirmation for each
-            // transaction, so silent auto-funding would cause unexpected wallet popups
-            // during chat. Browser dApps should rely on acknowledgeProviderSigner()
-            // for initial funding and manual transferFund() for top-ups.
+            // transaction, so silent auto-funding would cause unexpected wallet popups.
             if (
                 typeof window !== 'undefined' &&
                 typeof window.document !== 'undefined'
@@ -750,30 +814,14 @@ export abstract class ZGServingUserBrokerBase {
             }
 
             const minLocked = ZGServingUserBrokerBase.MIN_LOCKED_BALANCE
+            const unsettledFee = await this.fetchUnsettledFee(provider)
+            const requiredBalance =
+                unsettledFee + BigInt(bufferMultiplier) * minLocked
 
-            // Check if it's the first round
-            const isFirstRound =
-                (await this.cache.getItem(CACHE_KEYS.FIRST_ROUND)) !== 'false'
-            if (isFirstRound) {
-                await this.handleFirstRound(provider, minLocked, gasPrice)
-                return
-            }
-
-            if (content) {
-                const extractor = await this.getExtractor(provider)
-                const newFee = await this.calculateFee(extractor, content)
-                await this.updateCachedFee(provider, newFee)
-            }
-
-            // Throttle: only query on-chain balance when accumulated fees
-            // since last check exceed CHECK_BALANCE_THRESHOLD (0.1 0G).
-            if (!(await this.shouldCheckBalance(provider))) {
-                return
-            }
-
-            // Use cachedFee to estimate provider's unsettled fee
-            const cachedFee = await this.getCachedFee(provider)
-            const requiredBalance = cachedFee + minLocked
+            logger.debug(
+                `[Auto-funding] Check: unsettledFee=${this.neuronToA0gi(unsettledFee).toFixed(6)} 0G, ` +
+                    `requiredBalance=${this.neuronToA0gi(requiredBalance).toFixed(6)} 0G`
+            )
 
             const deficit = await this.getTransferDeficit(
                 provider,
@@ -781,73 +829,19 @@ export abstract class ZGServingUserBrokerBase {
             )
 
             if (deficit > BigInt(0)) {
-                await this.doTransfer(
-                    provider,
-                    deficit,
-                    gasPrice
-                )
-            } else {
-                // Balance is sufficient — reset check counter so we don't
-                // query the chain again until another 0.1 0G accumulates.
-                await this.clearCheckBalanceFee(provider)
+                await this.doTransfer(provider, deficit, gasPrice)
             }
         } catch (error: any) {
             logger.warn(
-                `[Auto-funding] Top up account failed: ${error?.message || error}`
+                `[Auto-funding] Check-and-fund failed: ${error?.message || error}`
             )
         }
-    }
-
-    private async handleFirstRound(
-        provider: string,
-        minLocked: bigint,
-        gasPrice?: number
-    ) {
-        // On first round (including after restart), query the provider for
-        // the real unsettled fee so we know exactly how much balance is needed.
-        // This replaces the in-memory cachedFee which is lost on restart.
-        const unsettledFee = await this.fetchUnsettledFee(provider)
-        const requiredBalance = unsettledFee + minLocked
-
-        logger.debug(
-            `[Auto-funding] First round: unsettledFee=${this.neuronToA0gi(unsettledFee).toFixed(6)} 0G, ` +
-                `requiredBalance=${this.neuronToA0gi(requiredBalance).toFixed(6)} 0G`
-        )
-
-        // Seed the in-memory cachedFee with the provider's unsettled fee
-        // so subsequent throttled checks use the correct baseline.
-        if (unsettledFee > BigInt(0)) {
-            const cacheFundKey = CacheKeyHelpers.getCachedFeeKey(provider)
-            await this.cache.setItem(
-                cacheFundKey,
-                unsettledFee,
-                ZGServingUserBrokerBase.FEE_CACHE_TTL,
-                CacheValueTypeEnum.BigInt
-            )
-        }
-
-        const deficit = await this.getTransferDeficit(
-            provider,
-            requiredBalance
-        )
-
-        if (deficit > BigInt(0)) {
-            await this.doTransfer(provider, deficit, gasPrice)
-        }
-
-        // Mark the first round as complete
-        await this.cache.setItem(
-            CACHE_KEYS.FIRST_ROUND,
-            'false',
-            10000000 * 60 * 1000,
-            CacheValueTypeEnum.Other
-        )
     }
 
     /**
      * Fetch unsettled fee from the provider's API.
      * Requires a valid session token (Authorization header).
-     * Falls back to 0 if the provider doesn't support this endpoint.
+     * Falls back to cached fee if the provider doesn't support this endpoint.
      */
     private async fetchUnsettledFee(provider: string): Promise<bigint> {
         try {
@@ -866,7 +860,6 @@ export abstract class ZGServingUserBrokerBase {
             )
 
             if (!response.ok) {
-                // Provider may not support this endpoint yet — fall back to 0
                 logger.debug(
                     `[Auto-funding] Provider does not support unsettled fee query (${response.status}), using cachedFee fallback`
                 )
@@ -878,9 +871,18 @@ export abstract class ZGServingUserBrokerBase {
             logger.debug(
                 `[Auto-funding] Provider unsettled fee: ${this.neuronToA0gi(fee).toFixed(6)} 0G`
             )
+
+            // Snapshot the real unsettled fee into cachedFee as fallback
+            const cacheFundKey = CacheKeyHelpers.getCachedFeeKey(provider)
+            await this.cache.setItem(
+                cacheFundKey,
+                fee,
+                ZGServingUserBrokerBase.FEE_CACHE_TTL,
+                CacheValueTypeEnum.BigInt
+            )
+
             return fee
         } catch (error: any) {
-            // Network error or provider unavailable — fall back to cachedFee
             logger.debug(
                 `[Auto-funding] Failed to fetch unsettled fee: ${error?.message || error}, using cachedFee fallback`
             )
@@ -922,27 +924,6 @@ export abstract class ZGServingUserBrokerBase {
         }
     }
 
-    /**
-     * Check if accumulated fees since last balance check exceed the threshold.
-     * This throttles on-chain reads to avoid querying on every request.
-     */
-    private async shouldCheckBalance(provider: string): Promise<boolean> {
-        try {
-            const key = CacheKeyHelpers.getCheckBalanceKey(provider)
-            const accumulatedFee =
-                (await this.cache.getItem(key)) || BigInt(0)
-            const threshold =
-                ZGServingUserBrokerBase.CHECK_BALANCE_THRESHOLD
-            logger.debug(
-                `Check balance throttle for ${provider}: accumulated=${accumulatedFee.toString()}, threshold=${threshold.toString()}`
-            )
-            return BigInt(accumulatedFee) >= threshold
-        } catch {
-            // On error, be safe and check
-            return true
-        }
-    }
-
     private async doTransfer(
         provider: string,
         amount: bigint,
@@ -960,9 +941,8 @@ export abstract class ZGServingUserBrokerBase {
                 transferAmount,
                 gasPrice
             )
-            // Clear both counters after successful transfer
+            // Clear fee cache after successful transfer
             await this.clearCacheFee(provider)
-            await this.clearCheckBalanceFee(provider)
         } catch (error: any) {
             const amountInOG = this.neuronToA0gi(transferAmount)
             const errorMessage = error?.message?.toLowerCase() || ''

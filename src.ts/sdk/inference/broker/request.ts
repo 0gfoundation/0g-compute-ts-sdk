@@ -95,11 +95,10 @@ export class RequestProcessor extends ZGServingUserBrokerBase {
      */
     async getRequestHeaders(
         providerAddress: string,
-        content?: string
+        /** @deprecated No longer used. Kept for backward compatibility. */
+        _content?: string
     ): Promise<ServingRequestHeaders> {
         try {
-            await this.topUpAccountIfNeeded(providerAddress, content)
-            // Simplified call - only pass required parameters
             return await this.getHeader(providerAddress)
         } catch (error) {
             throwFormattedError(error)
