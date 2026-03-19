@@ -471,8 +471,24 @@ function fineTuning(program) {
             process.exit(1);
         }
         (0, util_1.withBroker)(options, async (broker) => {
-            console.log(chalk_1.default.gray(`Adapter model name: ${adapterName}`));
             const { endpoint } = await broker.inference.getServiceMetadata(options.provider);
+            // Resolve adapter name from broker (handles path-based
+            // naming differences, e.g. /models/Qwen2.5-0.5B-Instruct).
+            if (options.taskId && !options.adapterName) {
+                const axios = (await Promise.resolve().then(() => tslib_1.__importStar(require('axios')))).default;
+                const baseUrl = endpoint.replace(/\/v1\/proxy$/, '');
+                try {
+                    const listResp = await axios.get(`${baseUrl}/v1/lora/adapters`);
+                    const match = (listResp.data?.adapters || []).find((a) => a.taskId === options.taskId);
+                    if (match?.adapterName) {
+                        adapterName = match.adapterName;
+                    }
+                }
+                catch {
+                    // Fall back to locally generated name
+                }
+            }
+            console.log(chalk_1.default.gray(`Adapter model name: ${adapterName}`));
             const headers = await broker.inference.getRequestHeaders(options.provider, JSON.stringify({
                 model: adapterName,
                 messages: [
@@ -532,7 +548,22 @@ async function deployAdapterToBroker(broker, providerAddress, baseModel, taskId,
         console.log('Waiting for adapter to be ready...');
         const deadline = Date.now() + timeoutSeconds * 1000;
         let lastState = '';
+        let nameResolved = adapterName !== localAdapterName;
         while (Date.now() < deadline) {
+            // Re-resolve adapter name if we're still using the local guess
+            if (!nameResolved) {
+                try {
+                    const listResp = await axios.get(`${baseUrl}/v1/lora/adapters`);
+                    const match = (listResp.data?.adapters || []).find((a) => a.taskId === taskId);
+                    if (match?.adapterName) {
+                        adapterName = match.adapterName;
+                        nameResolved = true;
+                    }
+                }
+                catch {
+                    // Ignore - broker may not have processed event yet
+                }
+            }
             try {
                 const statusResp = await axios.get(`${baseUrl}/v1/lora/adapters/${adapterName}`);
                 const state = statusResp.data?.state;
