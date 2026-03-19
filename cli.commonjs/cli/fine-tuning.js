@@ -289,18 +289,29 @@ function fineTuning(program) {
         .requiredOption('--data-path <path>', 'Path to store the model')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price adjustment')
         .option('--download-method <method>', 'Download method: auto (try 0G Storage then TEE), 0g-storage, or tee (default: auto)')
+        .option('--model <name>', 'Base model name (required when using --deploy, e.g. Qwen2.5-0.5B-Instruct)')
+        .option('--deploy', 'Also deploy the adapter to the inference GPU after acknowledging', false)
         .action((options) => {
+        if (options.deploy && !options.model) {
+            console.error(chalk_1.default.red('Error: --model is required when using --deploy'));
+            process.exit(1);
+        }
         (0, util_1.withFineTuningBroker)(options, async (broker) => {
             await broker.fineTuning.acknowledgeModel(options.provider, options.taskId, options.dataPath, {
                 gasPrice: options.gasPrice,
                 downloadMethod: options.downloadMethod ?? 'auto',
             });
             console.log('Acknowledged model');
+            if (options.deploy) {
+                console.log('\nWaiting for inference broker to download the adapter...');
+                await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, true, 180);
+            }
         });
     });
     program
@@ -417,6 +428,22 @@ function fineTuning(program) {
         console.log(adapterName);
     });
     program
+        .command('deploy-adapter')
+        .description('Deploy a downloaded LoRA adapter to the inference GPU (triggers vLLM loading)')
+        .requiredOption('--provider <address>', 'Inference provider address')
+        .requiredOption('--model <name>', 'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)')
+        .requiredOption('--task-id <id>', 'Fine-tuning task ID')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--wait', 'Wait until the adapter is fully deployed (polls status)', false)
+        .option('--timeout <seconds>', 'Timeout in seconds when using --wait', '120')
+        .action((options) => {
+        (0, util_1.withBroker)(options, async (broker) => {
+            await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, options.wait, parseInt(options.timeout));
+        });
+    });
+    program
         .command('chat')
         .description('Send a chat request to a fine-tuned model via the inference broker')
         .requiredOption('--provider <address>', 'Inference provider address (serves the fine-tuned model)')
@@ -473,5 +500,97 @@ function fineTuning(program) {
             }
         });
     });
+}
+async function getBrokerBaseUrl(broker, providerAddress) {
+    const { endpoint } = await broker.inference.getServiceMetadata(providerAddress);
+    // endpoint is like "https://host/v1/proxy", we need "https://host"
+    return endpoint.replace(/\/v1\/proxy$/, '');
+}
+async function deployAdapterToBroker(broker, providerAddress, baseModel, taskId, wait, timeoutSeconds) {
+    const axios = (await Promise.resolve().then(() => tslib_1.__importStar(require('axios')))).default;
+    const baseUrl = await getBrokerBaseUrl(broker, providerAddress);
+    const adapterName = (0, adapter_name_1.makeAdapterName)(baseModel, taskId);
+    console.log(chalk_1.default.gray(`Adapter name: ${adapterName}`));
+    console.log(chalk_1.default.gray(`Broker URL: ${baseUrl}`));
+    // If --wait, first poll until the adapter exists and is "ready"
+    if (wait) {
+        console.log('Waiting for adapter to be ready...');
+        const deadline = Date.now() + timeoutSeconds * 1000;
+        let lastState = '';
+        while (Date.now() < deadline) {
+            try {
+                const statusResp = await axios.get(`${baseUrl}/v1/lora/adapters/${adapterName}`);
+                const state = statusResp.data?.state;
+                if (state && state !== lastState) {
+                    console.log(chalk_1.default.gray(`  Adapter state: ${state}`));
+                    lastState = state;
+                }
+                if (state === 'ready' || state === 'active') {
+                    break;
+                }
+                if (state === 'failed') {
+                    console.log(chalk_1.default.yellow('Adapter download failed, attempting deploy anyway...'));
+                    break;
+                }
+            }
+            catch (err) {
+                if (err?.response?.status !== 404) {
+                    console.log(chalk_1.default.gray(`  Waiting... (${err?.message || 'not ready'})`));
+                }
+            }
+            await new Promise((r) => setTimeout(r, 3000));
+        }
+        if (Date.now() >= deadline && lastState !== 'ready' && lastState !== 'active') {
+            console.error(chalk_1.default.red(`Timed out after ${timeoutSeconds}s waiting for adapter to be ready (last state: ${lastState || 'not found'})`));
+            process.exit(1);
+        }
+    }
+    // If adapter is already active, skip deploy
+    try {
+        const statusResp = await axios.get(`${baseUrl}/v1/lora/adapters/${adapterName}`);
+        if (statusResp.data?.state === 'active') {
+            console.log(chalk_1.default.green('Adapter is already deployed and active!'));
+            return;
+        }
+    }
+    catch {
+        // Adapter not found yet, proceed with deploy
+    }
+    // Call deploy API
+    console.log('Requesting adapter deployment...');
+    try {
+        const deployResp = await axios.post(`${baseUrl}/v1/lora/adapters/deploy`, { taskId, baseModel });
+        console.log(chalk_1.default.green(deployResp.data?.message || 'Deploy request sent'));
+    }
+    catch (err) {
+        const errMsg = err?.response?.data?.error || err?.message || 'unknown error';
+        console.error(chalk_1.default.red(`Deploy failed: ${errMsg}`));
+        process.exit(1);
+    }
+    // If --wait, poll until active
+    if (wait) {
+        console.log('Waiting for deployment to complete...');
+        const deadline = Date.now() + timeoutSeconds * 1000;
+        while (Date.now() < deadline) {
+            try {
+                const statusResp = await axios.get(`${baseUrl}/v1/lora/adapters/${adapterName}`);
+                const state = statusResp.data?.state;
+                if (state === 'active') {
+                    console.log(chalk_1.default.green('\nAdapter deployed successfully! You can now use `fine-tuning chat` to chat with it.'));
+                    return;
+                }
+                if (state === 'failed') {
+                    console.error(chalk_1.default.red('Adapter deployment failed.'));
+                    process.exit(1);
+                }
+            }
+            catch {
+                // ignore polling errors
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+        }
+        console.error(chalk_1.default.red(`Timed out after ${timeoutSeconds}s waiting for deployment to complete.`));
+        process.exit(1);
+    }
 }
 //# sourceMappingURL=fine-tuning.js.map
