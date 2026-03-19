@@ -109,7 +109,8 @@ export default function fineTuning(program: Command) {
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .requiredOption('--output <path>', 'Download path')
         .option(
-            `--rpc <url>', '0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
+            '--rpc <url>',
+            `0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
             ZG_RPC_ENDPOINT_TESTNET
         )
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -152,7 +153,8 @@ export default function fineTuning(program: Command) {
         .requiredOption('--data-path <path>', 'Path to the dataset')
         .requiredOption('--data-root <hash>', 'Root hash of the dataset')
         .option(
-            `--rpc <url>', '0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
+            '--rpc <url>',
+            `0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
             ZG_RPC_ENDPOINT_TESTNET
         )
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -636,6 +638,10 @@ export default function fineTuning(program: Command) {
             'Timeout in seconds when using --wait',
             '120'
         )
+        .option(
+            '--broker-url <url>',
+            'Override broker URL (skip contract lookup)'
+        )
         .action((options) => {
             withBroker(options, async (broker) => {
                 await deployAdapterToBroker(
@@ -644,7 +650,8 @@ export default function fineTuning(program: Command) {
                     options.model,
                     options.taskId,
                     options.wait,
-                    parseInt(options.timeout)
+                    parseInt(options.timeout),
+                    options.brokerUrl
                 )
             })
         })
@@ -767,11 +774,27 @@ async function deployAdapterToBroker(
     baseModel: string,
     taskId: string,
     wait: boolean,
-    timeoutSeconds: number
+    timeoutSeconds: number,
+    brokerUrlOverride?: string
 ) {
     const axios = (await import('axios')).default
-    const baseUrl = await getBrokerBaseUrl(broker, providerAddress)
-    const adapterName = makeAdapterName(baseModel, taskId)
+    const baseUrl = brokerUrlOverride || await getBrokerBaseUrl(broker, providerAddress)
+    const localAdapterName = makeAdapterName(baseModel, taskId)
+
+    // Resolve the actual adapter name from the broker (the broker may use a
+    // different base-model path, e.g. "/models/Qwen2.5-0.5B-Instruct").
+    let adapterName = localAdapterName
+    try {
+        const listResp = await axios.get(`${baseUrl}/v1/lora/adapters`)
+        const match = (listResp.data?.adapters || []).find(
+            (a: any) => a.taskId === taskId
+        )
+        if (match?.adapterName) {
+            adapterName = match.adapterName
+        }
+    } catch {
+        // Fall back to locally generated name
+    }
 
     console.log(chalk.gray(`Adapter name: ${adapterName}`))
     console.log(chalk.gray(`Broker URL: ${baseUrl}`))

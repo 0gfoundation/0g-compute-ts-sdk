@@ -86,7 +86,7 @@ function fineTuning(program) {
         .requiredOption('--provider <address>', 'Provider address for the task')
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .requiredOption('--output <path>', 'Download path')
-        .option(`--rpc <url>', '0G Chain RPC endpoint, default is ${const_1.ZG_RPC_ENDPOINT_TESTNET}`, const_1.ZG_RPC_ENDPOINT_TESTNET)
+        .option('--rpc <url>', `0G Chain RPC endpoint, default is ${const_1.ZG_RPC_ENDPOINT_TESTNET}`, const_1.ZG_RPC_ENDPOINT_TESTNET)
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .action((options) => {
@@ -114,7 +114,7 @@ function fineTuning(program) {
         .description('Download a data')
         .requiredOption('--data-path <path>', 'Path to the dataset')
         .requiredOption('--data-root <hash>', 'Root hash of the dataset')
-        .option(`--rpc <url>', '0G Chain RPC endpoint, default is ${const_1.ZG_RPC_ENDPOINT_TESTNET}`, const_1.ZG_RPC_ENDPOINT_TESTNET)
+        .option('--rpc <url>', `0G Chain RPC endpoint, default is ${const_1.ZG_RPC_ENDPOINT_TESTNET}`, const_1.ZG_RPC_ENDPOINT_TESTNET)
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .action((options) => {
@@ -438,9 +438,10 @@ function fineTuning(program) {
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--wait', 'Wait until the adapter is fully deployed (polls status)', false)
         .option('--timeout <seconds>', 'Timeout in seconds when using --wait', '120')
+        .option('--broker-url <url>', 'Override broker URL (skip contract lookup)')
         .action((options) => {
         (0, util_1.withBroker)(options, async (broker) => {
-            await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, options.wait, parseInt(options.timeout));
+            await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, options.wait, parseInt(options.timeout), options.brokerUrl);
         });
     });
     program
@@ -506,10 +507,23 @@ async function getBrokerBaseUrl(broker, providerAddress) {
     // endpoint is like "https://host/v1/proxy", we need "https://host"
     return endpoint.replace(/\/v1\/proxy$/, '');
 }
-async function deployAdapterToBroker(broker, providerAddress, baseModel, taskId, wait, timeoutSeconds) {
+async function deployAdapterToBroker(broker, providerAddress, baseModel, taskId, wait, timeoutSeconds, brokerUrlOverride) {
     const axios = (await Promise.resolve().then(() => tslib_1.__importStar(require('axios')))).default;
-    const baseUrl = await getBrokerBaseUrl(broker, providerAddress);
-    const adapterName = (0, adapter_name_1.makeAdapterName)(baseModel, taskId);
+    const baseUrl = brokerUrlOverride || await getBrokerBaseUrl(broker, providerAddress);
+    const localAdapterName = (0, adapter_name_1.makeAdapterName)(baseModel, taskId);
+    // Resolve the actual adapter name from the broker (the broker may use a
+    // different base-model path, e.g. "/models/Qwen2.5-0.5B-Instruct").
+    let adapterName = localAdapterName;
+    try {
+        const listResp = await axios.get(`${baseUrl}/v1/lora/adapters`);
+        const match = (listResp.data?.adapters || []).find((a) => a.taskId === taskId);
+        if (match?.adapterName) {
+            adapterName = match.adapterName;
+        }
+    }
+    catch {
+        // Fall back to locally generated name
+    }
     console.log(chalk_1.default.gray(`Adapter name: ${adapterName}`));
     console.log(chalk_1.default.gray(`Broker URL: ${baseUrl}`));
     // If --wait, first poll until the adapter exists and is "ready"
