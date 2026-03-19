@@ -297,6 +297,7 @@ function fineTuning(program) {
         .option('--download-method <method>', 'Download method: auto (try 0G Storage then TEE), 0g-storage, or tee (default: auto)')
         .option('--model <name>', 'Base model name (required when using --deploy, e.g. Qwen2.5-0.5B-Instruct)')
         .option('--deploy', 'Also deploy the adapter to the inference GPU after acknowledging', false)
+        .option('--broker-url <url>', 'Inference broker URL (for --deploy; skips contract lookup)')
         .action((options) => {
         if (options.deploy && !options.model) {
             console.error(chalk_1.default.red('Error: --model is required when using --deploy'));
@@ -310,7 +311,7 @@ function fineTuning(program) {
             console.log('Acknowledged model');
             if (options.deploy) {
                 console.log('\nWaiting for inference broker to download the adapter...');
-                await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, true, 180);
+                await deployAdapterToBroker(broker, options.provider, options.model, options.taskId, true, 180, options.brokerUrl);
             }
         });
     });

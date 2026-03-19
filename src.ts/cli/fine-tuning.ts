@@ -422,6 +422,10 @@ export default function fineTuning(program: Command) {
             'Also deploy the adapter to the inference GPU after acknowledging',
             false
         )
+        .option(
+            '--broker-url <url>',
+            'Inference broker URL (for --deploy; skips contract lookup)'
+        )
         .action((options) => {
             if (options.deploy && !options.model) {
                 console.error(
@@ -458,7 +462,8 @@ export default function fineTuning(program: Command) {
                         options.model,
                         options.taskId,
                         true,
-                        180
+                        180,
+                        options.brokerUrl
                     )
                 }
             })
