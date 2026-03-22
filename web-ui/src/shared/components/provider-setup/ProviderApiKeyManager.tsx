@@ -30,6 +30,7 @@ import {
   Copy,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Eye,
   EyeOff,
   Trash2,
@@ -103,7 +104,13 @@ export function ProviderApiKeyManager({
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null)
 
   const { getSecret, revokeToken } = useBrokerOperations()
-  const { findNextAvailableTokenIdFromData, refresh: refreshSlots } = useSlotStatus(provider, address)
+  const { slotStats, findNextAvailableTokenIdFromData, refresh: refreshSlots } = useSlotStatus(provider, address)
+
+  // Detect potential external keys (generated from another origin/device)
+  const possibleExternalKeys = React.useMemo(() => {
+    if (!address) return 0
+    return slotStats.unknown
+  }, [address, slotStats.unknown])
 
   // Check if user already has keys for this provider (reactive)
   const [existingKeys, setExistingKeys] = useState<StoredApiKey[]>(() =>
@@ -130,6 +137,21 @@ export function ProviderApiKeyManager({
     setIsGenerating(true)
     setError(null)
     setGeneratedKey(null)
+
+    // Warn if there may be keys from another origin
+    if (possibleExternalKeys > 0 && existingKeys.length === 0) {
+      const proceed = confirm(
+        'Your on-chain account shows previous key activity, but no keys are stored ' +
+        'in this browser.\n\n' +
+        'Generating a new key may reuse a slot that has an active key from ' +
+        'another device or browser, which would invalidate that key.\n\n' +
+        'Continue?'
+      )
+      if (!proceed) {
+        setIsGenerating(false)
+        return
+      }
+    }
 
     // FIXED: Add retry logic to handle race conditions when multiple tabs generate keys simultaneously
     const MAX_RETRIES = 3
@@ -461,6 +483,25 @@ export function ProviderApiKeyManager({
             true
           )}
         </div>
+      )}
+
+      {/* External Keys Warning */}
+      {possibleExternalKeys > 0 && existingKeys.length === 0 && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-xs text-amber-800">
+            <p className="font-medium mb-1">Keys may exist from another device or browser</p>
+            <p>
+              Your on-chain account shows previous activity (generation: {slotStats.generation}),
+              but no API keys are stored in this browser. Keys generated from another
+              origin are not visible here. You can:
+            </p>
+            <ul className="list-disc list-inside mt-1 space-y-0.5">
+              <li>Generate a new key (uses a new slot)</li>
+              <li>Use &quot;Refresh All Slots&quot; to revoke everything and start fresh</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Generate New Key Section */}

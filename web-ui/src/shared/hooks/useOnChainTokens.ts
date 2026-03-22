@@ -49,6 +49,9 @@ export interface UseOnChainTokensReturn {
   /** Generation counter from contract */
   generation: number
 
+  /** Count of non-revoked slots with no localStorage data (potential external keys) */
+  externalSlotCount: number
+
   /** Is fetching from contract */
   isLoading: boolean
 
@@ -71,6 +74,7 @@ export function useOnChainTokens(provider: string, userAddress?: string): UseOnC
   const { broker } = useBroker()
   const [tokens, setTokens] = useState<OnChainToken[]>([])
   const [generation, setGeneration] = useState<number>(0)
+  const [externalSlotCount, setExternalSlotCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -146,6 +150,14 @@ export function useOnChainTokens(provider: string, userAddress?: string): UseOnC
         })
       }
 
+      // Count slots that may have keys from other origins
+      // Heuristic: non-revoked, no localData, AND user has interacted (gen > 0 or has some local keys)
+      const hasInteracted = gen > 0 || localKeys.length > 0
+      const possibleExternalSlots = hasInteracted
+        ? tokenList.filter(t => !t.isRevoked && !t.localData).length
+        : 0
+      setExternalSlotCount(possibleExternalSlots)
+
       setTokens(tokenList)
       console.log('📡 [fetchTokenStatus] Fetched tokens, returning data...')
       console.log('📡 [fetchTokenStatus] Total tokens:', tokenList.length)
@@ -173,6 +185,7 @@ export function useOnChainTokens(provider: string, userAddress?: string): UseOnC
   return {
     tokens,
     generation,
+    externalSlotCount,
     isLoading,
     error,
     refresh: fetchTokenStatus,
