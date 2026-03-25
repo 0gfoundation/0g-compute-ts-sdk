@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
+import { withFineTuningBroker, withBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -655,7 +655,7 @@ export default function fineTuning(program: Command) {
             'Override broker URL (skip contract lookup)'
         )
         .action((options) => {
-            withROBroker(options, async (broker) => {
+            withBroker(options, async (broker) => {
                 await deployAdapterToBroker(
                     broker,
                     options.provider,
@@ -714,7 +714,7 @@ export default function fineTuning(program: Command) {
                 process.exit(1)
             }
 
-            withROBroker(options, async (broker) => {
+            withBroker(options, async (broker) => {
                 const { endpoint } =
                     await broker.inference.getServiceMetadata(options.provider)
 
