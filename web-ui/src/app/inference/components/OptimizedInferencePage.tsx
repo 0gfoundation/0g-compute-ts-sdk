@@ -2,21 +2,24 @@
 
 import * as React from 'react'
 import { useState, useCallback, useMemo } from 'react'
-import { useAccount, useChainId } from 'wagmi'
-import { use0GBroker } from '@/shared/hooks/use0GBroker'
+import { useChainId } from 'wagmi'
+import { useBroker } from '@/shared/providers/BrokerProvider'
 import { useOptimizedDataFetching } from '@/shared/hooks/useOptimizedDataFetching'
-import type { Provider } from '@/shared/types/broker'
+import type { Provider, ModelSummary } from '@/shared/types/broker'
 import { OFFICIAL_PROVIDERS } from '../constants/providers'
 import { transformBrokerServicesToProviders } from '../utils/providerTransform'
+import { aggregateProvidersByModel } from '../utils/modelAggregation'
 import { useNavigation } from '@/shared/components/navigation/OptimizedNavigation'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { StateDisplay, NoticeBar } from '@/components/ui/state-display'
 import { ProviderCard } from './ProviderCard'
+import { ModelCard } from './ModelCard'
 import { BuildDrawer } from './BuildDrawer'
-import { ProviderFilters, type VerificationFilter, type ServiceTypeFilter, type SortOption } from './ProviderFilters'
-import { Cpu } from 'lucide-react'
+import { ProviderFilters, type VerificationFilter, type SortOption } from './ProviderFilters'
+import { ModelFilters, type ModelServiceTypeFilter } from './ModelFilters'
+import { Cpu, ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
-// Helper to get recently used providers from localStorage
 const getRecentlyUsedProviders = (): string[] => {
     if (typeof window === 'undefined') return []
     try {
@@ -27,45 +30,188 @@ const getRecentlyUsedProviders = (): string[] => {
     }
 }
 
+const getSelectedModelFromUrl = (): string | null => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    return params.get('model')
+}
+
 export function OptimizedInferencePage() {
-    const { isConnected } = useAccount()
     const chainId = useChainId()
-    const { broker, isInitializing } = use0GBroker()
+    const { broker, readOnlyBroker, isInitializing } = useBroker()
     const { setIsNavigating, setTargetRoute, setTargetPageType } = useNavigation()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [selectedProviderForBuild, setSelectedProviderForBuild] =
         useState<Provider | null>(null)
 
-    // Filter and search state
-    const [searchQuery, setSearchQuery] = useState('')
+    // Read ?model param from URL
+    const [selectedModel, setSelectedModel] = useState<string | null>(getSelectedModelFromUrl)
+
+    // Model list filter state
+    const [modelSearchQuery, setModelSearchQuery] = useState('')
+    const [modelServiceTypeFilter, setModelServiceTypeFilter] = useState<ModelServiceTypeFilter>('all')
+
+    // Provider list filter state (when viewing a specific model's providers)
+    const [providerSearchQuery, setProviderSearchQuery] = useState('')
     const [verificationFilter, setVerificationFilter] = useState<VerificationFilter>('all')
-    const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceTypeFilter>('all')
     const [sortOption, setSortOption] = useState<SortOption>('name-asc')
 
     // Optimized providers data fetching with chain awareness
+    const activeBroker = broker || readOnlyBroker
     const {
         data: providers,
         loading: providersLoading,
         error: providersError,
     } = useOptimizedDataFetching<Provider[]>({
         fetchFn: async () => {
-            if (!broker) throw new Error('Broker not available')
+            if (!activeBroker) throw new Error('Broker not available')
 
             try {
-                const services = await broker.inference.listService()
+                const services = await activeBroker.inference.listService()
                 return transformBrokerServicesToProviders(services)
             } catch {
                 return []
             }
         },
         cacheKey: 'inference-providers',
-        cacheTTL: 2 * 60 * 1000, // 2 minutes cache
-        dependencies: [broker],
-        skip: !broker,
+        cacheTTL: 2 * 60 * 1000,
+        dependencies: [activeBroker],
+        skip: !activeBroker,
         chainId,
     })
 
-    // Use native navigation instead of Next.js router to avoid RSC .txt navigation issues in static export
+    // Aggregate providers into model summaries
+    const allModelSummaries = useMemo(() => {
+        return aggregateProvidersByModel(providers || [])
+    }, [providers])
+
+    // Filter model summaries
+    const filteredModels = useMemo(() => {
+        let result = allModelSummaries
+
+        if (modelSearchQuery.trim()) {
+            const query = modelSearchQuery.toLowerCase()
+            result = result.filter(
+                (m) =>
+                    m.displayName.toLowerCase().includes(query) ||
+                    m.model.toLowerCase().includes(query)
+            )
+        }
+
+        if (modelServiceTypeFilter !== 'all') {
+            result = result.filter((m) => m.serviceType === modelServiceTypeFilter)
+        }
+
+        return result
+    }, [allModelSummaries, modelSearchQuery, modelServiceTypeFilter])
+
+    // Get providers for the selected model
+    const selectedModelProviders = useMemo(() => {
+        if (!selectedModel || !providers) return []
+        return providers.filter((p) => p.model === selectedModel)
+    }, [selectedModel, providers])
+
+    // Find display name for the selected model
+    const selectedModelDisplayName = useMemo(() => {
+        if (!selectedModel) return ''
+        const summary = allModelSummaries.find((m) => m.model === selectedModel)
+        return summary?.displayName || selectedModel
+    }, [selectedModel, allModelSummaries])
+
+    // Filter and sort providers for the selected model view
+    const filteredAndSortedProviders = useMemo(() => {
+        let result = selectedModelProviders
+
+        if (providerSearchQuery.trim()) {
+            const query = providerSearchQuery.toLowerCase()
+            result = result.filter(
+                (p) =>
+                    p.name.toLowerCase().includes(query) ||
+                    p.address.toLowerCase().includes(query)
+            )
+        }
+
+        if (verificationFilter === 'verified') {
+            result = result.filter((p) => p.teeSignerAcknowledged === true)
+        } else if (verificationFilter === 'unverified') {
+            result = result.filter((p) => p.teeSignerAcknowledged !== true)
+        }
+
+        // Helper to calculate total price
+        const getTotalPrice = (p: Provider) => (p.inputPrice || 0) + (p.outputPrice || 0)
+
+        const recentlyUsed = getRecentlyUsedProviders()
+        result = [...result].sort((a, b) => {
+            switch (sortOption) {
+                case 'name-asc':
+                    return a.name.localeCompare(b.name)
+                case 'name-desc':
+                    return b.name.localeCompare(a.name)
+                case 'price-asc':
+                    return getTotalPrice(a) - getTotalPrice(b)
+                case 'price-desc':
+                    return getTotalPrice(b) - getTotalPrice(a)
+                case 'recently-used': {
+                    const indexA = recentlyUsed.indexOf(a.address)
+                    const indexB = recentlyUsed.indexOf(b.address)
+                    if (indexA === -1 && indexB === -1) return 0
+                    if (indexA === -1) return 1
+                    if (indexB === -1) return -1
+                    return indexA - indexB
+                }
+                default:
+                    return 0
+            }
+        })
+
+        return result
+    }, [selectedModelProviders, providerSearchQuery, verificationFilter, sortOption])
+
+    const recentlyUsedSet = new Set(getRecentlyUsedProviders())
+
+    const cheapestProviderAddress = useMemo(() => {
+        if (!filteredAndSortedProviders.length) return null
+
+        let cheapest: Provider | null = null
+        let minPrice = Infinity
+
+        for (const provider of filteredAndSortedProviders) {
+            if (provider.inputPrice !== undefined || provider.outputPrice !== undefined) {
+                const totalPrice = (provider.inputPrice || 0) + (provider.outputPrice || 0)
+                if (totalPrice < minPrice) {
+                    minPrice = totalPrice
+                    cheapest = provider
+                }
+            }
+        }
+
+        return cheapest?.address || null
+    }, [filteredAndSortedProviders])
+
+    // Navigation handlers
+    const handleModelClick = useCallback((model: ModelSummary) => {
+        const url = `/inference?model=${encodeURIComponent(model.model)}`
+        setSelectedModel(model.model)
+        setProviderSearchQuery('')
+        setVerificationFilter('all')
+        setSortOption('name-asc')
+        window.history.pushState({}, '', url)
+    }, [])
+
+    const handleBackToModels = useCallback(() => {
+        setSelectedModel(null)
+        window.history.pushState({}, '', '/inference')
+    }, [])
+
+    // Listen to browser back/forward
+    React.useEffect(() => {
+        const handlePopState = () => {
+            setSelectedModel(getSelectedModelFromUrl())
+        }
+        window.addEventListener('popstate', handlePopState)
+        return () => window.removeEventListener('popstate', handlePopState)
+    }, [])
+
     const handleChatWithProvider = useCallback(
         (provider: Provider) => {
             const chatUrl = `/inference/chat?provider=${encodeURIComponent(provider.address)}`
@@ -89,7 +235,6 @@ export function OptimizedInferencePage() {
         setSelectedProviderForBuild(null)
     }, [])
 
-    // Navigate to image generation page
     const handleImageGenWithProvider = useCallback(
         (provider: Provider) => {
             const imageGenUrl = `/inference/image-gen?provider=${encodeURIComponent(provider.address)}`
@@ -103,7 +248,6 @@ export function OptimizedInferencePage() {
         [setIsNavigating, setTargetRoute, setTargetPageType]
     )
 
-    // Navigate to speech-to-text page
     const handleSpeechToTextWithProvider = useCallback(
         (provider: Provider) => {
             const sttUrl = `/inference/speech-to-text?provider=${encodeURIComponent(provider.address)}`
@@ -117,7 +261,6 @@ export function OptimizedInferencePage() {
         [setIsNavigating, setTargetRoute, setTargetPageType]
     )
 
-    // Navigate to image-edit page
     const handleImageEditWithProvider = useCallback(
         (provider: Provider) => {
             const editUrl = `/inference/image-edit?provider=${encodeURIComponent(provider.address)}`
@@ -131,126 +274,13 @@ export function OptimizedInferencePage() {
         [setIsNavigating, setTargetRoute, setTargetPageType]
     )
 
-    // Filter and sort providers
-    const filteredAndSortedProviders = useMemo(() => {
-        let result = providers || []
-
-        // Search filter
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase()
-            result = result.filter(
-                (p) =>
-                    p.name.toLowerCase().includes(query) ||
-                    p.address.toLowerCase().includes(query) ||
-                    p.model?.toLowerCase().includes(query)
-            )
-        }
-
-        // Verification filter
-        if (verificationFilter === 'verified') {
-            result = result.filter((p) => p.teeSignerAcknowledged === true)
-        } else if (verificationFilter === 'unverified') {
-            result = result.filter((p) => p.teeSignerAcknowledged !== true)
-        }
-
-        // Service type filter
-        if (serviceTypeFilter !== 'all') {
-            result = result.filter((p) => p.serviceType === serviceTypeFilter)
-        }
-
-        // Sort
-        const recentlyUsed = getRecentlyUsedProviders()
-        result = [...result].sort((a, b) => {
-            switch (sortOption) {
-                case 'name-asc':
-                    return a.name.localeCompare(b.name)
-                case 'name-desc':
-                    return b.name.localeCompare(a.name)
-                case 'price-asc':
-                    const priceA = (a.inputPrice || 0) + (a.outputPrice || 0)
-                    const priceB = (b.inputPrice || 0) + (b.outputPrice || 0)
-                    return priceA - priceB
-                case 'price-desc':
-                    const priceA2 = (a.inputPrice || 0) + (a.outputPrice || 0)
-                    const priceB2 = (b.inputPrice || 0) + (b.outputPrice || 0)
-                    return priceB2 - priceA2
-                case 'recently-used':
-                    const indexA = recentlyUsed.indexOf(a.address)
-                    const indexB = recentlyUsed.indexOf(b.address)
-                    // Providers in recently used list come first
-                    if (indexA === -1 && indexB === -1) return 0
-                    if (indexA === -1) return 1
-                    if (indexB === -1) return -1
-                    return indexA - indexB
-                default:
-                    return 0
-            }
-        })
-
-        return result
-    }, [providers, searchQuery, verificationFilter, serviceTypeFilter, sortOption])
-
-    // Recently used providers set for quick lookup
-    const recentlyUsedSet = useMemo(() => {
-        const used = getRecentlyUsedProviders()
-        return new Set(used)
-    }, [])
-
-    // Find the cheapest provider (by total input + output price)
-    const cheapestProviderAddress = useMemo(() => {
-        if (!filteredAndSortedProviders.length) return null
-
-        let cheapest: Provider | null = null
-        let minPrice = Infinity
-
-        for (const provider of filteredAndSortedProviders) {
-            // Only consider providers with pricing info
-            if (provider.inputPrice !== undefined || provider.outputPrice !== undefined) {
-                const totalPrice = (provider.inputPrice || 0) + (provider.outputPrice || 0)
-                if (totalPrice < minPrice) {
-                    minPrice = totalPrice
-                    cheapest = provider
-                }
-            }
-        }
-
-        return cheapest?.address || null
-    }, [filteredAndSortedProviders])
-
-    // Wallet not connected state
-    if (!isConnected) {
-        return (
-            <div className="w-full">
-                <StateDisplay
-                    type="wallet-disconnected"
-                    description="Please connect your wallet to access AI inference features."
-                />
-            </div>
-        )
-    }
-
-    const isLoading = isInitializing
+    const isLoading = isInitializing && !readOnlyBroker
     const allProviders = providers || []
     const hasError = providersError && !providers
 
     return (
         <TooltipProvider>
             <div className="w-full">
-                {/* Header */}
-                <div className="mb-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center">
-                            <Cpu className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-semibold text-foreground">AI Providers</h1>
-                            <p className="text-sm text-muted-foreground">
-                                Choose from decentralized providers to access AI services
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Error notice */}
                 {hasError && (
                     <NoticeBar
@@ -263,20 +293,46 @@ export function OptimizedInferencePage() {
                 {/* Loading state */}
                 {isLoading ? (
                     <StateDisplay type="loading" />
-                ) : (
+                ) : selectedModel ? (
+                    // ===== Provider List View (filtered by model) =====
                     <>
-                        {/* Filters */}
+                        {/* Breadcrumb / Back navigation */}
+                        <div className="mb-6">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mb-3 -ml-2 text-muted-foreground hover:text-foreground"
+                                onClick={handleBackToModels}
+                            >
+                                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                                All Models
+                            </Button>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center">
+                                    <Cpu className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-semibold text-foreground">
+                                        {selectedModelDisplayName}
+                                    </h1>
+                                    <p className="text-sm text-muted-foreground">
+                                        {selectedModelProviders.length} provider{selectedModelProviders.length !== 1 ? 's' : ''} available
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Provider filters (without service type since already filtered by model) */}
                         <ProviderFilters
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
+                            searchQuery={providerSearchQuery}
+                            onSearchChange={setProviderSearchQuery}
                             verificationFilter={verificationFilter}
                             onVerificationFilterChange={setVerificationFilter}
-                            serviceTypeFilter={serviceTypeFilter}
-                            onServiceTypeFilterChange={setServiceTypeFilter}
+                            hideServiceType
                             sortOption={sortOption}
                             onSortChange={setSortOption}
                             resultCount={filteredAndSortedProviders.length}
-                            totalCount={allProviders.length}
+                            totalCount={selectedModelProviders.length}
                         />
 
                         {/* Provider cards grid */}
@@ -306,24 +362,79 @@ export function OptimizedInferencePage() {
                             })}
                         </div>
 
-                        {/* Empty state after filtering */}
-                        {filteredAndSortedProviders.length === 0 && allProviders.length > 0 && (
+                        {/* Empty state */}
+                        {filteredAndSortedProviders.length === 0 && selectedModelProviders.length > 0 && (
                             <StateDisplay
                                 type="empty"
                                 title="No Matching Providers"
                                 description="No providers match your search or filter criteria. Try adjusting your filters."
                             />
                         )}
-                    </>
-                )}
 
-                {/* Empty state when no providers at all */}
-                {!isLoading && allProviders.length === 0 && (
-                    <StateDisplay
-                        type="empty"
-                        title="No Providers Available"
-                        description="There are currently no AI inference providers available. Please try again later."
-                    />
+                        {selectedModelProviders.length === 0 && (
+                            <StateDisplay
+                                type="empty"
+                                title="No Providers Found"
+                                description="No providers are currently offering this model. Try going back to browse other models."
+                            />
+                        )}
+                    </>
+                ) : (
+                    // ===== Model List View =====
+                    <>
+                        {/* Header */}
+                        <div className="mb-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center">
+                                    <Cpu className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-semibold text-foreground">AI Models</h1>
+                                    <p className="text-sm text-muted-foreground">
+                                        Browse available models and choose a provider
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Model filters */}
+                        <ModelFilters
+                            searchQuery={modelSearchQuery}
+                            onSearchChange={setModelSearchQuery}
+                            serviceTypeFilter={modelServiceTypeFilter}
+                            onServiceTypeFilterChange={setModelServiceTypeFilter}
+                            resultCount={filteredModels.length}
+                            totalCount={allModelSummaries.length}
+                        />
+
+                        {/* Model cards grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {filteredModels.map((model) => (
+                                <ModelCard
+                                    key={model.model}
+                                    model={model}
+                                    onClick={handleModelClick}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Empty states */}
+                        {filteredModels.length === 0 && allModelSummaries.length > 0 && (
+                            <StateDisplay
+                                type="empty"
+                                title="No Matching Models"
+                                description="No models match your search or filter criteria. Try adjusting your filters."
+                            />
+                        )}
+
+                        {allProviders.length === 0 && !isLoading && (
+                            <StateDisplay
+                                type="empty"
+                                title="No Models Available"
+                                description="There are currently no AI models available. Please try again later."
+                            />
+                        )}
+                    </>
                 )}
 
                 {/* Build drawer */}

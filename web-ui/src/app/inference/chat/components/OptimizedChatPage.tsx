@@ -3,7 +3,9 @@
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { use0GBroker } from "../../../../shared/hooks/use0GBroker";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useBroker } from "@/shared/providers/BrokerProvider";
+import { useDepositGuard } from "@/shared/providers/DepositGuardProvider";
 import { useChatHistory } from "../../../../shared/hooks/useChatHistory";
 import { useProviderSearch } from "../../hooks/useProviderSearch";
 import { useStreamingState } from "../../../../shared/hooks/useStreamingState";
@@ -27,23 +29,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Provider } from "../../../../shared/types/broker";
-
-
-
-interface Message {
-  role: "system" | "user" | "assistant";
-  content: string;
-  timestamp?: number;
-  chatId?: string;
-  isVerified?: boolean | null;
-  isVerifying?: boolean;
-}
+import type { Provider, Message } from "../../../../shared/types/broker";
 
 
 export function OptimizedChatPage() {
   const { isConnected, address } = useAccount();
-  const { broker, isInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker();
+  const { broker, readOnlyBroker, isInitializing, ledgerInfo, refreshLedgerInfo } = useBroker();
+  const { openConnectModal } = useConnectModal();
+  const { requestDeposit } = useDepositGuard();
   const { toast } = useToast();
 
   // Use toast for non-blocking errors
@@ -67,7 +60,7 @@ export function OptimizedChatPage() {
     providerPendingRefund,
     setSelectedProvider,
     refreshProviderBalance,
-  } = useProviderManagement(broker);
+  } = useProviderManagement(broker, readOnlyBroker);
   
   // Provider dropdown state (UI only)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -96,8 +89,8 @@ export function OptimizedChatPage() {
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState("");
   const [isTopping, setIsTopping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
+  const isAtBottomRef = useRef(true);
   
   // Initialize chat history hook first - shared across all providers for the same wallet
   const chatHistory = useChatHistory({
@@ -110,7 +103,7 @@ export function OptimizedChatPage() {
   const { searchQuery, setSearchQuery, searchResults, isSearching, clearSearch } = useProviderSearch(chatHistory);
 
   // Onboarding
-  const { showOnboarding, completeOnboarding } = useChatOnboarding();
+  const { showOnboarding, currentStep, advanceStep, completeOnboarding } = useChatOnboarding();
 
   // Provider switch confirmation
   const [showSwitchWarning, setShowSwitchWarning] = useState(false);
@@ -170,7 +163,8 @@ export function OptimizedChatPage() {
     setIsStreaming,
     setErrorWithTimeout,
     isUserScrollingRef,
-    messagesEndRef,
+    openConnectModal,
+    requestDeposit,
   });
 
   // Handle editing a user message - truncates conversation and resends
@@ -236,14 +230,6 @@ export function OptimizedChatPage() {
 
 
   // Note: Global ledger check is now handled in LayoutContent component
-
-  // Refresh ledger info when broker is available
-  useEffect(() => {
-    if (broker && refreshLedgerInfo) {
-      refreshLedgerInfo();
-    }
-  }, [broker, refreshLedgerInfo]);
-
 
   // Function to scroll to a specific message
   const scrollToMessage = useCallback((targetContent: string) => {
@@ -354,46 +340,52 @@ export function OptimizedChatPage() {
 
   // Database will initialize automatically when needed (Dexie.js is lightweight)
   
-  // Track user scroll behavior to stop auto-scroll when user manually scrolls up
+  // Track user scroll behavior with debounce.
+  // Uses scroll event for position tracking (isAtBottom) and a SCROLL_DEBOUNCE ms
+  // debounce for isUserScrolling. Because programmatic scrollTo also fires scroll
+  // events, this effectively throttles auto-scroll during streaming to ~1/SCROLL_DEBOUNCE
+  // interval — an intentional tradeoff that reduces DOM operations while remaining
+  // visually smooth. Auto-scroll uses behavior:"instant" to avoid animation conflicts.
   useEffect(() => {
     const messagesContainer = messagesContainerRef.current;
     if (!messagesContainer) return;
 
+    let scrollTimeout: ReturnType<typeof setTimeout>;
+
     const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      clearTimeout(scrollTimeout);
+
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < CHAT_CONFIG.SCROLL_THRESHOLD;
-      
-      if (!isNearBottom && isStreaming) {
-        // User scrolled up during streaming, stop auto-scroll
-        isUserScrollingRef.current = true;
-      } else if (isNearBottom) {
-        // User is back near bottom, resume auto-scroll
+      isAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - CHAT_CONFIG.SCROLL_THRESHOLD;
+
+      scrollTimeout = setTimeout(() => {
         isUserScrollingRef.current = false;
-      }
+      }, CHAT_CONFIG.SCROLL_DEBOUNCE);
     };
 
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, [isStreaming]);
-  
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (isUserScrollingRef.current) return; // Don't scroll if user is manually scrolling
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    return () => {
+      messagesContainer.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
     };
+  }, []);
 
-    // Check if this is just a verification status update
+  // Reset scroll tracking when streaming/loading ends
+  useEffect(() => {
+    if (!isStreaming && !isLoading) {
+      isUserScrollingRef.current = false;
+    }
+  }, [isStreaming, isLoading]);
+
+  useEffect(() => {
     const isVerificationUpdate = () => {
       const prev = previousMessagesRef.current;
       if (prev.length !== messages.length) return false;
-      
-      // Check if only verification fields changed
       for (let i = 0; i < messages.length; i++) {
         const current = messages[i];
         const previous = prev[i];
-        
-        // If content, role, or timestamp changed, it's not just verification
-        if (current.content !== previous.content || 
+        if (current.content !== previous.content ||
             current.role !== previous.role ||
             current.timestamp !== previous.timestamp ||
             current.chatId !== previous.chatId) {
@@ -403,20 +395,28 @@ export function OptimizedChatPage() {
       return true;
     };
 
-    // Don't auto-scroll if:
-    // 1. It's just a verification update
-    // 2. It's a history navigation (loading history)
-    // 3. User is manually scrolling during streaming
-    if (!isVerificationUpdate() && !isLoadingHistoryRef.current && !isUserScrollingRef.current) {
-      const timeoutId = setTimeout(scrollToBottom, CHAT_CONFIG.SCROLL_DELAY);
-      // Update the ref after scrolling decision
+    if (isVerificationUpdate() || isLoadingHistoryRef.current) {
       previousMessagesRef.current = [...messages];
-      return () => clearTimeout(timeoutId);
+      return;
     }
-    
-    // Update the ref even if we don't scroll
+
+    // New message added (user sent or assistant started): always scroll
+    // Content update during streaming: only scroll if user is at bottom
+    const isNewMessage = messages.length !== previousMessagesRef.current.length;
+    const shouldScroll = isNewMessage || (isAtBottomRef.current && !isUserScrollingRef.current);
+
+    if (shouldScroll) {
+      requestAnimationFrame(() => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'instant' });
+          isAtBottomRef.current = true;
+        }
+      });
+    }
+
     previousMessagesRef.current = [...messages];
-  }, [messages, isLoading, isStreaming]);
+  }, [messages]);
 
 
   // Remove clearChat function since we removed the Clear Chat button
@@ -448,38 +448,6 @@ export function OptimizedChatPage() {
 
   // Note: handleDeposit is now handled globally in LayoutContent
 
-
-  if (!isConnected) {
-    return (
-      <div className="w-full">
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center border border-purple-200">
-              <svg
-                className="w-8 h-8 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Wallet Not Connected
-          </h3>
-          <p className="text-gray-600">
-            Please connect your wallet to access AI inference features.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full">
@@ -568,7 +536,10 @@ export function OptimizedChatPage() {
               providerBalanceNeuron={providerBalanceNeuron}
               providerPendingRefund={providerPendingRefund}
               onAddFunds={() => {
-                // Use the existing top-up modal logic
+                if (!broker) {
+                  openConnectModal?.();
+                  return;
+                }
                 setShowTopUpModal(true);
               }}
             />
@@ -624,7 +595,6 @@ export function OptimizedChatPage() {
           isStreaming={isStreaming}
           verifyResponse={verifyResponse}
           messagesContainerRef={messagesContainerRef}
-          messagesEndRef={messagesEndRef}
           onEditMessage={handleEditMessage}
           onRegenerateMessage={handleRegenerateMessage}
         />
@@ -648,9 +618,16 @@ export function OptimizedChatPage() {
       {/* First-time user onboarding */}
       {showOnboarding && (
         <ChatOnboarding
-          hasProvider={!!selectedProvider}
-          hasBalance={(providerBalance ?? 0) > 0}
-          onComplete={completeOnboarding}
+          currentStep={currentStep}
+          onNext={() => {
+            if (currentStep < 3) {
+              advanceStep(currentStep + 1)
+            } else {
+              completeOnboarding()
+            }
+          }}
+          onSkip={completeOnboarding}
+          onStepClick={advanceStep}
         />
       )}
 

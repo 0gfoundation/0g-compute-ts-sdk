@@ -3,23 +3,29 @@ import { InferenceServingContract } from '../contract'
 import type { JsonRpcSigner, Wallet } from 'ethers'
 import { RequestProcessor } from './request'
 import { ResponseProcessor } from './response'
-import type { VerificationResult } from './verifier'
+import type { VerificationResult, VerificationStep } from './verifier'
 import { Verifier } from './verifier'
 import { AccountProcessor } from './account'
 import { ModelProcessor } from './model'
 import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
 import { throwFormattedError } from '../../common/utils'
+import { ReadOnlyInferenceBroker } from './read-only-broker'
+import type { AutoFundingConfig } from './base'
 
-export class InferenceBroker {
+/**
+ * Full-featured inference broker with authentication required
+ * Extends ReadOnlyInferenceBroker with additional authenticated operations
+ */
+export class InferenceBroker extends ReadOnlyInferenceBroker {
     public requestProcessor!: RequestProcessor
     public responseProcessor!: ResponseProcessor
     public verifier!: Verifier
     public accountProcessor!: AccountProcessor
-    public modelProcessor!: ModelProcessor
+    // Override base class with authenticated version
+    public declare modelProcessor: ModelProcessor
 
     private signer: JsonRpcSigner | Wallet
-    private contractAddress: string
     private ledger: LedgerBroker
 
     constructor(
@@ -27,25 +33,32 @@ export class InferenceBroker {
         contractAddress: string,
         ledger: LedgerBroker
     ) {
+        // Initialize base class with signer
+        super(signer, contractAddress)
         this.signer = signer
-        this.contractAddress = contractAddress
         this.ledger = ledger
     }
 
-    async initialize() {
+    async initialize(): Promise<void> {
         let userAddress: string
         try {
             userAddress = await this.signer.getAddress()
         } catch (error) {
             throwFormattedError(error)
         }
+
+        // Create contract wrapper for authenticated operations
         const contract = new InferenceServingContract(
             this.signer,
             this.contractAddress,
             userAddress
         )
+
+        // Create metadata and cache for processors
         const metadata = new Metadata()
         const cache = new Cache()
+
+        // Initialize authenticated processors
         this.requestProcessor = new RequestProcessor(
             contract,
             metadata,
@@ -64,79 +77,23 @@ export class InferenceBroker {
             metadata,
             cache
         )
-        this.modelProcessor = new ModelProcessor(
+
+        // Initialize ModelProcessor with ledger (needed for authenticated operations)
+        const modelProcessor = new ModelProcessor(
             contract,
             this.ledger,
             metadata,
             cache
         )
         this.verifier = new Verifier(contract, this.ledger, metadata, cache)
+
+        // Store modelProcessor reference for authenticated operations
+        // The base class's contract is used for read-only operations
+        this.modelProcessor = modelProcessor
     }
 
-    /**
-     * Retrieves a list of services from the contract.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
-     * @throws An error if the service list cannot be retrieved.
-     */
-    public listService = async (
-        offset: number = 0,
-        limit: number = 50,
-        includeUnacknowledged: boolean = false
-    ) => {
-        try {
-            return await this.modelProcessor.listService(
-                offset,
-                limit,
-                includeUnacknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    /**
-     * Retrieves a list of services with detailed health metrics from the monitoring API.
-     *
-     * This method combines on-chain service data with real-time health metrics including
-     * uptime percentage and average response time (latency) for each service provider.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
-     * @throws An error if the service list cannot be retrieved.
-     *
-     * @example
-     * ```typescript
-     * const servicesWithHealth = await broker.inference.listServiceWithDetail();
-     * servicesWithHealth.forEach(service => {
-     *   console.log(`Provider: ${service.provider}`);
-     *   if (service.healthMetrics) {
-     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
-     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
-     *   }
-     * });
-     * ```
-     */
-    public listServiceWithDetail = async (
-        offset: number = 0,
-        limit: number = 50,
-        includeUnacknowledged: boolean = false
-    ) => {
-        try {
-            return await this.modelProcessor.listServiceWithDetail(
-                offset,
-                limit,
-                includeUnacknowledged
-            )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
+    // NOTE: listService() and listServiceWithDetail() are inherited from ReadOnlyInferenceBroker
+    // These read-only methods don't require authentication
 
     /**
      * Retrieves the account information for a given provider address.
@@ -347,14 +304,12 @@ export class InferenceBroker {
      *
      * @example
      *
-     * const { endpoint, model } = await broker.getServiceMetadata(
+     * const { endpoint, model } = await broker.inference.getServiceMetadata(
      *   providerAddress,
-     *   serviceName,
      * );
      *
-     * const headers = await broker.getServiceMetadata(
+     * const headers = await broker.inference.getRequestHeaders(
      *   providerAddress,
-     *   serviceName,
      *   content,
      * );
      *
@@ -365,12 +320,10 @@ export class InferenceBroker {
      *
      * const completion = await openai.chat.completions.create(
      *   {
-     *     messages: [{ role: "system", content }],
+     *     messages: [{ role: "user", content }],
      *     model,
      *   },
-     *   headers: {
-     *     ...headers,
-     *   },
+     *   { headers: { ...headers } },
      * );
      *
      * @throws An error if errors occur during the processing of the request.
@@ -387,6 +340,66 @@ export class InferenceBroker {
         } catch (error) {
             throwFormattedError(error)
         }
+    }
+
+    /**
+     * Start background auto-funding for a provider.
+     *
+     * Runs an immediate balance check, then periodically checks the provider
+     * sub-account balance and tops up from the ledger if needed. This runs
+     * entirely in the background, so {@link getRequestHeaders} has zero
+     * extra latency.
+     *
+     * Call {@link stopAutoFunding} to stop the background timer.
+     *
+     * @param {string} providerAddress - The provider address to auto-fund.
+     * @param config - Optional auto-funding configuration.
+     * @param config.interval - Polling interval in ms (default: 30000 = 30s).
+     * @param config.bufferMultiplier - Multiplier for MIN_LOCKED_BALANCE buffer (default: 2).
+     *   requiredBalance = unsettledFee + bufferMultiplier * MIN_LOCKED_BALANCE.
+     * @param {number} gasPrice - Optional gas price for transactions.
+     *
+     * @example
+     * ```typescript
+     * // Start auto-funding with defaults (30s interval, 2x buffer)
+     * await broker.inference.startAutoFunding(providerAddress);
+     *
+     * // Start with custom config
+     * await broker.inference.startAutoFunding(providerAddress, {
+     *   interval: 15000,       // check every 15s
+     *   bufferMultiplier: 3,   // keep 3x min locked balance
+     * });
+     *
+     * // ... make requests without worrying about balance ...
+     * const headers = await broker.inference.getRequestHeaders(providerAddress);
+     *
+     * // Stop when done
+     * broker.inference.stopAutoFunding(providerAddress);
+     * ```
+     */
+    public startAutoFunding = async (
+        providerAddress: string,
+        config?: AutoFundingConfig,
+        gasPrice?: number
+    ): Promise<void> => {
+        try {
+            await this.requestProcessor.startAutoFunding(
+                providerAddress,
+                config,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Stop background auto-funding for a provider.
+     *
+     * @param {string} providerAddress - The provider address. If omitted, stops all auto-funding timers.
+     */
+    public stopAutoFunding = (providerAddress?: string): void => {
+        this.requestProcessor.stopAutoFunding(providerAddress)
     }
 
     /**
@@ -433,17 +446,20 @@ export class InferenceBroker {
      * verifyService is used to verify the reliability of the service.
      *
      * @param {string} providerAddress - The address of the provider.
+     * @param {string} outputDir - Directory to save attestation reports (default: current directory).
+     * @param {function} onLog - Optional callback for real-time step-by-step output.
      *
-     * @returns A <boolean | null> value. True indicates the service is reliable, otherwise it is unreliable.
+     * @returns Verification results with structured data and all log steps.
      *
      * @throws An error if errors occur during the verification process.
      */
     public verifyService = async (
         providerAddress: string,
-        outputDir: string = '.'
+        outputDir: string = '.',
+        onLog?: (step: VerificationStep) => void
     ): Promise<VerificationResult | null> => {
         try {
-            return await this.verifier.verifyService(providerAddress, outputDir)
+            return await this.verifier.verifyService(providerAddress, outputDir, onLog)
         } catch (error) {
             throwFormattedError(error)
         }

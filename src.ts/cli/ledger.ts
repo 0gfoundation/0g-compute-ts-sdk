@@ -6,17 +6,13 @@ import {
     printTableWithTitle,
     withBroker,
     splitIntoChunks,
-    checkFineTuningAvailability,
 } from './util'
 import type { Command } from 'commander'
 import Table from 'cli-table3'
 import type { ZGComputeNetworkBroker } from '../sdk'
-import { getNetworkType } from '../sdk'
 import chalk from 'chalk'
 import type { DeliverableStructOutput } from '../sdk/fine-tuning/contract/typechain/FineTuningServing'
 import { interactiveSelect } from './interactive-selection'
-import { getRpcEndpoint } from './network-setup'
-import { ethers } from 'ethers'
 
 async function selectServiceType(
     options: any
@@ -26,21 +22,7 @@ async function selectServiceType(
         return options.service
     }
 
-    // Check network type to determine available services
-    const rpcEndpoint = await getRpcEndpoint(options)
-    const provider = new ethers.JsonRpcProvider(rpcEndpoint)
-    const network = await provider.getNetwork()
-    const networkType = getNetworkType(network.chainId)
-
-    // On mainnet, only inference is available
-    if (networkType === 'mainnet') {
-        console.log(
-            chalk.gray('ℹ️  On mainnet, only inference service is available.')
-        )
-        return 'inference'
-    }
-
-    // On other networks, show selector
+    // Show service selector
     const serviceType = await interactiveSelect({
         message: 'Select service type:',
         options: [
@@ -161,25 +143,72 @@ export default function ledger(program: Command) {
         .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .option('--service <type>', 'Service type: inference or fine-tuning')
+        .option(
+            '--provider <address>',
+            'Provider address to retrieve funds from (if not specified, shows interactive selection)'
+        )
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
         .option('--step <step>', 'Step for gas price calculation')
         .action(async (options: any) => {
             const serviceType = await selectServiceType(options)
 
-            if (serviceType === 'fine-tuning') {
-                const isAvailable = await checkFineTuningAvailability(options)
-                if (!isAvailable) {
-                    return
-                }
-            }
-
             withBroker(options, async (broker) => {
-                console.log(
-                    `Retrieving funds from ${serviceType} sub accounts...`
-                )
-                await broker.ledger.retrieveFund(serviceType)
-                console.log(`Funds retrieved from ${serviceType} sub accounts`)
+                let selectedProvider: string | undefined = options.provider
+
+                if (!selectedProvider) {
+                    // Get providers with balance for interactive selection
+                    const providers =
+                        await broker.ledger.getProvidersWithBalance(serviceType)
+
+                    if (!providers || providers.length === 0) {
+                        console.log(
+                            chalk.yellow(
+                                `No providers with balance found for ${serviceType}.`
+                            )
+                        )
+                        return
+                    }
+
+                    const providerOptions = [
+                        {
+                            title: 'All providers',
+                            value: 'all',
+                            description: `Retrieve funds from all ${providers.length} provider(s)`,
+                        },
+                        ...providers.map(([address, balance, pendingRefund]) => ({
+                            title: address,
+                            value: address,
+                            description: `Balance: ${neuronToA0gi(balance).toFixed(6)} 0G, Pending refund: ${neuronToA0gi(pendingRefund).toFixed(6)} 0G`,
+                        })),
+                    ]
+
+                    selectedProvider = await interactiveSelect({
+                        message: `Select provider to retrieve funds from (${serviceType}):`,
+                        options: providerOptions,
+                    })
+                }
+
+                if (selectedProvider === 'all') {
+                    console.log(
+                        `Retrieving funds from all ${serviceType} sub accounts...`
+                    )
+                    await broker.ledger.retrieveFund(serviceType)
+                    console.log(
+                        `Funds retrieved from all ${serviceType} sub accounts`
+                    )
+                } else {
+                    console.log(
+                        `Retrieving funds from ${serviceType} sub account for provider ${selectedProvider}...`
+                    )
+                    await broker.ledger.retrieveFundFromProvider(
+                        serviceType,
+                        selectedProvider
+                    )
+                    console.log(
+                        `Funds retrieved from ${serviceType} sub account for provider ${selectedProvider}`
+                    )
+                }
 
                 // Add helpful information about checking lock time
                 console.log(
@@ -216,13 +245,6 @@ export default function ledger(program: Command) {
         .action(async (options: any) => {
             const serviceType = await selectServiceType(options)
 
-            if (serviceType === 'fine-tuning') {
-                const isAvailable = await checkFineTuningAvailability(options)
-                if (!isAvailable) {
-                    return
-                }
-            }
-
             withBroker(options, async (broker) => {
                 const amountInNeuron = a0giToNeuron(parseFloat(options.amount))
                 console.log(
@@ -253,13 +275,6 @@ export default function ledger(program: Command) {
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .action(async (options: any) => {
             const serviceType = await selectServiceType(options)
-
-            if (serviceType === 'fine-tuning') {
-                const isAvailable = await checkFineTuningAvailability(options)
-                if (!isAvailable) {
-                    return
-                }
-            }
 
             withBroker(options, async (broker) => {
                 if (serviceType === 'inference') {

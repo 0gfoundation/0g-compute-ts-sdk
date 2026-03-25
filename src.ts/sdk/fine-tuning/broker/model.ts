@@ -3,60 +3,70 @@ import {
     eciesDecrypt,
     throwFormattedError,
 } from '../../common/utils'
-import { MODEL_HASH_MAP } from '../const'
+import {
+    ZG_RPC_ENDPOINT_TESTNET,
+    ZG_RPC_ENDPOINT_MAINNET,
+    INDEXER_URL_TESTNET_TURBO,
+    INDEXER_URL_MAINNET_TURBO,
+} from '../const'
 import { download } from '../zg-storage'
-import { BrokerBase } from './base'
+import type { StorageConfig } from '../zg-storage'
+import { ReadOnlyModelProcessor } from './read-only-model'
+import type { FineTuningServingContract } from '../contract'
+import type { LedgerBroker } from '../../ledger'
+import type { Provider } from '../provider/provider'
 import { logger } from '../../common/logger'
 import { ethers } from 'ethers'
 import fs from 'fs/promises'
 import path from 'path'
+import { getNetworkType } from '../../constants'
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
  * acknowledging model delivery, and decrypting fine-tuned models.
+ *
+ * Extends ReadOnlyModelProcessor to inherit listModel() for read-only operations.
  */
-export class ModelProcessor extends BrokerBase {
-    /**
-     * List all available models including both standard pre-trained models
-     * and customized models from providers.
-     *
-     * @returns A tuple containing two arrays:
-     *   - [0]: Standard pre-trained models with their configurations
-     *   - [1]: Customized models from providers with descriptions
-     *
-     * @example
-     * ```typescript
-     * const [standardModels, customizedModels] = await broker.fineTuning.listModel();
-     *
-     * // Standard models: [['meta-llama/Llama-2-7b-chat-hf', {...}], ...]
-     * // Customized models: [['my-model', { description: '...', provider: '0x...' }], ...]
-     * ```
-     */
-    async listModel(): Promise<[string, { [key: string]: string }][][]> {
-        try {
-            const services = await this.contract.listService()
-            const customizedModels: [string, { [key: string]: string }][] = []
+export class ModelProcessor extends ReadOnlyModelProcessor {
+    protected declare contract: FineTuningServingContract
+    protected ledger: LedgerBroker
+    protected servingProvider: Provider
 
-            for (const service of services) {
-                if (service.models.length !== 0) {
-                    const url = service.url
-                    const models =
-                        await this.servingProvider.getCustomizedModels(url)
-                    for (const item of models) {
-                        customizedModels.push([
-                            item.name,
-                            {
-                                description: item.description,
-                                provider: service.provider,
-                            },
-                        ])
-                    }
+    constructor(
+        contract: FineTuningServingContract,
+        ledger: LedgerBroker,
+        servingProvider: Provider
+    ) {
+        super(contract)
+        this.contract = contract
+        this.ledger = ledger
+        this.servingProvider = servingProvider
+    }
+
+    /**
+     * Get storage configuration based on current network
+     */
+    protected async getStorageConfig(): Promise<StorageConfig> {
+        try {
+            const chainId = await this.contract.signer.provider?.getNetwork().then(n => n.chainId)
+            const networkType = chainId ? getNetworkType(chainId) : 'unknown'
+
+            if (networkType === 'mainnet') {
+                return {
+                    rpcUrl: ZG_RPC_ENDPOINT_MAINNET,
+                    indexerUrl: INDEXER_URL_MAINNET_TURBO,
+                }
+            } else {
+                return {
+                    rpcUrl: ZG_RPC_ENDPOINT_TESTNET,
+                    indexerUrl: INDEXER_URL_TESTNET_TURBO,
                 }
             }
-
-            return [Object.entries(MODEL_HASH_MAP), customizedModels]
-        } catch (error) {
-            throwFormattedError(error)
+        } catch {
+            return {
+                rpcUrl: ZG_RPC_ENDPOINT_TESTNET,
+                indexerUrl: INDEXER_URL_TESTNET_TURBO,
+            }
         }
     }
 
@@ -126,7 +136,8 @@ export class ModelProcessor extends BrokerBase {
                 )
             } else if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
-                await download(storageDownloadPath, deliverable.modelRootHash)
+                const storageConfig = await this.getStorageConfig()
+                await download(storageDownloadPath, deliverable.modelRootHash, storageConfig)
                 logger.info(
                     `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
                 )
@@ -136,9 +147,11 @@ export class ModelProcessor extends BrokerBase {
                     logger.info(
                         'Downloading model from 0G Storage...'
                     )
+                    const storageConfig = await this.getStorageConfig()
                     await download(
                         storageDownloadPath,
-                        deliverable.modelRootHash
+                        deliverable.modelRootHash,
+                        storageConfig
                     )
                     logger.info(
                         `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
@@ -207,7 +220,8 @@ export class ModelProcessor extends BrokerBase {
                 // Path doesn't exist yet, use as-is
             }
 
-            await download(downloadPath, deliverable.modelRootHash)
+            const storageConfig = await this.getStorageConfig()
+            await download(downloadPath, deliverable.modelRootHash, storageConfig)
             logger.info(
                 `Successfully downloaded model from 0G Storage to ${downloadPath}`
             )

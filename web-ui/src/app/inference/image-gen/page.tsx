@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useAccount } from 'wagmi'
-import { use0GBroker } from '@/shared/hooks/use0GBroker'
+import { useBroker } from '@/shared/providers/BrokerProvider'
+import { useWalletGuard } from '@/shared/hooks/useWalletGuard'
 import { useServiceProviders } from '../hooks/useServiceProviders'
 import { useImageGeneration } from '@/shared/hooks/useImageGeneration'
 import { StateDisplay } from '@/components/ui/state-display'
@@ -19,11 +20,12 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Download, Image as ImageIcon, Sparkles, Plus, History, Trash2, X } from 'lucide-react'
 import { TopUpModal } from '../chat/components/TopUpModal'
-import { Loader2 as LoaderIcon } from 'lucide-react'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 function ImageGenContent() {
     const { isConnected } = useAccount()
-    const { broker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = use0GBroker()
+    const { broker, readOnlyBroker, isInitializing: brokerInitializing, ledgerInfo, refreshLedgerInfo } = useBroker()
+    const { requireWallet } = useWalletGuard()
 
     // Provider management for text-to-image services
     const {
@@ -37,7 +39,7 @@ function ImageGenContent() {
         isInitializing,
         error: providerError,
         refreshProviderBalance,
-    } = useServiceProviders(broker, 'text-to-image')
+    } = useServiceProviders(broker, 'text-to-image', readOnlyBroker)
 
     // Image generation hook
     const [generationError, setGenerationError] = useState<string | null>(null)
@@ -81,6 +83,7 @@ function ImageGenContent() {
     // Handle generate
     const handleGenerate = useCallback(async () => {
         if (!prompt.trim()) return
+        if (!requireWallet()) return
 
         // Check balance
         if (providerBalance === 0 || providerBalance === null) {
@@ -91,7 +94,7 @@ function ImageGenContent() {
         await generateImage({ prompt, size: imageSize })
         // Refresh balance after generation
         refreshProviderBalance()
-    }, [prompt, imageSize, generateImage, providerBalance, refreshProviderBalance])
+    }, [prompt, imageSize, generateImage, providerBalance, refreshProviderBalance, requireWallet])
 
     // Handle download
     const handleDownload = useCallback((imageData: string, filename: string) => {
@@ -102,24 +105,6 @@ function ImageGenContent() {
         link.click()
         document.body.removeChild(link)
     }, [])
-
-    // Format balance
-    const formatBalance = (balance: number | null) => {
-        if (balance === null) return '...'
-        return balance.toFixed(4)
-    }
-
-    // Wallet not connected
-    if (!isConnected) {
-        return (
-            <div className="w-full">
-                <StateDisplay
-                    type="wallet-disconnected"
-                    description="Please connect your wallet to generate images."
-                />
-            </div>
-        )
-    }
 
     const isLoading = brokerInitializing || isInitializing
 
@@ -170,13 +155,16 @@ function ImageGenContent() {
                                         <span className={`text-xs font-medium ${
                                             providerBalance === 0 ? 'text-red-600' : 'text-gray-900'
                                         }`}>
-                                            {formatBalance(providerBalance)} 0G
+                                            {providerBalance !== null ? formatNumber(providerBalance) : '...'} 0G
                                         </span>
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             className="h-6 px-2 text-xs"
-                                            onClick={() => setShowTopUpModal(true)}
+                                            onClick={() => {
+                                                if (!requireWallet()) return
+                                                setShowTopUpModal(true)
+                                            }}
                                         >
                                             <Plus className="h-3 w-3 mr-1" />
                                             Add
@@ -414,7 +402,7 @@ export default function ImageGenPage() {
     return (
         <Suspense fallback={
             <div className="w-full flex items-center justify-center p-8">
-                <LoaderIcon className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         }>
             <ImageGenContent />

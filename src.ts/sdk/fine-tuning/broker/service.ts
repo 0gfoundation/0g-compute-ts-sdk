@@ -10,9 +10,8 @@ import type {
     AccountDetailsStructOutput,
     FineTuningServingContract,
 } from '../contract'
-import type { ServiceStructOutput } from '../contract'
 import type { Provider, Task } from '../provider/provider'
-import { BrokerBase } from './base'
+import { ReadOnlyServiceProcessor } from './read-only-service'
 import { isBrowser } from '../../common/utils/env'
 import type { LedgerBroker } from '../../ledger'
 import { Automata } from '../../common/automata'
@@ -68,7 +67,10 @@ export interface FineTuningAccountDetail {
     account: AccountDetailsStructOutput
     refunds: { amount: bigint; remainTime: bigint }[]
 }
-export class ServiceProcessor extends BrokerBase {
+export class ServiceProcessor extends ReadOnlyServiceProcessor {
+    protected declare contract: FineTuningServingContract
+    protected ledger: LedgerBroker
+    protected servingProvider: Provider
     protected automata: Automata
 
     constructor(
@@ -76,7 +78,10 @@ export class ServiceProcessor extends BrokerBase {
         ledger: LedgerBroker,
         servingProvider: Provider
     ) {
-        super(contract, ledger, servingProvider)
+        super(contract)
+        this.contract = contract
+        this.ledger = ledger
+        this.servingProvider = servingProvider
         this.automata = new Automata()
     }
 
@@ -118,15 +123,6 @@ export class ServiceProcessor extends BrokerBase {
                 }))
 
             return { account, refunds }
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    async listService(): Promise<ServiceStructOutput[]> {
-        try {
-            const services = await this.contract.listService()
-            return services
         } catch (error) {
             throwFormattedError(error)
         }

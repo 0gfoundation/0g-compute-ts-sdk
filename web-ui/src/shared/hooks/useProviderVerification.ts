@@ -1,12 +1,12 @@
 /**
  * Provider TEE Verification Hook (Web-friendly)
  *
- * This hook directly uses SDK's verifyService method which now supports browser environment.
- * The SDK automatically skips file saving in browser and returns report data.
+ * This hook uses SDK's verifyService method with the onLog callback for
+ * real-time step-by-step output and structured result data.
  */
 
 import { useCallback, useState } from 'react'
-import { use0GBroker } from './use0GBroker'
+import { useBroker } from '../providers/BrokerProvider'
 
 export interface VerificationLog {
     timestamp: number
@@ -34,7 +34,7 @@ export interface VerificationResult {
 }
 
 export function useProviderVerification() {
-    const { broker } = use0GBroker()
+    const { broker } = useBroker()
     const [isVerifying, setIsVerifying] = useState(false)
     const [logs, setLogs] = useState<VerificationLog[]>([])
 
@@ -66,57 +66,15 @@ export function useProviderVerification() {
             let teeVerifier = ''
             let targetSeparated = false
             let verifierURL: string | undefined
-
-            // Intercept console.log to capture SDK logs
-            const originalLog = console.log
-            const originalError = console.error
-            const originalWarn = console.warn
-
-            const captureLog = (...args: any[]) => {
-                const message = args.join(' ')
-
-                // Parse log type from message
-                if (message.startsWith('📋') || message.startsWith('🔧') || message.startsWith('📥') || message.startsWith('🔑')) {
-                    addLog('step', message)
-                } else if (message.includes('✅')) {
-                    addLog('success', message.replace(/^ {3}/, ''))
-                } else if (message.includes('⚠️') || message.includes('Warning')) {
-                    addLog('warning', message.replace(/^ {3}/, ''))
-                } else if (message.includes('❌')) {
-                    addLog('error', message.replace(/^ {3}/, ''))
-                } else if (message.startsWith('   ')) {
-                    addLog('info', message.replace(/^ {3}/, ''))
-                } else {
-                    addLog('info', message)
-                }
-
-                // Also call original log for debugging
-                originalLog(...args)
-            }
-
-            const captureError = (...args: any[]) => {
-                const message = args.join(' ')
-                addLog('error', message)
-                originalError(...args)
-            }
-
-            const captureWarn = (...args: any[]) => {
-                const message = args.join(' ')
-                addLog('warning', message)
-                originalWarn(...args)
-            }
-
-            // Replace console methods
-            console.log = captureLog
-            console.error = captureError
-            console.warn = captureWarn
+            let signerMatches = 0
+            let totalSignerChecks = 0
 
             try {
-                // Call SDK's verifyService method directly
-                // The SDK will output logs via console which we intercept
+                // Call SDK's verifyService with onLog callback for real-time output
                 const result = await broker.inference.verifyService(
                     providerAddress,
-                    '.' // outputDir (not used in browser)
+                    '.', // outputDir (not used in browser)
+                    (step) => addLog(step.type, step.message)
                 )
 
                 if (!result) {
@@ -129,8 +87,16 @@ export function useProviderVerification() {
                 targetSeparated = result.targetSeparated
                 verifierURL = result.verifierURL
 
+                // Extract signer verification data from structured result
+                if (result.signerVerification) {
+                    totalSignerChecks = result.signerVerification.reportAddresses.length
+                    signerMatches = result.signerVerification.reportAddresses.filter(
+                        (r) => r.match
+                    ).length
+                }
+
                 // Convert SDK report data to our format for download
-                const reportsData = (result as any).reportsData
+                const reportsData = result.reportsData
                 if (reportsData) {
                     if (reportsData.broker) {
                         reports.push({
@@ -175,11 +141,6 @@ export function useProviderVerification() {
                 addLog('error', `Verification failed: ${errorMessage}`)
                 success = false
             } finally {
-                // Restore original console methods
-                console.log = originalLog
-                console.error = originalError
-                console.warn = originalWarn
-
                 setIsVerifying(false)
             }
 
@@ -191,8 +152,8 @@ export function useProviderVerification() {
                     teeVerifier,
                     targetSeparated,
                     verifierURL,
-                    signerMatches: 0, // SDK handles this internally
-                    totalSignerChecks: 0, // SDK handles this internally
+                    signerMatches,
+                    totalSignerChecks,
                 },
             }
         },

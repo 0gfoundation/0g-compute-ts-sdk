@@ -128,131 +128,19 @@ describe('0g-compute-cli Integration Tests', () => {
             expect(output).to.include('list-providers')
         })
 
-        it('should handle inference list-providers command', function (done) {
-            this.timeout(15000)
-
-            // Set up test credentials
-            const testPrivateKey =
-                '0x0000000000000000000000000000000000000000000000000000000000000001'
-            const credDir = path.join(tempDir, '.0g-compute-cli')
-            fs.mkdirSync(credDir, { recursive: true })
-            fs.writeFileSync(
-                path.join(credDir, 'credentials.json'),
-                JSON.stringify({ privateKey: testPrivateKey })
-            )
-
-            let testCompleted = false
-            const child = spawn(
-                'node',
-                [cliPath, 'inference', 'list-providers'],
-                {
-                    env: { ...process.env },
-                    cwd: process.cwd(),
-                    timeout: 14000,
-                }
-            )
-
-            let output = ''
-            let errorOutput = ''
-
-            child.stdout.on('data', (data) => {
-                output += data.toString()
-            })
-
-            child.stderr.on('data', (data) => {
-                errorOutput += data.toString()
-            })
-
-            child.on('close', (code) => {
-                if (testCompleted) return
-                testCompleted = true
-
-                try {
-                    // The command might fail due to network/contract issues
-                    // but we're checking that it's recognized and attempts to run
-                    if (code !== 0) {
-                        // Check that it's not a command not found error
-                        expect(errorOutput).to.not.include('command not found')
-                        expect(errorOutput).to.not.include('Unknown command')
-                    } else {
-                        // If successful, output should contain provider information
-                        expect(output.toLowerCase()).to.satisfy(
-                            (str: string) =>
-                                str.includes('provider') ||
-                                str.includes('no providers') ||
-                                str.includes('address')
-                        )
-                    }
-                    done()
-                } catch (err) {
-                    done(err)
-                }
-            })
-
-            setTimeout(() => {
-                if (!testCompleted) {
-                    testCompleted = true
-                    child.kill()
-                    done()
-                }
-            }, 14000)
+        it('should list inference providers without wallet login', () => {
+            const output = execSync(`node ${cliPath} inference list-providers`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('provider')
+            expect(output).to.include('model')
         })
-
-        it('should handle inference list-services command', function (done) {
-            this.timeout(15000)
-
-            // Set up test credentials
-            const testPrivateKey =
-                '0x0000000000000000000000000000000000000000000000000000000000000001'
-            const credDir = path.join(tempDir, '.0g-compute-cli')
-            fs.mkdirSync(credDir, { recursive: true })
-            fs.writeFileSync(
-                path.join(credDir, 'credentials.json'),
-                JSON.stringify({ privateKey: testPrivateKey })
-            )
-
-            let testCompleted = false
-            const child = spawn(
-                'node',
-                [cliPath, 'inference', 'list-services'],
-                {
-                    env: { ...process.env },
-                    cwd: process.cwd(),
-                    timeout: 14000,
-                }
-            )
-
-            let errorOutput = ''
-
-            child.stdout.on('data', () => {
-                // We don't need to capture output for this test
-            })
-
-            child.stderr.on('data', (data) => {
-                errorOutput += data.toString()
-            })
-
-            child.on('close', () => {
-                if (testCompleted) return
-                testCompleted = true
-
-                try {
-                    // Check that the command is recognized
-                    expect(errorOutput).to.not.include('command not found')
-                    expect(errorOutput).to.not.include('Unknown command')
-                    done()
-                } catch (err) {
-                    done(err)
-                }
-            })
-
-            setTimeout(() => {
-                if (!testCompleted) {
-                    testCompleted = true
-                    child.kill()
-                    done()
-                }
-            }, 14000)
+        it('should list inference providers with detail without wallet login', () => {
+            const output = execSync(`node ${cliPath} inference list-providers-detail`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('provider')
+            expect(output).to.include('health')
         })
     })
 
@@ -285,6 +173,23 @@ describe('0g-compute-cli Integration Tests', () => {
             expect(output).to.include('Fine-tuning service commands')
             expect(output).to.include('list-models')
             expect(output).to.include('create-task')
+        })
+
+        it('should list fine-tuning providers without wallet login', () => {
+            const output = execSync(`node ${cliPath} fine-tuning list-providers`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('provider')
+            expect(output).to.include('available')
+        })
+
+        it('should list fine-tuning models without wallet login', () => {
+            const output = execSync(`node ${cliPath} fine-tuning list-models`, {
+                encoding: 'utf8',
+            }).toLowerCase()
+            expect(output).to.include('predefined model')
+            expect(output).to.include('name')
+            expect(output).to.include('description')
         })
     })
 

@@ -4,7 +4,7 @@ Access decentralized AI computing through the 0G Compute Network - a GPU marketp
 
 ## Features
 
-- **AI Inference**: Run LLMs, text-to-image, and speech-to-text models
+- **AI Inference**: Run LLMs, text-to-image, image editing, and speech-to-text models — with both sync and async modes
 - **Fine-tuning**: Customize models with your own data
 - **OpenAI Compatible**: Works with existing OpenAI SDK clients
 - **Web UI**: Built-in interface for easy service discovery and testing
@@ -12,7 +12,7 @@ Access decentralized AI computing through the 0G Compute Network - a GPU marketp
 
 ## Requirements
 
-- Node.js >= 22.0.0
+- Node.js >= 20.0.0
 - A wallet with 0G tokens
 
 ## Installation
@@ -43,6 +43,7 @@ The fastest way to get started:
 ```
 
 Open `http://localhost:3090` in your browser to:
+
 - Connect your wallet (MetaMask)
 - Browse available AI services
 - Chat with AI models directly
@@ -79,38 +80,86 @@ Open `http://localhost:3090` in your browser to:
 ### SDK
 
 ```typescript
-import { ethers } from "ethers";
-import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
+import { ethers } from 'ethers'
+import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
 
 // Initialize
-const provider = new ethers.JsonRpcProvider("https://evmrpc-testnet.0g.ai");
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
-const broker = await createZGComputeNetworkBroker(wallet);
+const provider = new ethers.JsonRpcProvider('https://evmrpc-testnet.0g.ai')
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider)
+const broker = await createZGComputeNetworkBroker(wallet)
 
 // Discover services
-const services = await broker.inference.listService();
+const services = await broker.inference.listService()
 
 // Fund your account
-await broker.ledger.depositFund(10);
+await broker.ledger.depositFund(10)
 
 // Acknowledge provider
-await broker.inference.acknowledgeProviderSigner(providerAddress);
+await broker.inference.acknowledgeProviderSigner(providerAddress)
 
 // Get service metadata
-const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
+const { endpoint, model } =
+    await broker.inference.getServiceMetadata(providerAddress)
 
 // Generate auth headers
-const headers = await broker.inference.getRequestHeaders(providerAddress);
+const headers = await broker.inference.getRequestHeaders(providerAddress)
 
 // Make request (OpenAI compatible)
 const response = await fetch(`${endpoint}/chat/completions`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json", ...headers },
-  body: JSON.stringify({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'Hello!' }],
+    }),
+})
+
+// Or make async request (support images-generations and images-edits)
+
+// Async endpoints live under /v1/async instead of /v1/proxy
+const asyncBase = endpoint.replace('/v1/proxy', '/v1/async')
+const requestBody = {
     model,
-    messages: [{ role: "user", content: "Hello!" }]
-  })
-});
+    prompt: 'A cute baby sea otter',
+    n: 1,
+    size: '512x512',
+    response_format: 'b64_json',
+}
+
+// Step 1 — submit the job
+const submitHeaders = await broker.inference.getRequestHeaders(
+    providerAddress,
+    JSON.stringify(requestBody)
+)
+const submitRes = await fetch(`${asyncBase}/images/generations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...submitHeaders },
+    body: JSON.stringify(requestBody),
+})
+// 202 Accepted → { jobId: "uuid", status: "pending" }
+const { jobId } = await submitRes.json()
+
+// Step 2 — poll until done
+let job
+do {
+    const retryAfter = job?.retryAfter ?? 5
+    await new Promise((r) => setTimeout(r, retryAfter * 1000))
+
+    const pollHeaders =
+        await broker.inference.getRequestHeaders(providerAddress)
+    const pollRes = await fetch(`${asyncBase}/jobs/${jobId}`, {
+        headers: pollHeaders,
+    })
+    const retryAfterHeader = pollRes.headers.get('Retry-After')
+    job = {
+        ...(await pollRes.json()),
+        retryAfter: retryAfterHeader ? Number(retryAfterHeader) : 5,
+    }
+} while (job.status === 'pending' || job.status === 'processing')
+
+if (job.status === 'failed') throw new Error(job.errorMessage)
+
+// job.data — raw provider response, e.g. { data: [{ b64_json: "..." }] }
 ```
 
 ## Direct API Access
@@ -118,17 +167,17 @@ const response = await fetch(`${endpoint}/chat/completions`, {
 After obtaining a secret with `0g-compute-cli inference get-secret`, use any OpenAI-compatible client:
 
 ```typescript
-import OpenAI from 'openai';
+import OpenAI from 'openai'
 
 const client = new OpenAI({
-  baseURL: `${serviceUrl}/v1/proxy`,
-  apiKey: 'app-sk-<YOUR_SECRET>'
-});
+    baseURL: `${serviceUrl}/v1/proxy`,
+    apiKey: 'app-sk-<YOUR_SECRET>',
+})
 
 const completion = await client.chat.completions.create({
-  model: 'model-name',
-  messages: [{ role: 'user', content: 'Hello!' }]
-});
+    model: 'model-name',
+    messages: [{ role: 'user', content: 'Hello!' }],
+})
 ```
 
 ## Account Management
@@ -214,11 +263,11 @@ Service providers can manage their deployed containers and configurations remote
 
 The controller manages three types of configurations:
 
-| Type | Description | Format |
-|------|-------------|--------|
-| `core` | Broker + Event shared config | YAML |
-| `ingress` | Nginx ingress environment variables | JSON |
-| `prometheus` | Prometheus monitoring config | YAML (auto base64 encoded) |
+| Type         | Description                         | Format                     |
+| ------------ | ----------------------------------- | -------------------------- |
+| `core`       | Broker + Event shared config        | YAML                       |
+| `ingress`    | Nginx ingress environment variables | JSON                       |
+| `prometheus` | Prometheus monitoring config        | YAML (auto base64 encoded) |
 
 ```bash
 # Get configuration
@@ -265,10 +314,10 @@ The controller manages three types of configurations:
 
 ## Network Configuration
 
-| Network | RPC Endpoint |
-|---------|--------------|
+| Network | RPC Endpoint                 |
+| ------- | ---------------------------- |
 | Testnet | https://evmrpc-testnet.0g.ai |
-| Mainnet | https://evmrpc.0g.ai |
+| Mainnet | https://evmrpc.0g.ai         |
 
 ## Browser Usage
 
@@ -280,21 +329,22 @@ pnpm add -D vite-plugin-node-polyfills
 
 ```javascript
 // vite.config.js
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 export default {
-  plugins: [
-    nodePolyfills({
-      include: ['crypto', 'stream', 'util', 'buffer', 'process'],
-      globals: { Buffer: true, global: true, process: true }
-    })
-  ]
-};
+    plugins: [
+        nodePolyfills({
+            include: ['crypto', 'stream', 'util', 'buffer', 'process'],
+            globals: { Buffer: true, global: true, process: true },
+        }),
+    ],
+}
 ```
 
 ## Troubleshooting
 
 ### Insufficient Balance
+
 ```bash
 # Check which account needs funds
 0g-compute-cli get-account
@@ -307,11 +357,13 @@ export default {
 ```
 
 ### Provider Not Acknowledged
+
 ```bash
 0g-compute-cli inference acknowledge-provider --provider <PROVIDER_ADDRESS>
 ```
 
 ### Web UI Port Conflict
+
 ```bash
 0g-compute-cli ui start-web --port 3091
 ```
@@ -322,5 +374,3 @@ export default {
 - [Inference Guide](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/inference)
 - [Fine-tuning Guide](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/fine-tuning)
 - [Account Management](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/account-management)
-
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
+import { withBroker, withROBroker, neuronToA0gi, a0giToNeuron, initBroker } from './util'
 import { getRpcEndpoint } from './network-setup'
 import { ensurePrivateKeyConfiguration } from './private-key-setup'
 import { interactiveSelect, textInput } from './interactive-selection'
@@ -78,12 +78,11 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
+            await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listService(
                     0,
                     50,
@@ -138,7 +137,7 @@ export default function inference(program: Command) {
     program
         .command('list-providers-detail')
         .description(
-            'List inference providers with health metrics (uptime and latency)'
+            'List inference providers with health metrics'
         )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -147,12 +146,11 @@ export default function inference(program: Command) {
             '--include-invalid',
             'Include all services, even those without valid teeSignerAddress'
         )
-        .action((options: any) => {
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withBroker(options, async (broker) => {
-                // TODO: Support pagination for listing services
+            await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listServiceWithDetail(
                     0,
                     50,
@@ -160,12 +158,54 @@ export default function inference(program: Command) {
                 )
                 services.forEach((service, index) => {
                     const health = service.healthMetrics
+                    const modelInfo = service.modelInfo
 
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
                         chalk.blue(service.provider),
                     ])
                     table.push(['Model', service.model || 'N/A'])
+
+                    // Human-readable model name and description from /v1/models
+                    if (modelInfo?.name) {
+                        table.push(['Model Name', modelInfo.name])
+                    }
+                    if (modelInfo?.description) {
+                        const desc = modelInfo.description.length > 80
+                            ? modelInfo.description.slice(0, 77) + '...'
+                            : modelInfo.description
+                        table.push(['Description', desc])
+                    }
+                    if (modelInfo?.context_length) {
+                        table.push([
+                            'Context Length',
+                            modelInfo.context_length.toLocaleString() + ' tokens',
+                        ])
+                    }
+                    if (modelInfo?.max_completion_tokens) {
+                        table.push([
+                            'Max Completion Tokens',
+                            modelInfo.max_completion_tokens.toLocaleString() + ' tokens',
+                        ])
+                    }
+                    if (modelInfo?.architecture?.tokenizer) {
+                        table.push(['Tokenizer', modelInfo.architecture.tokenizer])
+                    }
+                    if (modelInfo?.owned_by) {
+                        table.push(['Owned By', modelInfo.owned_by])
+                    }
+                    if (modelInfo?.tee_type) {
+                        table.push(['TEE Type', modelInfo.tee_type])
+                    }
+                    if (modelInfo?.tee_verifier) {
+                        table.push(['TEE Verifier', modelInfo.tee_verifier])
+                    }
+                    if (modelInfo?.supported_parameters?.length) {
+                        table.push([
+                            'Supported Parameters',
+                            modelInfo.supported_parameters.join(', '),
+                        ])
+                    }
 
                     // Only show input price for non text-to-image and non image-editing services
                     if (
@@ -234,7 +274,8 @@ export default function inference(program: Command) {
                 console.log(
                     chalk.gray(
                         '\nNote: Health metrics are fetched from the monitoring API. ' +
-                        'Services without metrics may be newly registered or temporarily unavailable.'
+                        'Services without metrics may be newly registered or temporarily unavailable. ' +
+                        'Model details are fetched from the status API.'
                     )
                 )
             })
@@ -569,7 +610,8 @@ export default function inference(program: Command) {
             withBroker(options, async (broker) => {
                 const result = await broker.inference.verifyService(
                     options.provider,
-                    options.outputDir
+                    options.outputDir,
+                    (step) => console.log(step.message)
                 )
                 if (result) {
                     if (!result.success) {

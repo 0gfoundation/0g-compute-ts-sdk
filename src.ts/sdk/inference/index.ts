@@ -12,4 +12,7 @@ export {
     SingerRAVerificationResult as InferenceSingerRAVerificationResult,
     Verifier as InferenceVerifier,
     InferenceBroker as InferenceBroker,
+    ReadOnlyInferenceBroker,
+    createReadOnlyInferenceBroker,
 } from './broker'
+export type { ProviderModelInfo, ServiceWithDetail } from './broker'

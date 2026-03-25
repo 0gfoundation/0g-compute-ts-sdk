@@ -29,6 +29,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { formatNumber } from '@/shared/utils/formatNumber'
 
 export type TransactionType = 'deposit' | 'transfer' | 'retrieve' | 'usage'
 
@@ -48,7 +49,6 @@ interface TransactionHistoryProps {
     transactions: Transaction[]
     isLoading?: boolean
     onRefresh?: () => void
-    formatNumber: (value: string | number) => string
     explorerBaseUrl?: string
 }
 
@@ -129,11 +129,9 @@ function StatusBadge({ status }: { status: Transaction['status'] }) {
 
 function TransactionItem({
     transaction,
-    formatNumber,
     explorerBaseUrl,
 }: {
     transaction: Transaction
-    formatNumber: (value: string | number) => string
     explorerBaseUrl?: string
 }) {
     const isPositive = transaction.type === 'deposit' || transaction.type === 'retrieve'
@@ -218,7 +216,6 @@ export function TransactionHistory({
     transactions,
     isLoading = false,
     onRefresh,
-    formatNumber,
     explorerBaseUrl,
 }: TransactionHistoryProps) {
     const [isExpanded, setIsExpanded] = useState(true)
@@ -366,7 +363,6 @@ export function TransactionHistory({
                                                     <TransactionItem
                                                         key={tx.id}
                                                         transaction={tx}
-                                                        formatNumber={formatNumber}
                                                         explorerBaseUrl={explorerBaseUrl}
                                                     />
                                                 ))}
@@ -384,12 +380,19 @@ export function TransactionHistory({
 }
 
 // Hook to manage transaction history (can be expanded to fetch from blockchain/backend)
-export function useTransactionHistory() {
+export function useTransactionHistory(walletAddress?: string) {
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [isLoading, setIsLoading] = useState(false)
 
+    // Scope localStorage key by wallet address to prevent cross-wallet data mixing
+    const storageKey = walletAddress
+        ? `0g_tx_history_${walletAddress.toLowerCase()}`
+        : null
+
     // Add a new transaction
     const addTransaction = (transaction: Omit<Transaction, 'id' | 'timestamp'>) => {
+        if (!storageKey) return
+
         const newTx: Transaction = {
             ...transaction,
             id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -399,70 +402,49 @@ export function useTransactionHistory() {
 
         // Persist to localStorage
         try {
-            const stored = localStorage.getItem('transactionHistory')
+            const stored = localStorage.getItem(storageKey)
             const existing = stored ? JSON.parse(stored) : []
-            localStorage.setItem('transactionHistory', JSON.stringify([newTx, ...existing].slice(0, 100)))
+            localStorage.setItem(storageKey, JSON.stringify([newTx, ...existing].slice(0, 100)))
         } catch {
             // Silent fail for localStorage
         }
     }
 
     // Load transactions from localStorage
-    const loadTransactions = () => {
+    const loadTransactions = React.useCallback(() => {
+        if (!storageKey) {
+            setTransactions([])
+            return
+        }
         setIsLoading(true)
         try {
-            const stored = localStorage.getItem('transactionHistory')
+            const stored = localStorage.getItem(storageKey)
             if (stored) {
                 setTransactions(JSON.parse(stored))
+            } else {
+                setTransactions([])
             }
         } catch {
             // Silent fail
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [storageKey])
 
     // Refresh transactions
     const refreshTransactions = () => {
         loadTransactions()
     }
 
-    // Update transaction status
-    const updateTransactionStatus = (txId: string, status: Transaction['status'], txHash?: string) => {
-        setTransactions(prev => prev.map(tx => {
-            if (tx.id === txId) {
-                return { ...tx, status, ...(txHash ? { txHash } : {}) }
-            }
-            return tx
-        }))
-
-        // Update in localStorage
-        try {
-            const stored = localStorage.getItem('transactionHistory')
-            if (stored) {
-                const existing = JSON.parse(stored)
-                const updated = existing.map((tx: Transaction) => {
-                    if (tx.id === txId) {
-                        return { ...tx, status, ...(txHash ? { txHash } : {}) }
-                    }
-                    return tx
-                })
-                localStorage.setItem('transactionHistory', JSON.stringify(updated))
-            }
-        } catch {
-            // Silent fail
-        }
-    }
-
+    // Reload when wallet address changes
     React.useEffect(() => {
         loadTransactions()
-    }, [])
+    }, [loadTransactions])
 
     return {
         transactions,
         isLoading,
         addTransaction,
         refreshTransactions,
-        updateTransactionStatus,
     }
 }

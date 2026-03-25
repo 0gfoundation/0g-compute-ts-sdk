@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Filter, ChevronDown, X } from 'lucide-react'
+import { Search, ChevronDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export type VerificationFilter = 'all' | 'verified' | 'unverified'
-export type ServiceTypeFilter = 'all' | 'chatbot' | 'text-to-image' | 'speech-to-text'
+export type ServiceTypeFilter = 'all' | 'chatbot' | 'text-to-image' | 'image-editing' | 'speech-to-text'
 export type SortOption = 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'recently-used'
 
 interface ProviderFiltersProps {
@@ -22,8 +22,9 @@ interface ProviderFiltersProps {
     onSearchChange: (query: string) => void
     verificationFilter: VerificationFilter
     onVerificationFilterChange: (filter: VerificationFilter) => void
-    serviceTypeFilter: ServiceTypeFilter
-    onServiceTypeFilterChange: (filter: ServiceTypeFilter) => void
+    serviceTypeFilter?: ServiceTypeFilter
+    onServiceTypeFilterChange?: (filter: ServiceTypeFilter) => void
+    hideServiceType?: boolean
     sortOption: SortOption
     onSortChange: (sort: SortOption) => void
     resultCount: number
@@ -40,6 +41,7 @@ const SERVICE_TYPE_OPTIONS: { value: ServiceTypeFilter; label: string }[] = [
     { value: 'all', label: 'All Services' },
     { value: 'chatbot', label: 'Chatbot' },
     { value: 'text-to-image', label: 'Text to Image' },
+    { value: 'image-editing', label: 'Image Editing' },
     { value: 'speech-to-text', label: 'Speech to Text' },
 ]
 
@@ -56,8 +58,9 @@ export function ProviderFilters({
     onSearchChange,
     verificationFilter,
     onVerificationFilterChange,
-    serviceTypeFilter,
+    serviceTypeFilter = 'all',
     onServiceTypeFilterChange,
+    hideServiceType = false,
     sortOption,
     onSortChange,
     resultCount,
@@ -68,7 +71,7 @@ export function ProviderFilters({
     const clearAllFilters = () => {
         onSearchChange('')
         onVerificationFilterChange('all')
-        onServiceTypeFilterChange('all')
+        onServiceTypeFilterChange?.('all')
         onSortChange('name-asc')
     }
 
@@ -140,6 +143,7 @@ export function ProviderFilters({
                     </DropdownMenu>
 
                     {/* Service type filter */}
+                    {!hideServiceType && onServiceTypeFilterChange && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
@@ -167,6 +171,7 @@ export function ProviderFilters({
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
 
                     {/* Sort dropdown */}
                     <DropdownMenu>

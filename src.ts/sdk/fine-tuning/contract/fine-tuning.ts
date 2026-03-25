@@ -4,19 +4,16 @@ import type {
     ContractMethodArgs,
     ContractTransactionReceipt,
 } from 'ethers'
-import { FineTuningServing__factory } from './typechain'
 import type {
     DeliverableStructOutput,
-    ServiceStructOutput,
-    FineTuningServing,
 } from './typechain/FineTuningServing'
 import { RETRY_ERROR_SUBSTRINGS } from '../../common/utils/const'
 import { throwFormattedError } from '../../common/utils'
+import { ReadOnlyFineTuningServingContract } from './read-only-fine-tuning'
 
 const TIMEOUT_MS = 300_000
 
-export class FineTuningServingContract {
-    public serving: FineTuningServing
+export class FineTuningServingContract extends ReadOnlyFineTuningServingContract {
     public signer: Wallet
 
     private _userAddress: string
@@ -32,10 +29,7 @@ export class FineTuningServingContract {
         maxGasPrice?: number,
         step?: number
     ) {
-        this.serving = FineTuningServing__factory.connect(
-            contractAddress,
-            signer
-        )
+        super(signer, contractAddress)
         this.signer = signer
         this._userAddress = userAddress
         this._gasPrice = gasPrice
@@ -43,10 +37,6 @@ export class FineTuningServingContract {
             this._maxGasPrice = BigInt(maxGasPrice)
         }
         this._step = step || 11
-    }
-
-    lockTime(): Promise<bigint> {
-        return this.serving.lockTime()
     }
 
     async sendTx(
@@ -145,15 +135,6 @@ export class FineTuningServingContract {
                 }
                 txOptions.gasPrice = currentGasPrice
             }
-        }
-    }
-
-    async listService(): Promise<ServiceStructOutput[]> {
-        try {
-            const services = await this.serving.getAllServices()
-            return services
-        } catch (error) {
-            throwFormattedError(error)
         }
     }
 
@@ -261,14 +242,6 @@ export class FineTuningServingContract {
                 [providerAddress, id],
                 txOptions
             )
-        } catch (error) {
-            throwFormattedError(error)
-        }
-    }
-
-    async getService(providerAddress: string): Promise<ServiceStructOutput> {
-        try {
-            return this.serving.getService(providerAddress)
         } catch (error) {
             throwFormattedError(error)
         }

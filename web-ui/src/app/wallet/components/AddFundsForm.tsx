@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 
 // Preset amounts for quick deposit
 const PRESET_AMOUNTS = [
+    { value: 3, label: '3 0G' },
     { value: 5, label: '5 0G' },
     { value: 10, label: '10 0G' },
     { value: 25, label: '25 0G' },
@@ -18,7 +19,7 @@ const PRESET_AMOUNTS = [
 
 interface AddFundsFormProps {
     depositFund: (amount: number) => Promise<void>
-    onSuccess?: () => void
+    onSuccess?: (amount: number) => void
 }
 
 export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
@@ -56,7 +57,7 @@ export function AddFundsForm({ depositFund, onSuccess }: AddFundsFormProps) {
                 description: `Added ${amount} 0G tokens to your account.`,
             })
             setAmount('')
-            onSuccess?.()
+            onSuccess?.(numAmount)
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to add funds'
             setError(errorMessage)

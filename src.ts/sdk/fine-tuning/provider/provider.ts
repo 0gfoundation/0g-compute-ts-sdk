@@ -1,8 +1,9 @@
 import type { FineTuningServingContract } from '../contract'
 import axios from 'axios'
+import { ethers } from 'ethers'
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { throwFormattedError, signTaskID } from '../../common/utils'
+import { throwFormattedError, signDatasetUpload } from '../../common/utils'
 
 export interface Task {
     readonly id?: string
@@ -280,7 +281,7 @@ export class Provider {
     /**
      * Download LoRA model directly from TEE
      * This is a fallback when 0G Storage download fails
-     * Requires authentication via signature
+     * Requires authentication via signature with timestamp to prevent replay attacks
      */
     async downloadLoRAFromTEE(
         providerAddress: string,
@@ -291,9 +292,19 @@ export class Provider {
             const url = await this.getProviderUrl(providerAddress)
             const userAddress = this.contract.getUserAddress()
 
-            // Generate signature for authentication
-            // Uses same format as CancelTask: signMessage(keccak256(binaryTaskID))
-            const signature = await signTaskID(this.contract.signer, taskId)
+            // Generate timestamp and signature for authentication
+            // Prevents replay attacks by binding signature to current time
+            const timestamp = Math.floor(Date.now() / 1000)
+
+            // Get binary representation of taskID
+            const taskIdBytes = '0x' + taskId.replace(/-/g, '')
+
+            // Create message: keccak256(taskIDHex + timestamp)
+            const message = `${taskIdBytes.slice(2)}${timestamp}`
+            const hash = ethers.keccak256(ethers.toUtf8Bytes(message))
+            const signature = await this.contract.signer.signMessage(
+                ethers.toBeArray(hash)
+            )
 
             const endpoint = `${url}/v1/user/${userAddress}/task/${taskId}/lora`
 
@@ -327,7 +338,10 @@ export class Provider {
             const response = await axios({
                 method: 'post',
                 url: endpoint,
-                data: { signature },
+                data: {
+                    signature,
+                    timestamp, // Include timestamp to prevent replay attacks
+                },
                 responseType: 'arraybuffer',
                 timeout: 300000, // 5 minutes timeout for large files
             })
@@ -353,13 +367,17 @@ export class Provider {
      * Returns the dataset hash for use in task creation
      * This is the preferred method over 0G Storage for testing
      *
+     * Authentication: Requires signature of keccak256(userAddress + timestamp)
+     * - Prevents replay attacks by including timestamp (valid for 5 minutes)
+     * - Each upload requires a fresh signature
+     *
      * File size limits:
      * - Server default limit: 100MB (configurable via broker's maxUploadSize)
      * - Recommended: Use streaming for files > 10MB
      * - For very large datasets (> 100MB), consider using 0G Storage instead
      *
      * @param providerAddress - The provider's address
-     * @param datasetPath - Path to the dataset file
+     * @param datasetPath - Path to the dataset file (must be JSONL format)
      * @param options - Optional configuration
      * @param options.maxFileSizeMB - Maximum file size in MB (default: 100)
      * @param options.timeoutMs - Request timeout in milliseconds (default: calculated based on file size)
@@ -416,6 +434,15 @@ export class Provider {
             console.log(`File: ${fileName}, Size: ${fileSizeMB.toFixed(2)}MB`)
             console.log(`Timeout: ${timeout / 1000}s`)
 
+            // Generate timestamp and signature for authentication
+            // This prevents signature replay attacks by binding signature to current time
+            const timestamp = Math.floor(Date.now() / 1000) // Unix timestamp in seconds
+            const signature = await signDatasetUpload(
+                this.contract.signer,
+                userAddress,
+                timestamp
+            )
+
             // Use streaming for the upload
             const FormData = (await import('form-data')).default
             const formData = new FormData()
@@ -426,6 +453,10 @@ export class Provider {
                 filename: fileName,
                 contentType: 'application/octet-stream',
             })
+
+            // Add signature and timestamp for authentication
+            formData.append('signature', signature)
+            formData.append('timestamp', timestamp.toString())
 
             const response = await axios({
                 method: 'post',

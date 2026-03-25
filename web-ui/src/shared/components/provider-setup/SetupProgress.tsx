@@ -13,6 +13,7 @@ import {
   CreditCard,
   Key,
 } from "lucide-react"
+import { formatNumber } from "@/shared/utils/formatNumber"
 import { cn } from "@/lib/utils"
 
 interface SetupProgressProps {
@@ -206,7 +207,7 @@ export function SetupProgress({
           icon={<CreditCard className="h-4 w-4" />}
           balanceInfo={
             status.hasSubAccount
-              ? `Balance: ${parseFloat(status.subAccountBalance).toFixed(6)} A0GI`
+              ? `Balance: ${formatNumber(parseFloat(status.subAccountBalance))} A0GI`
               : undefined
           }
         />

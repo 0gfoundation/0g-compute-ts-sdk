@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, withBroker, neuronToA0gi, splitIntoChunks } from './util'
+import { withFineTuningBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -30,7 +30,8 @@ export default function fineTuning(program: Command) {
             withFineTuningBroker(options, async (broker) => {
                 const result = await broker.fineTuning!.verifyService(
                     options.provider,
-                    options.outputDir
+                    options.outputDir,
+                    (step) => console.log(step.message)
                 )
 
                 if (!result) {
@@ -63,9 +64,9 @@ export default function fineTuning(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .action((options) => {
-            withFineTuningBroker(options, async (broker) => {
-                const models = await broker.fineTuning!.listModel()
+        .action(async (options) => {
+            await withROBroker(options, async (broker) => {
+                const models = await broker.fineTuning.listModel()
 
                 console.log(`Predefined Model:`)
                 let table = new Table({
@@ -523,12 +524,18 @@ export default function fineTuning(program: Command) {
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
-        .action((options: any) => {
+        .option(
+            '--include-invalid',
+            'Include all services, even those without valid teeSignerAddress'
+        )
+        .action(async (options: any) => {
             const table = new Table({
                 colWidths: [50, 50],
             })
-            withFineTuningBroker(options, async (broker) => {
-                const services = await broker.fineTuning!.listService()
+            await withROBroker(options, async (broker) => {
+                const services = await broker.fineTuning.listService(
+                    options.includeInvalid
+                )
                 services.forEach((service, index) => {
                     table.push([
                         chalk.blue(`Provider ${index + 1}`),
@@ -648,7 +655,7 @@ export default function fineTuning(program: Command) {
             'Override broker URL (skip contract lookup)'
         )
         .action((options) => {
-            withBroker(options, async (broker) => {
+            withROBroker(options, async (broker) => {
                 await deployAdapterToBroker(
                     broker,
                     options.provider,
@@ -707,7 +714,7 @@ export default function fineTuning(program: Command) {
                 process.exit(1)
             }
 
-            withBroker(options, async (broker) => {
+            withROBroker(options, async (broker) => {
                 const { endpoint } =
                     await broker.inference.getServiceMetadata(options.provider)
 

@@ -5,6 +5,7 @@ import type { InferenceServingContract } from '../inference/contract'
 import type { FineTuningServingContract } from '../fine-tuning/contract'
 import type { Cache, Metadata } from '../common/storage'
 import { CacheValueTypeEnum, CACHE_KEYS } from '../common/storage'
+import { logger } from '../common/logger'
 
 export interface LedgerDetailStructOutput {
     ledgerInfo: bigint[]
@@ -116,8 +117,21 @@ export class LedgerProcessor {
         }
     }
 
+    /**
+     * Minimum balance required to create a ledger (3 0G).
+     * This matches the MIN_ACCOUNT_BALANCE constant in the LedgerManager contract.
+     */
+    static readonly MIN_LEDGER_BALANCE_OG = 3
+
     async addLedger(balance: number, gasPrice?: number) {
         try {
+            if (balance < LedgerProcessor.MIN_LEDGER_BALANCE_OG) {
+                throw new Error(
+                    `Minimum balance to create a ledger is ${LedgerProcessor.MIN_LEDGER_BALANCE_OG} 0G, but got ${balance} 0G. ` +
+                        `Please use: broker.ledger.addLedger(${LedgerProcessor.MIN_LEDGER_BALANCE_OG})`
+                )
+            }
+
             try {
                 const ledger = await this.getLedger()
                 if (ledger) {
@@ -149,6 +163,34 @@ export class LedgerProcessor {
 
     async depositFund(balance: number, gasPrice?: number) {
         try {
+            if (balance <= 0) {
+                throw new Error(
+                    `Deposit amount must be greater than 0 0G, but got ${balance} 0G`
+                )
+            }
+
+            // Check if ledger exists; if not, depositFund will create one.
+            // The contract requires MIN_ACCOUNT_BALANCE for ledger creation.
+            let ledgerExists = false
+            try {
+                const ledger = await this.getLedger()
+                if (ledger) {
+                    ledgerExists = true
+                }
+            } catch {
+                // Ledger does not exist
+            }
+
+            if (
+                !ledgerExists &&
+                balance < LedgerProcessor.MIN_LEDGER_BALANCE_OG
+            ) {
+                throw new Error(
+                    `No ledger exists yet. depositFund will create one, but the contract requires a minimum of ${LedgerProcessor.MIN_LEDGER_BALANCE_OG} 0G. ` +
+                        `Got ${balance} 0G. Please use: broker.ledger.depositFund(${LedgerProcessor.MIN_LEDGER_BALANCE_OG})`
+                )
+            }
+
             const amount = this.a0giToNeuron(balance).toString()
             await this.ledgerContract.depositFund(amount, gasPrice)
         } catch (error) {
@@ -192,6 +234,20 @@ export class LedgerProcessor {
         }
     }
 
+    /**
+     * Minimum transfer amount for new service sub-account creation (1 0G in neuron).
+     * Matches the contract's MIN_TRANSFER_AMOUNT constant.
+     * User-facing transfers should use MIN_TRANSFER_AMOUNT_OG (1 0G).
+     */
+    static readonly MIN_TRANSFER_AMOUNT_CONTRACT = BigInt(10 ** 18)
+
+    /**
+     * Recommended minimum transfer amount for user-facing operations (1 0G in neuron).
+     * Matches the MinimumLockedBalance in the broker proxy, ensuring the provider
+     * sub-account has enough balance to serve requests.
+     */
+    static readonly MIN_TRANSFER_AMOUNT_OG = BigInt(1) * BigInt(10 ** 18)
+
     async transferFund(
         to: AddressLike,
         serviceTypeStr: 'inference' | 'fine-tuning',
@@ -199,6 +255,26 @@ export class LedgerProcessor {
         gasPrice?: number
     ) {
         try {
+            if (balance <= BigInt(0)) {
+                throw new Error(
+                    'Transfer amount must be greater than 0'
+                )
+            }
+
+            // Warn if transferring less than the recommended minimum (1 0G),
+            // but allow it since internal operations (e.g. account creation) may transfer smaller amounts.
+            if (
+                balance > BigInt(0) &&
+                balance < LedgerProcessor.MIN_TRANSFER_AMOUNT_OG
+            ) {
+                const amountInOG = this.neuronToA0gi(balance)
+                logger.warn(
+                    `Warning: Transferring ${amountInOG.toFixed(6)} 0G to provider sub-account. ` +
+                        `The recommended minimum is 1 0G to meet provider balance requirements. ` +
+                        `Requests may be rejected if sub-account balance is below the provider's minimum threshold.`
+                )
+            }
+
             const amount = balance.toString()
             // Map service type to service name
             const serviceName =
@@ -218,6 +294,30 @@ export class LedgerProcessor {
                 amount,
                 gasPrice
             )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Returns the list of providers with their balance info for a given service type.
+     *
+     * @param serviceTypeStr - 'inference' or 'fine-tuning'
+     * @returns Array of [providerAddress, balance, pendingRefund] tuples
+     */
+    async getProvidersWithBalance(
+        serviceTypeStr: 'inference' | 'fine-tuning'
+    ): Promise<[string, bigint, bigint][]> {
+        try {
+            const ledger = await this.getLedgerWithDetail()
+            const providers =
+                serviceTypeStr === 'inference' ? ledger.infers : ledger.fines
+            if (!providers) {
+                throw new Error(
+                    'No providers found, please ensure you are using Wallet instance to create the broker'
+                )
+            }
+            return providers.filter((x) => x[1] > 0n || x[2] > 0n)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -260,6 +360,49 @@ export class LedgerProcessor {
             )
 
             if (serviceTypeStr == 'inference') {
+                await this.cache.setItem(
+                    CACHE_KEYS.FIRST_ROUND,
+                    'true',
+                    10000000 * 60 * 1000,
+                    CacheValueTypeEnum.Other
+                )
+            }
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Retrieves funds from a specific provider's sub-account.
+     *
+     * @param serviceTypeStr - 'inference' or 'fine-tuning'
+     * @param providerAddress - The address of the provider to retrieve funds from
+     * @param gasPrice - Optional gas price for the transaction
+     */
+    async retrieveFundFromProvider(
+        serviceTypeStr: 'inference' | 'fine-tuning',
+        providerAddress: string,
+        gasPrice?: number
+    ) {
+        try {
+            const serviceName =
+                serviceTypeStr === 'inference'
+                    ? this.serviceNames.inference
+                    : this.serviceNames.fineTuning
+
+            if (!serviceName) {
+                throw new Error(
+                    `Service name not available for ${serviceTypeStr}`
+                )
+            }
+
+            await this.ledgerContract.retrieveFund(
+                [providerAddress],
+                serviceName,
+                gasPrice
+            )
+
+            if (serviceTypeStr === 'inference') {
                 await this.cache.setItem(
                     CACHE_KEYS.FIRST_ROUND,
                     'true',

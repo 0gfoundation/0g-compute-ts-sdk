@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState } from "react"
 import { useBrokerOperations } from "@/shared/hooks/useBrokerOperations"
-import { use0GBroker } from "@/shared/hooks/use0GBroker"
+import { useBroker } from "@/shared/providers/BrokerProvider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -14,6 +14,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Loader2, CheckCircle2, Info } from "lucide-react"
+import { MINIMUM_DEPOSITS } from "@/shared/constants/limits"
+import { formatNumber } from "@/shared/utils/formatNumber"
 
 interface TransferFundFormProps {
   /** Provider address */
@@ -59,15 +61,21 @@ export function TransferFundForm({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [successAmount, setSuccessAmount] = useState("")
 
   const { transferFund } = useBrokerOperations()
-  const { ledgerInfo } = use0GBroker()
+  const { ledgerInfo } = useBroker()
 
   const handleTransfer = async () => {
     // Validate amount
     const amountNum = parseFloat(amount)
-    if (!amount || amountNum <= 0) {
+    if (!amount || isNaN(amountNum) || amountNum <= 0) {
       setError("Please enter a valid amount")
+      return
+    }
+
+    if (amountNum < MINIMUM_DEPOSITS.TOPUP_PROVIDER) {
+      setError(`Minimum transfer amount is ${MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G`)
       return
     }
 
@@ -85,6 +93,7 @@ export function TransferFundForm({
     try {
       await transferFund(provider, amountNum, serviceType, onRefreshProvider)
 
+      setSuccessAmount(amount)
       setSuccess(true)
       setAmount("")
 
@@ -113,7 +122,7 @@ export function TransferFundForm({
   const available = parseFloat(ledgerInfo?.availableBalance || "0")
 
   const handleMaxClick = () => {
-    setAmount(available.toString())
+    setAmount(ledgerInfo?.availableBalance || "0")
     setError(null)
     setSuccess(false)
   }
@@ -179,7 +188,7 @@ export function TransferFundForm({
       {/* Balance Info */}
       <p className="text-xs text-gray-500">
         Available for Transfer: {ledgerInfo ? (
-          <span className="font-semibold text-gray-900">{available.toFixed(6)} 0G</span>
+          <span className="font-semibold text-gray-900">{formatNumber(available)} 0G</span>
         ) : (
           <span>Loading...</span>
         )}
@@ -192,9 +201,9 @@ export function TransferFundForm({
         </a>)
       </p>
 
-      {/* Recommendations */}
+      {/* Minimum balance info */}
       <p className="text-xs text-amber-600">
-        Recommended: Transfer at least 5 0G for stable service response
+        Minimum: {MINIMUM_DEPOSITS.TOPUP_PROVIDER} 0G required per provider for stable service response
       </p>
 
       {/* Success Message */}
@@ -202,7 +211,7 @@ export function TransferFundForm({
         <Alert className="bg-purple-50 border-purple-200">
           <CheckCircle2 className="h-4 w-4 text-purple-600" />
           <AlertDescription className="text-xs text-purple-800">
-            Successfully transferred {amount} 0G to provider
+            Successfully transferred {successAmount} 0G to provider
           </AlertDescription>
         </Alert>
       )}

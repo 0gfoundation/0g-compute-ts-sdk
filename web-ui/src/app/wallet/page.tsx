@@ -1,17 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useAccount } from 'wagmi';
-import { use0GBroker } from '../../shared/hooks/use0GBroker';
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useAccount, useChainId } from 'wagmi';
+import { useBroker } from '@/shared/providers/BrokerProvider';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StateDisplay } from '@/components/ui/state-display';
 import { BalanceCard, AddFundsForm, WithdrawDialog, FundDistribution } from './components';
 import { TransactionHistory, useTransactionHistory } from './components/TransactionHistory';
 import { Loader2 } from 'lucide-react';
+import { formatNumber } from '@/shared/utils/formatNumber';
+import { useToast } from '@/hooks/use-toast';
+import { zgMainnet, zgTestnet } from '@/shared/config/wagmi';
 
 function LedgerContent() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const searchParams = useSearchParams();
   const {
     broker,
@@ -19,18 +23,25 @@ function LedgerContent() {
     ledgerInfo,
     refreshLedgerInfo,
     depositFund,
-  } = use0GBroker();
+  } = useBroker();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'detail' | 'history'>('overview');
   const [expandedRefunds, setExpandedRefunds] = useState<{ [key: string]: boolean }>({});
-  const { transactions, isLoading: txLoading, refreshTransactions, addTransaction } = useTransactionHistory();
+  const { transactions, isLoading: txLoading, refreshTransactions, addTransaction } = useTransactionHistory(address);
+
+  // Derive explorer URL from connected chain config
+  const explorerBaseUrl = useMemo(() => {
+    const chain = chainId === zgTestnet.id ? zgTestnet : zgMainnet;
+    const url = chain.blockExplorers?.default?.url ?? 'https://chainscan.0g.ai/';
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+  }, [chainId]);
   const [refundDetails, setRefundDetails] = useState<{ [key: string]: { amount: bigint, remainTime: bigint }[] }>({});
   const [loadingRefunds, setLoadingRefunds] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
   const [isRetrievingAll, setIsRetrievingAll] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState<{ message: string, show: boolean }>({ message: '', show: false });
+  const [retrievingProviders, setRetrievingProviders] = useState<{ [key: string]: boolean }>({});
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Handle tab parameter from URL
   useEffect(() => {
@@ -44,24 +55,14 @@ function LedgerContent() {
     }
   }, [searchParams]);
 
-  // Auto-refresh ledger info when component mounts and when wallet connection changes
+  // Refresh ledger info when navigating to wallet page
   useEffect(() => {
     if (isConnected && refreshLedgerInfo) {
-      refreshLedgerInfo();
+      refreshLedgerInfo().catch((err) => {
+        console.warn('[WalletPage] Failed to refresh ledger info:', err);
+      });
     }
   }, [isConnected, refreshLedgerInfo]);
-
-  // Helper function to format numbers and avoid scientific notation
-  const formatNumber = (value: string | number) => {
-    if (!value || value === "0" || value === 0) return "0";
-    const num = parseFloat(value.toString());
-    if (isNaN(num)) return "0";
-    return num.toLocaleString('en-US', {
-      useGrouping: false,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 20
-    });
-  };
 
   // Helper function to format time from seconds
   const formatTime = (totalSeconds: number) => {
@@ -114,67 +115,129 @@ function LedgerContent() {
 
   // Use real ledger info if available, otherwise show placeholder
   const displayLedgerInfo = ledgerInfo || {
-    totalBalance: "0.000000",
-    availableBalance: "0.000000",
-    locked: "0.000000",
+    totalBalance: "0",
+    availableBalance: "0",
+    locked: "0",
     inferences: [],
     fineTunings: [],
   };
 
   const handleRetrieveAll = async () => {
-    if (!broker) return;
+    if (!broker || isRetrievingAll) return;
     setIsRetrievingAll(true);
-    setError(null);
     try {
       await Promise.all([
         broker.ledger.retrieveFund('inference'),
         broker.ledger.retrieveFund('fine-tuning')
       ]);
-      setShowSuccessAlert({
-        message: 'All provider fund retrieval has been requested successfully, please wait for <strong>lock period</strong>. Check the Distributed Provider Funds details section for wait times.<br/>Funds that have passed the lock period have been retrieved to your Available Balance.',
-        show: true
+      toast({
+        title: 'Retrieve Requested',
+        description: 'All provider fund retrieval has been requested. Please wait for the lock period. Check the Distributed Provider Funds details section for wait times.',
       });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 8000);
-      await refreshLedgerInfo();
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Requested retrieval of all provider funds (inference + fine-tuning)',
+      });
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve all funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve all funds',
+      });
     } finally {
       setIsRetrievingAll(false);
     }
   };
 
   const handleRetrieveInference = async () => {
-    if (!broker) return;
+    if (!broker || isRetrieving.inference) return;
     setIsRetrieving(prev => ({ ...prev, inference: true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('inference');
-      setShowSuccessAlert({ message: 'Inference funds retrieve request submitted', show: true });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      toast({
+        title: 'Retrieve Requested',
+        description: 'Inference funds retrieve request submitted.',
+      });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Inference funds retrieve request submitted',
+      });
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve inference funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve inference funds',
+      });
     } finally {
       setIsRetrieving(prev => ({ ...prev, inference: false }));
     }
   };
 
   const handleRetrieveFineTuning = async () => {
-    if (!broker) return;
+    if (!broker || isRetrieving['fine-tuning']) return;
     setIsRetrieving(prev => ({ ...prev, 'fine-tuning': true }));
-    setError(null);
     try {
       await broker.ledger.retrieveFund('fine-tuning');
-      setShowSuccessAlert({ message: 'Fine-tuning funds retrieve request submitted', show: true });
-      setTimeout(() => setShowSuccessAlert({ message: '', show: false }), 3000);
-      await refreshLedgerInfo();
+      toast({
+        title: 'Retrieve Requested',
+        description: 'Fine-tuning funds retrieve request submitted.',
+      });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        description: 'Fine-tuning funds retrieve request submitted',
+      });
+      await refreshLedgerInfo().catch(() => {});
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to retrieve fine-tuning funds';
-      setError(errorMessage);
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve fine-tuning funds',
+      });
     } finally {
       setIsRetrieving(prev => ({ ...prev, 'fine-tuning': false }));
+    }
+  };
+
+  const handleRetrieveProvider = async (providerAddress: string, type: 'inference' | 'fine-tuning') => {
+    if (!broker) return;
+    const key = `${type}-${providerAddress}`;
+    if (retrievingProviders[key]) return;
+    setRetrievingProviders(prev => ({ ...prev, [key]: true }));
+    try {
+      await broker.ledger.retrieveFundFromProvider(type, providerAddress);
+      const shortAddr = `${providerAddress.slice(0, 6)}...${providerAddress.slice(-4)}`;
+      toast({
+        title: 'Retrieve Requested',
+        description: `Retrieve request submitted for provider ${shortAddr}.`,
+      });
+      addTransaction({
+        type: 'retrieve',
+        amount: '0',
+        status: 'completed',
+        providerAddress,
+        description: `Retrieve request submitted for ${type} provider ${shortAddr}`,
+      });
+      await refreshLedgerInfo().catch(() => {});
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Retrieve Failed',
+        description: err instanceof Error ? err.message : 'Failed to retrieve funds from provider',
+      });
+    } finally {
+      setRetrievingProviders(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     }
   };
 
@@ -241,7 +304,15 @@ function LedgerContent() {
               {/* Add Funds Section - Now self-contained */}
               <AddFundsForm
                 depositFund={depositFund}
-                onSuccess={refreshLedgerInfo}
+                onSuccess={(amount) => {
+                  addTransaction({
+                    type: 'deposit',
+                    amount: String(amount),
+                    status: 'completed',
+                    description: `Deposited ${amount} 0G to account`,
+                  });
+                  refreshLedgerInfo();
+                }}
               />
             </TabsContent>
 
@@ -259,10 +330,9 @@ function LedgerContent() {
                 onToggleRefund={toggleRefundDetails}
                 refundDetails={refundDetails}
                 loadingRefunds={loadingRefunds}
+                onRetrieveProvider={handleRetrieveProvider}
+                retrievingProviders={retrievingProviders}
                 onRefreshRefund={fetchRefundDetails}
-                showSuccessAlert={showSuccessAlert}
-                error={error}
-                formatNumber={formatNumber}
                 formatTime={formatTime}
               />
             </TabsContent>
@@ -272,8 +342,7 @@ function LedgerContent() {
                 transactions={transactions}
                 isLoading={txLoading}
                 onRefresh={refreshTransactions}
-                formatNumber={formatNumber}
-                explorerBaseUrl="https://chainscan-newton.0g.ai"
+                explorerBaseUrl={explorerBaseUrl}
               />
             </TabsContent>
         </div>
@@ -286,8 +355,19 @@ function LedgerContent() {
         availableBalance={displayLedgerInfo.availableBalance}
         totalBalance={displayLedgerInfo.totalBalance}
         lockedBalance={displayLedgerInfo.locked}
-        refund={(amount) => broker!.ledger.refund(amount)}
-        onSuccess={refreshLedgerInfo}
+        refund={(amount) => {
+          if (!broker) throw new Error('Broker not initialized');
+          return broker.ledger.refund(amount);
+        }}
+        onSuccess={(amount) => {
+          addTransaction({
+            type: 'retrieve',
+            amount: String(amount),
+            status: 'completed',
+            description: `Withdrew ${amount} 0G to wallet`,
+          });
+          refreshLedgerInfo();
+        }}
         onDeleteSuccess={() => window.location.href = '/'}
       />
     </div>

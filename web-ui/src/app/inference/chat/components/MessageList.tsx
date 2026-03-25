@@ -20,7 +20,6 @@ interface MessageListProps {
   isStreaming: boolean;
   verifyResponse: (message: Message, originalIndex: number) => void;
   messagesContainerRef?: React.RefObject<HTMLDivElement | null>;
-  messagesEndRef?: React.RefObject<HTMLDivElement | null>;
   onEditMessage?: (originalIndex: number, newContent: string) => void;
   onRegenerateMessage?: (originalIndex: number) => void;
 }
@@ -40,15 +39,13 @@ export function MessageList({
   isStreaming,
   verifyResponse,
   messagesContainerRef: externalContainerRef,
-  messagesEndRef: externalEndRef,
   onEditMessage,
   onRegenerateMessage,
 }: MessageListProps) {
   const internalContainerRef = useRef<HTMLDivElement>(null);
-  const internalEndRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   const containerRef = externalContainerRef || internalContainerRef;
-  const endRef = externalEndRef || internalEndRef;
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 space-y-3 sm:space-y-4">

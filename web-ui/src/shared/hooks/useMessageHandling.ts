@@ -1,13 +1,6 @@
 import { useRef, useCallback } from 'react';
-
-interface Message {
-  role: "system" | "user" | "assistant";
-  content: string;
-  timestamp?: number;
-  chatId?: string;
-  isVerified?: boolean | null;
-  isVerifying?: boolean;
-}
+import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
+import type { Message } from '../types/broker';
 
 interface ServiceMetadata {
   endpoint: string;
@@ -30,7 +23,7 @@ interface ChatHistory {
 }
 
 interface MessageHandlingConfig {
-  broker: any;
+  broker: ZGComputeNetworkBroker | null;
   selectedProvider: Provider | null;
   serviceMetadata: ServiceMetadata | null;
   chatHistory: ChatHistory;
@@ -42,7 +35,8 @@ interface MessageHandlingConfig {
   setIsStreaming: (streaming: boolean) => void;
   setErrorWithTimeout: (error: string | null) => void;
   isUserScrollingRef: React.RefObject<boolean>;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  openConnectModal?: () => void;
+  requestDeposit?: () => Promise<void>;
 }
 
 export function useMessageHandling(config: MessageHandlingConfig) {
@@ -59,7 +53,8 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     setIsStreaming,
     setErrorWithTimeout,
     isUserScrollingRef,
-    messagesEndRef,
+    openConnectModal,
+    requestDeposit,
   } = config;
 
   // AbortController for stopping generation
@@ -75,415 +70,49 @@ export function useMessageHandling(config: MessageHandlingConfig) {
     }
   }, [setIsLoading, setIsStreaming]);
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !selectedProvider || !broker) {
-      return;
+  const ensureReady = useCallback(async (): Promise<boolean> => {
+    if (!broker) {
+      if (openConnectModal) openConnectModal();
+      return false;
     }
-
-    // Create user message
-    const userMessage: Message = {
-      role: "user",
-      content: inputMessage,
-      timestamp: Date.now(),
-    };
-
-    // Add user message to UI immediately
-    setMessages((prev) => [...prev, userMessage]);
-    
-    // Save user message to database and get session ID
-    let currentSessionForAssistant: string | null = null;
-    try {
-      currentSessionForAssistant = await chatHistory.addMessage({
-        role: userMessage.role,
-        content: userMessage.content,
-        chat_id: undefined,
-        is_verified: null,
-        is_verifying: false,
-      });
-    } catch (err) {
-      // Silent fail for database operations
-    }
-    
-    // Reset input and start loading
-    setInputMessage("");
-    setIsLoading(true);
-    setIsStreaming(true);
-    setErrorWithTimeout(null);
-    
-    // Reset textarea height
-    setTimeout(() => {
-      const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
-      if (textarea) {
-        textarea.style.height = '40px';
+    if (requestDeposit) {
+      try {
+        await requestDeposit();
+      } catch {
+        return false;
       }
-    }, 0);
-    
+    }
+    return true;
+  }, [broker, openConnectModal, requestDeposit]);
+
+  // Shared streaming request logic used by both sendMessage and resendMessage
+  const executeStreamingRequest = useCallback(async (
+    activeBroker: ZGComputeNetworkBroker,
+    provider: Provider,
+    messagesToSend: Array<{ role: string; content: string }>,
+    sessionId: string | null,
+  ) => {
     let firstContentReceived = false;
 
-    // Create new AbortController for this request
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
     try {
-      // Get service metadata
       let currentMetadata = serviceMetadata;
       if (!currentMetadata) {
-        currentMetadata = await broker.inference.getServiceMetadata(
-          selectedProvider.address
+        currentMetadata = await activeBroker.inference.getServiceMetadata(
+          provider.address
         );
         if (!currentMetadata) {
           throw new Error("Failed to get service metadata");
         }
       }
 
-      // Prepare messages for API
-      const messagesToSend = [
-        ...messages
-          .filter((m) => m.role !== "system")
-          .map((m) => ({ role: m.role, content: m.content })),
-        { role: userMessage.role, content: userMessage.content },
-      ];
-      
-      // Get request headers
-      let headers;
-      try {
-        headers = await broker.inference.getRequestHeaders(
-          selectedProvider.address,
-          JSON.stringify(messagesToSend)
-        );
-      } catch (headerError) {
-        throw headerError;
-      }
-      // Send request to service
-      const { endpoint, model } = currentMetadata;
-      const response = await fetch(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body: JSON.stringify({
-          messages: [
-            ...messages
-              .filter((m) => m.role !== "system")
-              .map((m) => ({ role: m.role, content: m.content })),
-            { role: userMessage.role, content: userMessage.content },
-          ],
-          model: model,
-          stream: true,
-        }),
-        signal, // Add abort signal
-      });
-
-      if (!response.ok) {
-        // Handle error response
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorBody = await response.text();
-          if (errorBody) {
-            try {
-              const errorJson = JSON.parse(errorBody);
-              errorMessage = JSON.stringify(errorJson, null, 2);
-            } catch {
-              errorMessage = errorBody;
-            }
-          }
-        } catch {
-          // Keep original message if can't read body
-        }
-        throw new Error(errorMessage);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("Failed to get response reader");
-      }
-
-      // Initialize streaming response
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: "",
-        timestamp: Date.now(),
-        isVerified: null,
-        isVerifying: false,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Process streaming response
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let chatId = response.headers.get("ZG-Res-Key") || "";
-      let completeContent = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                if (!chatId && parsed.id) {
-                  chatId = parsed.id;
-                }
-
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  // Hide loading indicator on first content received
-                  if (!firstContentReceived) {
-                    setIsLoading(false);
-                    firstContentReceived = true;
-                  }
-                  
-                  completeContent += content;
-                  setMessages((prev) =>
-                    prev.map((msg, index) =>
-                      index === prev.length - 1
-                        ? {
-                            ...msg,
-                            content: completeContent,
-                            chatId,
-                            isVerified: msg.isVerified,
-                            isVerifying: msg.isVerifying,
-                          }
-                        : msg
-                    )
-                  );
-
-                  // Auto-scroll during streaming
-                  setTimeout(() => {
-                    if (!isUserScrollingRef.current) {
-                      messagesEndRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                      });
-                    }
-                  }, 50);
-                }
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      // Update final message
-      setMessages((prev) =>
-        prev.map((msg, index) =>
-          index === prev.length - 1
-            ? {
-                ...msg,
-                content: completeContent,
-                chatId,
-                isVerified: msg.isVerified || null,
-                isVerifying: msg.isVerifying || false,
-              }
-            : msg
-        )
+      const headers = await activeBroker.inference.getRequestHeaders(
+        provider.address,
+        JSON.stringify(messagesToSend)
       );
 
-      // Save assistant message to database
-      if (completeContent.trim() && currentSessionForAssistant) {
-        try {
-          const { dbManager } = await import('../lib/database');
-          await dbManager.saveMessage(currentSessionForAssistant, {
-            role: "assistant",
-            content: completeContent,
-            timestamp: Date.now(),
-            chat_id: chatId,
-            is_verified: null,
-            is_verifying: false,
-            provider_address: selectedProvider?.address || '',
-          });
-        } catch (err) {
-          // Silent fail for database operations
-        }
-      }
-
-      // Ensure loading is stopped
-      if (!firstContentReceived) {
-        setIsLoading(false);
-      }
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    } catch (err: unknown) {
-      // Check if it was aborted by user
-      if (err instanceof Error && err.name === 'AbortError') {
-        // User stopped generation - don't show error
-        // Keep the partial message if any
-        setIsLoading(false);
-        setIsStreaming(false);
-        abortControllerRef.current = null;
-        return;
-      }
-
-      // Handle other errors
-      let errorMessage = "Failed to send message. Please try again.";
-
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === 'string') {
-        errorMessage = err;
-      } else if (err && typeof err === 'object') {
-        try {
-          errorMessage = JSON.stringify(err, null, 2);
-        } catch {
-          errorMessage = String(err);
-        }
-      }
-
-      setErrorWithTimeout(`Chat error: ${errorMessage}`);
-
-      // Remove the loading message if it exists
-      setMessages((prev) =>
-        prev.filter((msg) => msg.role !== "assistant" || msg.content !== "")
-      );
-
-      // Ensure loading is stopped
-      if (!firstContentReceived) {
-        setIsLoading(false);
-      }
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  };
-
-  const verifyResponse = async (message: Message, messageIndex: number) => {
-    if (!broker || !selectedProvider || !message.chatId) {
-      return;
-    }
-
-    // Set verifying state
-    setMessages((prev) => {
-      const updated = prev.map((msg, index) =>
-        index === messageIndex
-          ? { ...msg, isVerifying: true, isVerified: null }
-          : msg
-      );
-      return updated;
-    });
-
-    // Force a re-render to ensure state change is visible
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    try {
-      // Verify response with minimum loading time
-      const [isValid] = await Promise.all([
-        broker.inference.processResponse(
-          selectedProvider.address,
-          message.chatId,
-          message.content
-        ),
-        new Promise((resolve) => setTimeout(resolve, 1000)), // Minimum 1 second loading
-      ]);
-
-      // Update verification result
-      setMessages((prev) => {
-        const updated = prev.map((msg, index) =>
-          index === messageIndex
-            ? { ...msg, isVerified: isValid, isVerifying: false }
-            : msg
-        );
-        return updated;
-      });
-    } catch (err: unknown) {
-      // Mark as verification failed
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setMessages((prev) => {
-        const updated = prev.map((msg, index) =>
-          index === messageIndex
-            ? { ...msg, isVerified: false, isVerifying: false }
-            : msg
-        );
-        return updated;
-      });
-    }
-  };
-
-  // Resend a message with given content and context (for edit/regenerate)
-  const resendMessage = useCallback(async (content: string, contextMessages: Message[]) => {
-    if (!content.trim() || !selectedProvider || !broker) {
-      return;
-    }
-
-    // Create user message
-    const userMessage: Message = {
-      role: "user",
-      content: content,
-      timestamp: Date.now(),
-    };
-
-    // Add user message to UI
-    setMessages([...contextMessages, userMessage]);
-
-    // Save user message to database and get session ID
-    let currentSessionForAssistant: string | null = null;
-    try {
-      currentSessionForAssistant = await chatHistory.addMessage({
-        role: userMessage.role,
-        content: userMessage.content,
-        chat_id: undefined,
-        is_verified: null,
-        is_verifying: false,
-      });
-    } catch {
-      // Silent fail for database operations
-    }
-
-    // Start loading
-    setIsLoading(true);
-    setIsStreaming(true);
-    setErrorWithTimeout(null);
-
-    let firstContentReceived = false;
-
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    try {
-      // Get service metadata
-      let currentMetadata = serviceMetadata;
-      if (!currentMetadata) {
-        currentMetadata = await broker.inference.getServiceMetadata(
-          selectedProvider.address
-        );
-        if (!currentMetadata) {
-          throw new Error("Failed to get service metadata");
-        }
-      }
-
-      // Prepare messages for API (context + new user message)
-      const messagesToSend = [
-        ...contextMessages
-          .filter((m) => m.role !== "system")
-          .map((m) => ({ role: m.role, content: m.content })),
-        { role: userMessage.role, content: userMessage.content },
-      ];
-
-      // Get request headers
-      let headers;
-      try {
-        headers = await broker.inference.getRequestHeaders(
-          selectedProvider.address,
-          JSON.stringify(messagesToSend)
-        );
-      } catch (headerError) {
-        throw headerError;
-      }
-
-      // Send request to service
       const { endpoint, model } = currentMetadata;
       const response = await fetch(`${endpoint}/chat/completions`, {
         method: "POST",
@@ -522,7 +151,6 @@ export function useMessageHandling(config: MessageHandlingConfig) {
         throw new Error("Failed to get response reader");
       }
 
-      // Initialize streaming response
       const assistantMessage: Message = {
         role: "assistant",
         content: "",
@@ -533,7 +161,6 @@ export function useMessageHandling(config: MessageHandlingConfig) {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Process streaming response
       const decoder = new TextDecoder();
       let buffer = "";
       let chatId = response.headers.get("ZG-Res-Key") || "";
@@ -581,13 +208,8 @@ export function useMessageHandling(config: MessageHandlingConfig) {
                     )
                   );
 
-                  setTimeout(() => {
-                    if (!isUserScrollingRef.current) {
-                      messagesEndRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                      });
-                    }
-                  }, 50);
+                  // Auto-scroll is handled by the useEffect in OptimizedChatPage
+                  // that watches messages state changes.
                 }
               } catch {
                 // Skip invalid JSON
@@ -615,17 +237,17 @@ export function useMessageHandling(config: MessageHandlingConfig) {
       );
 
       // Save assistant message to database
-      if (completeContent.trim() && currentSessionForAssistant) {
+      if (completeContent.trim() && sessionId) {
         try {
           const { dbManager } = await import('../lib/database');
-          await dbManager.saveMessage(currentSessionForAssistant, {
+          await dbManager.saveMessage(sessionId, {
             role: "assistant",
             content: completeContent,
             timestamp: Date.now(),
             chat_id: chatId,
             is_verified: null,
             is_verifying: false,
-            provider_address: selectedProvider?.address || '',
+            provider_address: provider.address,
           });
         } catch {
           // Silent fail for database operations
@@ -671,7 +293,150 @@ export function useMessageHandling(config: MessageHandlingConfig) {
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [broker, selectedProvider, serviceMetadata, chatHistory, setMessages, setIsLoading, setIsStreaming, setErrorWithTimeout, isUserScrollingRef, messagesEndRef]);
+  }, [serviceMetadata, setMessages, setIsLoading, setIsStreaming,
+    setErrorWithTimeout, isUserScrollingRef]);
+
+  const sendMessage = useCallback(async () => {
+    if (!inputMessage.trim() || !selectedProvider) return;
+    if (!(await ensureReady())) return;
+    if (!broker) return;
+
+    const userMessage: Message = {
+      role: "user",
+      content: inputMessage,
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    let sessionId: string | null = null;
+    try {
+      sessionId = await chatHistory.addMessage({
+        role: userMessage.role,
+        content: userMessage.content,
+        chat_id: undefined,
+        is_verified: null,
+        is_verifying: false,
+      });
+    } catch {
+      // Silent fail for database operations
+    }
+
+    setInputMessage("");
+    setIsLoading(true);
+    setIsStreaming(true);
+    setErrorWithTimeout(null);
+
+    // TODO: Move textarea height reset to the ChatInput component via callback/ref
+    // instead of querying the DOM directly from a data hook
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = '40px';
+      }
+    }, 0);
+
+    const messagesToSend = [
+      ...messages
+        .filter((m) => m.role !== "system")
+        .map((m) => ({ role: m.role, content: m.content })),
+      { role: userMessage.role, content: userMessage.content },
+    ];
+
+    await executeStreamingRequest(broker, selectedProvider, messagesToSend, sessionId);
+  }, [messages, inputMessage, ensureReady, selectedProvider, broker, chatHistory,
+    setMessages, setInputMessage, setIsLoading, setIsStreaming, setErrorWithTimeout,
+    executeStreamingRequest]);
+
+  const verifyResponse = useCallback(async (message: Message, messageIndex: number) => {
+    if (!broker || !selectedProvider || !message.chatId) {
+      return;
+    }
+
+    setMessages((prev) => {
+      const updated = prev.map((msg, index) =>
+        index === messageIndex
+          ? { ...msg, isVerifying: true, isVerified: null }
+          : msg
+      );
+      return updated;
+    });
+
+    // Force a re-render to ensure state change is visible
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    try {
+      const [isValid] = await Promise.all([
+        broker.inference.processResponse(
+          selectedProvider.address,
+          message.chatId,
+          message.content
+        ),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+
+      setMessages((prev) => {
+        const updated = prev.map((msg, index) =>
+          index === messageIndex
+            ? { ...msg, isVerified: isValid, isVerifying: false }
+            : msg
+        );
+        return updated;
+      });
+    } catch (err: unknown) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setMessages((prev) => {
+        const updated = prev.map((msg, index) =>
+          index === messageIndex
+            ? { ...msg, isVerified: false, isVerifying: false }
+            : msg
+        );
+        return updated;
+      });
+    }
+  }, [broker, selectedProvider, setMessages]);
+
+  // Resend a message with given content and context (for edit/regenerate)
+  const resendMessage = useCallback(async (content: string, contextMessages: Message[]) => {
+    if (!content.trim() || !selectedProvider) return;
+    if (!(await ensureReady())) return;
+    if (!broker) return;
+
+    const userMessage: Message = {
+      role: "user",
+      content: content,
+      timestamp: Date.now(),
+    };
+
+    setMessages([...contextMessages, userMessage]);
+
+    let sessionId: string | null = null;
+    try {
+      sessionId = await chatHistory.addMessage({
+        role: userMessage.role,
+        content: userMessage.content,
+        chat_id: undefined,
+        is_verified: null,
+        is_verifying: false,
+      });
+    } catch {
+      // Silent fail for database operations
+    }
+
+    setIsLoading(true);
+    setIsStreaming(true);
+    setErrorWithTimeout(null);
+
+    const messagesToSend = [
+      ...contextMessages
+        .filter((m) => m.role !== "system")
+        .map((m) => ({ role: m.role, content: m.content })),
+      { role: userMessage.role, content: userMessage.content },
+    ];
+
+    await executeStreamingRequest(broker, selectedProvider, messagesToSend, sessionId);
+  }, [ensureReady, broker, selectedProvider, chatHistory, setMessages,
+    setIsLoading, setIsStreaming, setErrorWithTimeout, executeStreamingRequest]);
 
   return {
     sendMessage,
