@@ -423,10 +423,6 @@ export default function fineTuning(program: Command) {
             'Also deploy the adapter to the inference GPU after acknowledging',
             false
         )
-        .option(
-            '--broker-url <url>',
-            'Inference broker URL (for --deploy; skips contract lookup)'
-        )
         .action((options) => {
             if (options.deploy && !options.model) {
                 console.error(
@@ -463,8 +459,7 @@ export default function fineTuning(program: Command) {
                         options.model,
                         options.taskId,
                         true,
-                        180,
-                        options.brokerUrl
+                        180
                     )
                 }
             })
@@ -650,10 +645,6 @@ export default function fineTuning(program: Command) {
             'Timeout in seconds when using --wait',
             '120'
         )
-        .option(
-            '--broker-url <url>',
-            'Override broker URL (skip contract lookup)'
-        )
         .action((options) => {
             withBroker(options, async (broker) => {
                 await deployAdapterToBroker(
@@ -662,8 +653,7 @@ export default function fineTuning(program: Command) {
                     options.model,
                     options.taskId,
                     options.wait,
-                    parseInt(options.timeout),
-                    options.brokerUrl
+                    parseInt(options.timeout)
                 )
             })
         })
@@ -759,14 +749,12 @@ async function deployAdapterToBroker(
     baseModel: string,
     taskId: string,
     wait: boolean,
-    timeoutSeconds: number,
-    brokerUrlOverride?: string
+    timeoutSeconds: number
 ) {
     const adapterName = await broker.inference.resolveAdapterName(
         providerAddress,
         taskId,
-        baseModel,
-        brokerUrlOverride
+        baseModel
     )
     console.log(chalk.gray(`Adapter name: ${adapterName}`))
 
@@ -777,7 +765,6 @@ async function deployAdapterToBroker(
         {
             wait,
             timeoutSeconds,
-            brokerUrlOverride,
             onProgress: (state: string) => {
                 console.log(chalk.gray(`  Adapter state: ${state}`))
             },

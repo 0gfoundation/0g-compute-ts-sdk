@@ -15,6 +15,7 @@ import type {
     DeployAdapterOptions,
     ChatResponse,
     ChatOptions,
+    LoRADependencies,
 } from './lora'
 import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
@@ -101,22 +102,28 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         // The base class's contract is used for read-only operations
         this.modelProcessor = modelProcessor
 
-        this.loraProcessor = new LoRAProcessor(
-            async (providerAddress: string) => {
+        const loraDeps: LoRADependencies = {
+            getEndpoint: async (providerAddress: string) => {
                 const meta =
                     await this.requestProcessor.getServiceMetadata(
                         providerAddress
                     )
                 return meta.endpoint
             },
-            async (providerAddress: string, content?: string) => {
-                const headers = await this.requestProcessor.getRequestHeaders(
-                    providerAddress,
-                    content
-                )
-                return headers as unknown as Record<string, string>
-            }
-        )
+            getHeaders: async (providerAddress: string, content?: string) => {
+                const headers =
+                    await this.requestProcessor.getRequestHeaders(
+                        providerAddress,
+                        content
+                    )
+                const result: Record<string, string> = {}
+                for (const [k, v] of Object.entries(headers)) {
+                    if (v !== undefined) result[k] = String(v)
+                }
+                return result
+            },
+        }
+        this.loraProcessor = new LoRAProcessor(loraDeps)
     }
 
     // NOTE: listService() and listServiceWithDetail() are inherited from ReadOnlyInferenceBroker
@@ -665,14 +672,10 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      * Lists all LoRA adapters on the inference broker.
      */
     public listAdapters = async (
-        providerAddress: string,
-        brokerUrlOverride?: string
+        providerAddress: string
     ): Promise<AdapterInfo[]> => {
         try {
-            return await this.loraProcessor.listAdapters(
-                providerAddress,
-                brokerUrlOverride
-            )
+            return await this.loraProcessor.listAdapters(providerAddress)
         } catch (error) {
             throwFormattedError(error)
         }
@@ -683,14 +686,12 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      */
     public getAdapterStatus = async (
         providerAddress: string,
-        adapterName: string,
-        brokerUrlOverride?: string
+        adapterName: string
     ): Promise<AdapterStatusResponse> => {
         try {
             return await this.loraProcessor.getAdapterStatus(
                 providerAddress,
-                adapterName,
-                brokerUrlOverride
+                adapterName
             )
         } catch (error) {
             throwFormattedError(error)
@@ -704,15 +705,13 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     public resolveAdapterName = async (
         providerAddress: string,
         taskId: string,
-        baseModel: string,
-        brokerUrlOverride?: string
+        baseModel: string
     ): Promise<string> => {
         try {
             return await this.loraProcessor.resolveAdapterName(
                 providerAddress,
                 taskId,
-                baseModel,
-                brokerUrlOverride
+                baseModel
             )
         } catch (error) {
             throwFormattedError(error)

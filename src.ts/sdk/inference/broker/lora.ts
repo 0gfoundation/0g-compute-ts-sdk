@@ -55,7 +55,6 @@ export interface ChatResponse {
 export interface DeployAdapterOptions {
     wait?: boolean
     timeoutSeconds?: number
-    brokerUrlOverride?: string
     onProgress?: (state: string) => void
 }
 
@@ -63,39 +62,33 @@ export interface ChatOptions {
     systemPrompt?: string
 }
 
-export class LoRAProcessor {
-    private getEndpoint: (providerAddress: string) => Promise<string>
-    private getHeaders: (
+export interface LoRADependencies {
+    getEndpoint(providerAddress: string): Promise<string>
+    getHeaders(
         providerAddress: string,
         content?: string
-    ) => Promise<Record<string, string>>
+    ): Promise<Record<string, string>>
+}
 
-    constructor(
-        getEndpoint: (providerAddress: string) => Promise<string>,
-        getHeaders: (
-            providerAddress: string,
-            content?: string
-        ) => Promise<Record<string, string>>
-    ) {
-        this.getEndpoint = getEndpoint
-        this.getHeaders = getHeaders
+export class LoRAProcessor {
+    private deps: LoRADependencies
+
+    constructor(deps: LoRADependencies) {
+        this.deps = deps
     }
 
     private async getBrokerBaseUrl(providerAddress: string): Promise<string> {
-        const endpoint = await this.getEndpoint(providerAddress)
+        const endpoint = await this.deps.getEndpoint(providerAddress)
         return endpoint.replace(/\/v1\/proxy$/, '')
     }
 
     async resolveAdapterName(
         providerAddress: string,
         taskId: string,
-        baseModel: string,
-        brokerUrlOverride?: string
+        baseModel: string
     ): Promise<string> {
         const localName = makeAdapterName(baseModel, taskId)
-        const baseUrl =
-            brokerUrlOverride ||
-            (await this.getBrokerBaseUrl(providerAddress))
+        const baseUrl = await this.getBrokerBaseUrl(providerAddress)
         try {
             const resp = await axios.get(`${baseUrl}/v1/lora/adapters`)
             const adapters: AdapterInfo[] = resp.data?.adapters || []
@@ -109,25 +102,17 @@ export class LoRAProcessor {
         return localName
     }
 
-    async listAdapters(
-        providerAddress: string,
-        brokerUrlOverride?: string
-    ): Promise<AdapterInfo[]> {
-        const baseUrl =
-            brokerUrlOverride ||
-            (await this.getBrokerBaseUrl(providerAddress))
+    async listAdapters(providerAddress: string): Promise<AdapterInfo[]> {
+        const baseUrl = await this.getBrokerBaseUrl(providerAddress)
         const resp = await axios.get(`${baseUrl}/v1/lora/adapters`)
         return resp.data?.adapters || []
     }
 
     async getAdapterStatus(
         providerAddress: string,
-        adapterName: string,
-        brokerUrlOverride?: string
+        adapterName: string
     ): Promise<AdapterStatusResponse> {
-        const baseUrl =
-            brokerUrlOverride ||
-            (await this.getBrokerBaseUrl(providerAddress))
+        const baseUrl = await this.getBrokerBaseUrl(providerAddress)
         const resp = await axios.get(
             `${baseUrl}/v1/lora/adapters/${adapterName}`
         )
@@ -143,18 +128,14 @@ export class LoRAProcessor {
         const {
             wait = false,
             timeoutSeconds = DEFAULT_DEPLOY_TIMEOUT_SECONDS,
-            brokerUrlOverride,
             onProgress,
         } = options
 
-        const baseUrl =
-            brokerUrlOverride ||
-            (await this.getBrokerBaseUrl(providerAddress))
+        const baseUrl = await this.getBrokerBaseUrl(providerAddress)
         let adapterName = await this.resolveAdapterName(
             providerAddress,
             taskId,
-            baseModel,
-            brokerUrlOverride
+            baseModel
         )
         const localName = makeAdapterName(baseModel, taskId)
         let nameResolved = adapterName !== localName
@@ -168,8 +149,7 @@ export class LoRAProcessor {
                         const resolved = await this.resolveAdapterName(
                             providerAddress,
                             taskId,
-                            baseModel,
-                            brokerUrlOverride
+                            baseModel
                         )
                         if (resolved !== localName) {
                             adapterName = resolved
@@ -183,8 +163,7 @@ export class LoRAProcessor {
                 try {
                     const status = await this.getAdapterStatus(
                         providerAddress,
-                        adapterName,
-                        brokerUrlOverride
+                        adapterName
                     )
                     const state = status.state
                     if (state && state !== lastState) {
@@ -196,7 +175,9 @@ export class LoRAProcessor {
                 } catch {
                     // Not found yet
                 }
-                await new Promise((r) => setTimeout(r, ADAPTER_POLL_INTERVAL_MS))
+                await new Promise((r) =>
+                    setTimeout(r, ADAPTER_POLL_INTERVAL_MS)
+                )
             }
             if (
                 Date.now() >= deadline &&
@@ -213,8 +194,7 @@ export class LoRAProcessor {
         try {
             const status = await this.getAdapterStatus(
                 providerAddress,
-                adapterName,
-                brokerUrlOverride
+                adapterName
             )
             if (status.state === 'active') {
                 return { message: 'Adapter is already deployed and active!' }
@@ -233,15 +213,13 @@ export class LoRAProcessor {
             adapterName,
         }
 
-        // If wait, poll until active
         if (wait) {
             const deadline = Date.now() + timeoutSeconds * 1000
             while (Date.now() < deadline) {
                 try {
                     const status = await this.getAdapterStatus(
                         providerAddress,
-                        adapterName,
-                        brokerUrlOverride
+                        adapterName
                     )
                     if (status.state === 'active') {
                         result.message =
@@ -253,11 +231,16 @@ export class LoRAProcessor {
                     }
                     onProgress?.(status.state)
                 } catch (err: unknown) {
-                    if (err instanceof Error && err.message.includes('failed')) {
+                    if (
+                        err instanceof Error &&
+                        err.message.includes('failed')
+                    ) {
                         throw err
                     }
                 }
-                await new Promise((r) => setTimeout(r, DEPLOY_POLL_INTERVAL_MS))
+                await new Promise((r) =>
+                    setTimeout(r, DEPLOY_POLL_INTERVAL_MS)
+                )
             }
             throw new Error(
                 `Timed out after ${timeoutSeconds}s waiting for deployment to complete.`
@@ -274,14 +257,14 @@ export class LoRAProcessor {
         options: ChatOptions = {}
     ): Promise<ChatResponse> {
         const { systemPrompt = 'You are a helpful assistant.' } = options
-        const endpoint = await this.getEndpoint(providerAddress)
+        const endpoint = await this.deps.getEndpoint(providerAddress)
 
         const messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: message },
         ]
 
-        const headers = await this.getHeaders(
+        const headers = await this.deps.getHeaders(
             providerAddress,
             JSON.stringify({ model: adapterName, messages })
         )
