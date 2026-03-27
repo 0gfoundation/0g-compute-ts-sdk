@@ -7,6 +7,15 @@ import type { VerificationResult, VerificationStep } from './verifier'
 import { Verifier } from './verifier'
 import { AccountProcessor } from './account'
 import { ModelProcessor } from './model'
+import { LoRAProcessor } from './lora'
+import type {
+    AdapterInfo,
+    AdapterStatusResponse,
+    DeployResponse,
+    DeployAdapterOptions,
+    ChatResponse,
+    ChatOptions,
+} from './lora'
 import { Cache, Metadata } from '../../common/storage'
 import type { LedgerBroker } from '../../ledger'
 import { throwFormattedError } from '../../common/utils'
@@ -22,6 +31,7 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     public responseProcessor!: ResponseProcessor
     public verifier!: Verifier
     public accountProcessor!: AccountProcessor
+    public loraProcessor!: LoRAProcessor
     // Override base class with authenticated version
     public declare modelProcessor: ModelProcessor
 
@@ -90,6 +100,23 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
         // Store modelProcessor reference for authenticated operations
         // The base class's contract is used for read-only operations
         this.modelProcessor = modelProcessor
+
+        this.loraProcessor = new LoRAProcessor(
+            async (providerAddress: string) => {
+                const meta =
+                    await this.requestProcessor.getServiceMetadata(
+                        providerAddress
+                    )
+                return meta.endpoint
+            },
+            async (providerAddress: string, content?: string) => {
+                const headers = await this.requestProcessor.getRequestHeaders(
+                    providerAddress,
+                    content
+                )
+                return headers as unknown as Record<string, string>
+            }
+        )
     }
 
     // NOTE: listService() and listServiceWithDetail() are inherited from ReadOnlyInferenceBroker
@@ -626,6 +653,109 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
             return await this.requestProcessor.revokeAllTokens(
                 providerAddress,
                 gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    // ── LoRA adapter management ──────────────────────────────────────
+
+    /**
+     * Lists all LoRA adapters on the inference broker.
+     */
+    public listAdapters = async (
+        providerAddress: string,
+        brokerUrlOverride?: string
+    ): Promise<AdapterInfo[]> => {
+        try {
+            return await this.loraProcessor.listAdapters(
+                providerAddress,
+                brokerUrlOverride
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Gets the status of a specific LoRA adapter.
+     */
+    public getAdapterStatus = async (
+        providerAddress: string,
+        adapterName: string,
+        brokerUrlOverride?: string
+    ): Promise<AdapterStatusResponse> => {
+        try {
+            return await this.loraProcessor.getAdapterStatus(
+                providerAddress,
+                adapterName,
+                brokerUrlOverride
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Resolves the actual adapter name from the broker given a task ID.
+     * The broker may use a different base-model path than the local naming convention.
+     */
+    public resolveAdapterName = async (
+        providerAddress: string,
+        taskId: string,
+        baseModel: string,
+        brokerUrlOverride?: string
+    ): Promise<string> => {
+        try {
+            return await this.loraProcessor.resolveAdapterName(
+                providerAddress,
+                taskId,
+                baseModel,
+                brokerUrlOverride
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Deploys a LoRA adapter to the inference GPU.
+     * Optionally waits for the adapter to become active.
+     */
+    public deployAdapter = async (
+        providerAddress: string,
+        baseModel: string,
+        taskId: string,
+        options?: DeployAdapterOptions
+    ): Promise<DeployResponse> => {
+        try {
+            return await this.loraProcessor.deployAdapter(
+                providerAddress,
+                baseModel,
+                taskId,
+                options
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Sends a chat request to a fine-tuned model via the inference broker.
+     */
+    public chatWithFineTunedModel = async (
+        providerAddress: string,
+        adapterName: string,
+        message: string,
+        options?: ChatOptions
+    ): Promise<ChatResponse> => {
+        try {
+            return await this.loraProcessor.chat(
+                providerAddress,
+                adapterName,
+                message,
+                options
             )
         } catch (error) {
             throwFormattedError(error)

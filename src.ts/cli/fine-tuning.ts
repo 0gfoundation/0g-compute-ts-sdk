@@ -715,63 +715,26 @@ export default function fineTuning(program: Command) {
             }
 
             withBroker(options, async (broker) => {
-                const { endpoint } =
-                    await broker.inference.getServiceMetadata(options.provider)
-
-                // Resolve adapter name from broker (handles path-based
-                // naming differences, e.g. /models/Qwen2.5-0.5B-Instruct).
                 if (options.taskId && !options.adapterName) {
-                    const axios = (await import('axios')).default
-                    const baseUrl = endpoint.replace(/\/v1\/proxy$/, '')
-                    try {
-                        const listResp = await axios.get(
-                            `${baseUrl}/v1/lora/adapters`
-                        )
-                        const match = (
-                            listResp.data?.adapters || []
-                        ).find((a: any) => a.taskId === options.taskId)
-                        if (match?.adapterName) {
-                            adapterName = match.adapterName
-                        }
-                    } catch {
-                        // Fall back to locally generated name
-                    }
+                    adapterName = await broker.inference.resolveAdapterName(
+                        options.provider,
+                        options.taskId,
+                        options.model || ''
+                    )
                 }
 
                 console.log(
                     chalk.gray(`Adapter model name: ${adapterName}`)
                 )
-                const headers =
-                    await broker.inference.getRequestHeaders(
-                        options.provider,
-                        JSON.stringify({
-                            model: adapterName,
-                            messages: [
-                                { role: 'system', content: options.system },
-                                { role: 'user', content: options.message },
-                            ],
-                        })
-                    )
 
-                const axios = (await import('axios')).default
-                const resp = await axios.post(
-                    `${endpoint}/chat/completions`,
-                    {
-                        model: adapterName,
-                        messages: [
-                            { role: 'system', content: options.system },
-                            { role: 'user', content: options.message },
-                        ],
-                    },
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...headers,
-                        },
-                    }
+                const resp = await broker.inference.chatWithFineTunedModel(
+                    options.provider,
+                    adapterName,
+                    options.message,
+                    { systemPrompt: options.system }
                 )
 
-                const choice = resp.data?.choices?.[0]
+                const choice = resp?.choices?.[0]
                 if (choice) {
                     console.log(
                         chalk.green('\nAssistant:'),
@@ -779,10 +742,10 @@ export default function fineTuning(program: Command) {
                     )
                 }
 
-                if (resp.data?.usage) {
+                if (resp?.usage) {
                     console.log(
                         chalk.gray(
-                            `\nTokens: ${resp.data.usage.prompt_tokens} prompt + ${resp.data.usage.completion_tokens} completion = ${resp.data.usage.total_tokens} total`
+                            `\nTokens: ${resp.usage.prompt_tokens} prompt + ${resp.usage.completion_tokens} completion = ${resp.usage.total_tokens} total`
                         )
                     )
                 }
@@ -790,18 +753,8 @@ export default function fineTuning(program: Command) {
         })
 }
 
-async function getBrokerBaseUrl(
-    broker: any,
-    providerAddress: string
-): Promise<string> {
-    const { endpoint } =
-        await broker.inference.getServiceMetadata(providerAddress)
-    // endpoint is like "https://host/v1/proxy", we need "https://host"
-    return endpoint.replace(/\/v1\/proxy$/, '')
-}
-
 async function deployAdapterToBroker(
-    broker: any,
+    broker: { inference: { deployAdapter: Function; resolveAdapterName: Function } },
     providerAddress: string,
     baseModel: string,
     taskId: string,
@@ -809,158 +762,27 @@ async function deployAdapterToBroker(
     timeoutSeconds: number,
     brokerUrlOverride?: string
 ) {
-    const axios = (await import('axios')).default
-    const baseUrl = brokerUrlOverride || await getBrokerBaseUrl(broker, providerAddress)
-    const localAdapterName = makeAdapterName(baseModel, taskId)
-
-    // Resolve the actual adapter name from the broker (the broker may use a
-    // different base-model path, e.g. "/models/Qwen2.5-0.5B-Instruct").
-    let adapterName = localAdapterName
-    try {
-        const listResp = await axios.get(`${baseUrl}/v1/lora/adapters`)
-        const match = (listResp.data?.adapters || []).find(
-            (a: any) => a.taskId === taskId
-        )
-        if (match?.adapterName) {
-            adapterName = match.adapterName
-        }
-    } catch {
-        // Fall back to locally generated name
-    }
-
+    const adapterName = await broker.inference.resolveAdapterName(
+        providerAddress,
+        taskId,
+        baseModel,
+        brokerUrlOverride
+    )
     console.log(chalk.gray(`Adapter name: ${adapterName}`))
-    console.log(chalk.gray(`Broker URL: ${baseUrl}`))
 
-    // If --wait, first poll until the adapter exists and is "ready"
-    if (wait) {
-        console.log('Waiting for adapter to be ready...')
-        const deadline = Date.now() + timeoutSeconds * 1000
-        let lastState = ''
-        let nameResolved = adapterName !== localAdapterName
-        while (Date.now() < deadline) {
-            // Re-resolve adapter name if we're still using the local guess
-            if (!nameResolved) {
-                try {
-                    const listResp = await axios.get(
-                        `${baseUrl}/v1/lora/adapters`
-                    )
-                    const match = (
-                        listResp.data?.adapters || []
-                    ).find((a: any) => a.taskId === taskId)
-                    if (match?.adapterName) {
-                        adapterName = match.adapterName
-                        nameResolved = true
-                    }
-                } catch {
-                    // Ignore - broker may not have processed event yet
-                }
-            }
-
-            try {
-                const statusResp = await axios.get(
-                    `${baseUrl}/v1/lora/adapters/${adapterName}`
-                )
-                const state = statusResp.data?.state
-                if (state && state !== lastState) {
-                    console.log(chalk.gray(`  Adapter state: ${state}`))
-                    lastState = state
-                }
-                if (state === 'ready' || state === 'active') {
-                    break
-                }
-                if (state === 'failed') {
-                    console.log(
-                        chalk.yellow(
-                            'Adapter download failed, attempting deploy anyway...'
-                        )
-                    )
-                    break
-                }
-            } catch (err: any) {
-                if (err?.response?.status !== 404) {
-                    console.log(
-                        chalk.gray(
-                            `  Waiting... (${err?.message || 'not ready'})`
-                        )
-                    )
-                }
-            }
-            await new Promise((r) => setTimeout(r, 3000))
+    const result = await broker.inference.deployAdapter(
+        providerAddress,
+        baseModel,
+        taskId,
+        {
+            wait,
+            timeoutSeconds,
+            brokerUrlOverride,
+            onProgress: (state: string) => {
+                console.log(chalk.gray(`  Adapter state: ${state}`))
+            },
         }
-        if (Date.now() >= deadline && lastState !== 'ready' && lastState !== 'active') {
-            console.error(
-                chalk.red(
-                    `Timed out after ${timeoutSeconds}s waiting for adapter to be ready (last state: ${lastState || 'not found'})`
-                )
-            )
-            process.exit(1)
-        }
-    }
+    )
 
-    // If adapter is already active, skip deploy
-    try {
-        const statusResp = await axios.get(
-            `${baseUrl}/v1/lora/adapters/${adapterName}`
-        )
-        if (statusResp.data?.state === 'active') {
-            console.log(chalk.green('Adapter is already deployed and active!'))
-            return
-        }
-    } catch {
-        // Adapter not found yet, proceed with deploy
-    }
-
-    // Call deploy API
-    console.log('Requesting adapter deployment...')
-    try {
-        const deployResp = await axios.post(
-            `${baseUrl}/v1/lora/adapters/deploy`,
-            { taskId, baseModel }
-        )
-        console.log(
-            chalk.green(deployResp.data?.message || 'Deploy request sent')
-        )
-    } catch (err: any) {
-        const errMsg =
-            err?.response?.data?.error || err?.message || 'unknown error'
-        console.error(chalk.red(`Deploy failed: ${errMsg}`))
-        process.exit(1)
-    }
-
-    // If --wait, poll until active
-    if (wait) {
-        console.log('Waiting for deployment to complete...')
-        const deadline = Date.now() + timeoutSeconds * 1000
-        while (Date.now() < deadline) {
-            try {
-                const statusResp = await axios.get(
-                    `${baseUrl}/v1/lora/adapters/${adapterName}`
-                )
-                const state = statusResp.data?.state
-                if (state === 'active') {
-                    console.log(
-                        chalk.green(
-                            '\nAdapter deployed successfully! You can now use `fine-tuning chat` to chat with it.'
-                        )
-                    )
-                    return
-                }
-                if (state === 'failed') {
-                    console.error(
-                        chalk.red('Adapter deployment failed.')
-                    )
-                    process.exit(1)
-                }
-            } catch {
-                // ignore polling errors
-            }
-            await new Promise((r) => setTimeout(r, 2000))
-        }
-        console.error(
-            chalk.red(
-                `Timed out after ${timeoutSeconds}s waiting for deployment to complete.`
-            )
-        )
-        process.exit(1)
-    }
+    console.log(chalk.green(result.message))
 }
