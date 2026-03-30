@@ -132,6 +132,7 @@ export class LoRAProcessor {
         } = options
 
         const baseUrl = await this.getBrokerBaseUrl(providerAddress)
+        const deadline = wait ? Date.now() + timeoutSeconds * 1000 : 0
         let adapterName = await this.resolveAdapterName(
             providerAddress,
             taskId,
@@ -141,7 +142,6 @@ export class LoRAProcessor {
         let nameResolved = adapterName !== localName
 
         if (wait) {
-            const deadline = Date.now() + timeoutSeconds * 1000
             let lastState = ''
             while (Date.now() < deadline) {
                 if (!nameResolved) {
@@ -214,7 +214,6 @@ export class LoRAProcessor {
         }
 
         if (wait) {
-            const deadline = Date.now() + timeoutSeconds * 1000
             while (Date.now() < deadline) {
                 try {
                     const status = await this.getAdapterStatus(
