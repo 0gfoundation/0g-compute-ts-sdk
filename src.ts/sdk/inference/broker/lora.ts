@@ -249,6 +249,78 @@ export class LoRAProcessor {
         return result
     }
 
+    async deployAdapterByName(
+        providerAddress: string,
+        adapterName: string,
+        options: DeployAdapterOptions = {}
+    ): Promise<DeployResponse> {
+        const {
+            wait = false,
+            timeoutSeconds = DEFAULT_DEPLOY_TIMEOUT_SECONDS,
+            onProgress,
+        } = options
+
+        const baseUrl = await this.getBrokerBaseUrl(providerAddress)
+        const deadline = wait ? Date.now() + timeoutSeconds * 1000 : 0
+
+        // If already active, skip deploy
+        try {
+            const status = await this.getAdapterStatus(
+                providerAddress,
+                adapterName
+            )
+            if (status.state === 'active') {
+                return { message: 'Adapter is already deployed and active!' }
+            }
+        } catch {
+            // Not found, proceed
+        }
+
+        const deployResp = await axios.post(
+            `${baseUrl}/v1/lora/adapters/deploy`,
+            { adapterName }
+        )
+        const result: DeployResponse = {
+            message: deployResp.data?.message || 'Deploy request sent',
+            adapterName,
+        }
+
+        if (wait) {
+            while (Date.now() < deadline) {
+                try {
+                    const status = await this.getAdapterStatus(
+                        providerAddress,
+                        adapterName
+                    )
+                    if (status.state === 'active') {
+                        result.message =
+                            'Adapter deployed successfully! You can now chat with it.'
+                        return result
+                    }
+                    if (status.state === 'failed') {
+                        throw new Error('Adapter deployment failed.')
+                    }
+                    onProgress?.(status.state)
+                } catch (err: unknown) {
+                    if (
+                        err instanceof Error &&
+                        err.message.includes('failed')
+                    ) {
+                        throw err
+                    }
+                }
+                await new Promise((r) =>
+                    setTimeout(r, DEPLOY_POLL_INTERVAL_MS)
+                )
+            }
+            throw new Error(
+                `Timed out after ${timeoutSeconds}s waiting for deployment to complete.`
+            )
+        }
+
+        return result
+    }
+
     async chat(
         providerAddress: string,
         adapterName: string,

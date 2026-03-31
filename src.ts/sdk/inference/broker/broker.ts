@@ -741,6 +741,25 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     }
 
     /**
+     * Deploys a LoRA adapter by its name directly (no taskId/model resolution needed).
+     */
+    public deployAdapterByName = async (
+        providerAddress: string,
+        adapterName: string,
+        options?: DeployAdapterOptions
+    ): Promise<DeployResponse> => {
+        try {
+            return await this.loraProcessor.deployAdapterByName(
+                providerAddress,
+                adapterName,
+                options
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
      * Sends a chat request to a fine-tuned model via the inference broker.
      */
     public chatWithFineTunedModel = async (

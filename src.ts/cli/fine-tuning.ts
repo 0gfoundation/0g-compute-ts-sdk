@@ -627,11 +627,15 @@ export default function fineTuning(program: Command) {
             '--provider <address>',
             'Inference provider address'
         )
-        .requiredOption(
+        .option(
+            '--adapter-name <name>',
+            'LoRA adapter name (overrides --model + --task-id)'
+        )
+        .option(
             '--model <name>',
             'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)'
         )
-        .requiredOption('--task-id <id>', 'Fine-tuning task ID')
+        .option('--task-id <id>', 'Fine-tuning task ID')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -646,15 +650,34 @@ export default function fineTuning(program: Command) {
             '120'
         )
         .action((options) => {
-            withBroker(options, async (broker) => {
-                await deployAdapterToBroker(
-                    broker,
-                    options.provider,
-                    options.model,
-                    options.taskId,
-                    options.wait,
-                    parseInt(options.timeout)
+            if (!options.adapterName && (!options.model || !options.taskId)) {
+                console.error(
+                    chalk.red(
+                        'Error: Provide either --adapter-name or both --model and --task-id'
+                    )
                 )
+                process.exit(1)
+            }
+
+            withBroker(options, async (broker) => {
+                if (options.adapterName) {
+                    await deployAdapterByName(
+                        broker,
+                        options.provider,
+                        options.adapterName,
+                        options.wait,
+                        parseInt(options.timeout)
+                    )
+                } else {
+                    await deployAdapterToBroker(
+                        broker,
+                        options.provider,
+                        options.model,
+                        options.taskId,
+                        options.wait,
+                        parseInt(options.timeout)
+                    )
+                }
             })
         })
 
@@ -762,6 +785,30 @@ async function deployAdapterToBroker(
         providerAddress,
         baseModel,
         taskId,
+        {
+            wait,
+            timeoutSeconds,
+            onProgress: (state: string) => {
+                console.log(chalk.gray(`  Adapter state: ${state}`))
+            },
+        }
+    )
+
+    console.log(chalk.green(result.message))
+}
+
+async function deployAdapterByName(
+    broker: { inference: { deployAdapterByName: Function } },
+    providerAddress: string,
+    adapterName: string,
+    wait: boolean,
+    timeoutSeconds: number
+) {
+    console.log(chalk.gray(`Adapter name: ${adapterName}`))
+
+    const result = await broker.inference.deployAdapterByName(
+        providerAddress,
+        adapterName,
         {
             wait,
             timeoutSeconds,
