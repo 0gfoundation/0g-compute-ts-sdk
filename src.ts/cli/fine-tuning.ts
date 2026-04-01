@@ -767,7 +767,21 @@ export default function fineTuning(program: Command) {
 }
 
 async function deployAdapterToBroker(
-    broker: { inference: { deployAdapter: Function; resolveAdapterName: Function } },
+    broker: {
+        inference: {
+            deployAdapter: (
+                providerAddress: string,
+                baseModel: string,
+                taskId: string,
+                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+            ) => Promise<{ message: string; adapterName?: string }>
+            resolveAdapterName: (
+                providerAddress: string,
+                taskId: string,
+                baseModel: string
+            ) => Promise<string>
+        }
+    },
     providerAddress: string,
     baseModel: string,
     taskId: string,
@@ -798,7 +812,15 @@ async function deployAdapterToBroker(
 }
 
 async function deployAdapterByName(
-    broker: { inference: { deployAdapterByName: Function } },
+    broker: {
+        inference: {
+            deployAdapterByName: (
+                providerAddress: string,
+                adapterName: string,
+                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+            ) => Promise<{ message: string; adapterName?: string }>
+        }
+    },
     providerAddress: string,
     adapterName: string,
     wait: boolean,

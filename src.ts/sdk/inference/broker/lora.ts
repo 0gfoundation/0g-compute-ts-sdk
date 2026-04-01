@@ -179,6 +179,11 @@ export class LoRAProcessor {
                     setTimeout(r, ADAPTER_POLL_INTERVAL_MS)
                 )
             }
+            if (lastState === 'failed') {
+                throw new Error(
+                    'Adapter preparation failed. Check broker logs for details.'
+                )
+            }
             if (
                 Date.now() >= deadline &&
                 lastState !== 'ready' &&
