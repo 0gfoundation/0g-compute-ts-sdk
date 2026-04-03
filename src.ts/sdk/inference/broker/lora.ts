@@ -90,7 +90,10 @@ export class LoRAProcessor {
         const localName = makeAdapterName(baseModel, taskId)
         const baseUrl = await this.getBrokerBaseUrl(providerAddress)
         try {
-            const resp = await axios.get(`${baseUrl}/v1/lora/adapters`)
+            const headers = await this.deps.getHeaders(providerAddress)
+            const resp = await axios.get(`${baseUrl}/v1/lora/adapters`, {
+                headers,
+            })
             const adapters: AdapterInfo[] = resp.data?.adapters || []
             const match = adapters.find((a) => a.taskId === taskId)
             if (match?.adapterName) {
@@ -104,7 +107,10 @@ export class LoRAProcessor {
 
     async listAdapters(providerAddress: string): Promise<AdapterInfo[]> {
         const baseUrl = await this.getBrokerBaseUrl(providerAddress)
-        const resp = await axios.get(`${baseUrl}/v1/lora/adapters`)
+        const headers = await this.deps.getHeaders(providerAddress)
+        const resp = await axios.get(`${baseUrl}/v1/lora/adapters`, {
+            headers,
+        })
         return resp.data?.adapters || []
     }
 
@@ -113,8 +119,10 @@ export class LoRAProcessor {
         adapterName: string
     ): Promise<AdapterStatusResponse> {
         const baseUrl = await this.getBrokerBaseUrl(providerAddress)
+        const headers = await this.deps.getHeaders(providerAddress)
         const resp = await axios.get(
-            `${baseUrl}/v1/lora/adapters/${adapterName}`
+            `${baseUrl}/v1/lora/adapters/${adapterName}`,
+            { headers }
         )
         return resp.data
     }
@@ -209,9 +217,11 @@ export class LoRAProcessor {
         }
 
         // Call deploy API
+        const authHeaders = await this.deps.getHeaders(providerAddress)
         const deployResp = await axios.post(
             `${baseUrl}/v1/lora/adapters/deploy`,
-            { taskId, baseModel }
+            { taskId, baseModel },
+            { headers: authHeaders }
         )
         const result: DeployResponse = {
             message: deployResp.data?.message || 'Deploy request sent',
@@ -281,9 +291,11 @@ export class LoRAProcessor {
             // Not found, proceed
         }
 
+        const authHeaders = await this.deps.getHeaders(providerAddress)
         const deployResp = await axios.post(
             `${baseUrl}/v1/lora/adapters/deploy`,
-            { adapterName }
+            { adapterName },
+            { headers: authHeaders }
         )
         const result: DeployResponse = {
             message: deployResp.data?.message || 'Deploy request sent',
