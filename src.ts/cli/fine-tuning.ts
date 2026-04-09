@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
+import { withFineTuningBroker, withBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { download } from '../sdk/fine-tuning/zg-storage'
 import { TOKEN_COUNTER_MERKLE_ROOT } from '../sdk/fine-tuning/const'
+import { makeAdapterName } from '../sdk/common/utils/adapter-name'
 
 export default function fineTuning(program: Command) {
     program
@@ -109,7 +110,8 @@ export default function fineTuning(program: Command) {
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .requiredOption('--output <path>', 'Download path')
         .option(
-            `--rpc <url>', '0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
+            '--rpc <url>',
+            `0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
             ZG_RPC_ENDPOINT_TESTNET
         )
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -152,7 +154,8 @@ export default function fineTuning(program: Command) {
         .requiredOption('--data-path <path>', 'Path to the dataset')
         .requiredOption('--data-root <hash>', 'Root hash of the dataset')
         .option(
-            `--rpc <url>', '0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
+            '--rpc <url>',
+            `0G Chain RPC endpoint, default is ${ZG_RPC_ENDPOINT_TESTNET}`,
             ZG_RPC_ENDPOINT_TESTNET
         )
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
@@ -402,6 +405,7 @@ export default function fineTuning(program: Command) {
         .requiredOption('--data-path <path>', 'Path to store the model')
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
         .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
         .option('--gas-price <price>', 'Gas price for transactions')
         .option('--max-gas-price <price>', 'Max gas price for transactions')
@@ -410,7 +414,25 @@ export default function fineTuning(program: Command) {
             '--download-method <method>',
             'Download method: auto (try 0G Storage then TEE), 0g-storage, or tee (default: auto)'
         )
+        .option(
+            '--model <name>',
+            'Base model name (required when using --deploy, e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .option(
+            '--deploy',
+            'Also deploy the adapter to the inference GPU after acknowledging',
+            false
+        )
         .action((options) => {
+            if (options.deploy && !options.model) {
+                console.error(
+                    chalk.red(
+                        'Error: --model is required when using --deploy'
+                    )
+                )
+                process.exit(1)
+            }
+
             withFineTuningBroker(options, async (broker) => {
                 await broker.fineTuning!.acknowledgeModel(
                     options.provider,
@@ -426,6 +448,20 @@ export default function fineTuning(program: Command) {
                     }
                 )
                 console.log('Acknowledged model')
+
+                if (options.deploy) {
+                    console.log(
+                        '\nWaiting for inference broker to download the adapter...'
+                    )
+                    await deployAdapterToBroker(
+                        broker,
+                        options.provider,
+                        options.model,
+                        options.taskId,
+                        true,
+                        180
+                    )
+                }
             })
         })
 
@@ -566,4 +602,243 @@ export default function fineTuning(program: Command) {
                 console.log('Service removed successfully!')
             })
         })
+
+    program
+        .command('get-adapter-name')
+        .description(
+            'Get the LoRA adapter model name for inference after fine-tuning'
+        )
+        .requiredOption(
+            '--model <name>',
+            'Base model name (e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .requiredOption('--task-id <id>', 'Fine-tuning task ID')
+        .action((options) => {
+            const adapterName = makeAdapterName(options.model, options.taskId)
+            console.log(adapterName)
+        })
+
+    program
+        .command('deploy-adapter')
+        .description(
+            'Deploy a downloaded LoRA adapter to the inference GPU (triggers vLLM loading)'
+        )
+        .requiredOption(
+            '--provider <address>',
+            'Inference provider address'
+        )
+        .option(
+            '--adapter-name <name>',
+            'LoRA adapter name (overrides --model + --task-id)'
+        )
+        .option(
+            '--model <name>',
+            'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .option('--task-id <id>', 'Fine-tuning task ID')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option(
+            '--wait',
+            'Wait until the adapter is fully deployed (polls status)',
+            false
+        )
+        .option(
+            '--timeout <seconds>',
+            'Timeout in seconds when using --wait',
+            '120'
+        )
+        .action((options) => {
+            if (!options.adapterName && (!options.model || !options.taskId)) {
+                console.error(
+                    chalk.red(
+                        'Error: Provide either --adapter-name or both --model and --task-id'
+                    )
+                )
+                process.exit(1)
+            }
+
+            withBroker(options, async (broker) => {
+                if (options.adapterName) {
+                    await deployAdapterByName(
+                        broker,
+                        options.provider,
+                        options.adapterName,
+                        options.wait,
+                        parseInt(options.timeout)
+                    )
+                } else {
+                    await deployAdapterToBroker(
+                        broker,
+                        options.provider,
+                        options.model,
+                        options.taskId,
+                        options.wait,
+                        parseInt(options.timeout)
+                    )
+                }
+            })
+        })
+
+    program
+        .command('chat')
+        .description(
+            'Send a chat request to a fine-tuned model via the inference broker'
+        )
+        .requiredOption(
+            '--provider <address>',
+            'Inference provider address (serves the fine-tuned model)'
+        )
+        .option(
+            '--model <name>',
+            'Base model name used in fine-tuning (e.g. Qwen2.5-0.5B-Instruct)'
+        )
+        .option('--task-id <id>', 'Fine-tuning task ID')
+        .option(
+            '--adapter-name <name>',
+            'LoRA adapter name (overrides --model + --task-id)'
+        )
+        .requiredOption('--message <text>', 'User message to send')
+        .option(
+            '--system <text>',
+            'System prompt',
+            'You are a helpful assistant.'
+        )
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .action((options) => {
+            let adapterName: string
+            if (options.adapterName) {
+                adapterName = options.adapterName
+            } else if (options.model && options.taskId) {
+                adapterName = makeAdapterName(
+                    options.model,
+                    options.taskId
+                )
+            } else {
+                console.error(
+                    chalk.red(
+                        'Error: Provide either --adapter-name or both --model and --task-id'
+                    )
+                )
+                process.exit(1)
+            }
+
+            withBroker(options, async (broker) => {
+                if (options.taskId && !options.adapterName) {
+                    adapterName = await broker.inference.resolveAdapterName(
+                        options.provider,
+                        options.taskId,
+                        options.model || ''
+                    )
+                }
+
+                console.log(
+                    chalk.gray(`Adapter model name: ${adapterName}`)
+                )
+
+                const resp = await broker.inference.chatWithFineTunedModel(
+                    options.provider,
+                    adapterName,
+                    options.message,
+                    { systemPrompt: options.system }
+                )
+
+                const choice = resp?.choices?.[0]
+                if (choice) {
+                    console.log(
+                        chalk.green('\nAssistant:'),
+                        choice.message?.content || '(empty)'
+                    )
+                }
+
+                if (resp?.usage) {
+                    console.log(
+                        chalk.gray(
+                            `\nTokens: ${resp.usage.prompt_tokens} prompt + ${resp.usage.completion_tokens} completion = ${resp.usage.total_tokens} total`
+                        )
+                    )
+                }
+            })
+        })
+}
+
+async function deployAdapterToBroker(
+    broker: {
+        inference: {
+            deployAdapter: (
+                providerAddress: string,
+                baseModel: string,
+                taskId: string,
+                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+            ) => Promise<{ message: string; adapterName?: string }>
+            resolveAdapterName: (
+                providerAddress: string,
+                taskId: string,
+                baseModel: string
+            ) => Promise<string>
+        }
+    },
+    providerAddress: string,
+    baseModel: string,
+    taskId: string,
+    wait: boolean,
+    timeoutSeconds: number
+) {
+    const adapterName = await broker.inference.resolveAdapterName(
+        providerAddress,
+        taskId,
+        baseModel
+    )
+    console.log(chalk.gray(`Adapter name: ${adapterName}`))
+
+    const result = await broker.inference.deployAdapter(
+        providerAddress,
+        baseModel,
+        taskId,
+        {
+            wait,
+            timeoutSeconds,
+            onProgress: (state: string) => {
+                console.log(chalk.gray(`  Adapter state: ${state}`))
+            },
+        }
+    )
+
+    console.log(chalk.green(result.message))
+}
+
+async function deployAdapterByName(
+    broker: {
+        inference: {
+            deployAdapterByName: (
+                providerAddress: string,
+                adapterName: string,
+                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+            ) => Promise<{ message: string; adapterName?: string }>
+        }
+    },
+    providerAddress: string,
+    adapterName: string,
+    wait: boolean,
+    timeoutSeconds: number
+) {
+    console.log(chalk.gray(`Adapter name: ${adapterName}`))
+
+    const result = await broker.inference.deployAdapterByName(
+        providerAddress,
+        adapterName,
+        {
+            wait,
+            timeoutSeconds,
+            onProgress: (state: string) => {
+                console.log(chalk.gray(`  Adapter state: ${state}`))
+            },
+        }
+    )
+
+    console.log(chalk.green(result.message))
 }

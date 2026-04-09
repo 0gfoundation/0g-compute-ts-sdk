@@ -1017,6 +1017,10 @@ export default function inference(program: Command) {
             '--token-id <id>',
             'Specific token ID to use (0-254). If not provided, will find the first available slot'
         )
+        .option(
+            '--duration <ms>',
+            'Token duration in milliseconds (0 = never expires). Skips interactive prompt when provided.'
+        )
         .option('--rpc <url>', '0G Chain RPC endpoint')
         .option('--ledger-ca <address>', 'Account (ledger) contract address')
         .option('--inference-ca <address>', 'Inference contract address')
@@ -1036,7 +1040,20 @@ export default function inference(program: Command) {
                     }
                 }
 
-                const duration = await promptDurationSelection()
+                let duration: number
+                if (options.duration !== undefined) {
+                    duration = parseInt(options.duration)
+                    if (isNaN(duration) || duration < 0) {
+                        console.error(
+                            chalk.red(
+                                'Error: Duration must be a non-negative number (milliseconds)'
+                            )
+                        )
+                        process.exit(1)
+                    }
+                } else {
+                    duration = await promptDurationSelection()
+                }
 
                 withBroker(options, async (broker) => {
                     // First check if ledger (main account) exists
