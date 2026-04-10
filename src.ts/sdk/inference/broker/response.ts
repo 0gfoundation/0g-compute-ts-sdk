@@ -64,12 +64,18 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
 
             try {
                 const additionalInfo = JSON.parse(svc.additionalInfo)
+                const isCentralized = additionalInfo.ProviderType === 'centralized'
+
                 if (
                     additionalInfo.TargetSeparated === true &&
+                    !isCentralized &&
                     additionalInfo.TargetTeeAddress
                 ) {
+                    // Separated decentralized: LLM runs in its own TEE, verify against LLM's TEE signer
                     signingAddress = additionalInfo.TargetTeeAddress
                 }
+                // For centralized providers (TargetSeparated=true but ProviderType='centralized'),
+                // the broker TEE signs the response, so we keep svc.teeSignerAddress
             } catch (error) {
                 // If JSON parsing fails, fall back to using additionalInfo as the address directly (backward compatibility)
                 logger.warn('Failed to parse additionalInfo as JSON', error)
