@@ -426,14 +426,28 @@ export function ProviderApiKeyManager({
     )
   }
 
+  const newlyGeneratedKeyData = generatedKey
+    ? existingKeys.find((k) => k.apiKey === generatedKey)
+    : null
+  const olderKeys = generatedKey
+    ? existingKeys.filter((key) => key.apiKey !== generatedKey)
+    : existingKeys
+
   return (
     <div className="space-y-3">
-      {/* Existing Keys Section */}
-      {existingKeys.length > 0 && (
+      {/* Newly Generated Key - always visible, independent of Hide/Show */}
+      {newlyGeneratedKeyData && (
+        <div className="space-y-2">
+          {renderKey(newlyGeneratedKeyData, true)}
+        </div>
+      )}
+
+      {/* Existing Keys Section (excludes newly generated key) */}
+      {olderKeys.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-gray-700">
-              Existing API Keys ({keyCount})
+              Existing API Keys ({olderKeys.length})
             </p>
             <Button
               variant="ghost"
@@ -447,18 +461,8 @@ export function ProviderApiKeyManager({
 
           {showExistingKeys && (
             <div className="max-h-[300px] overflow-y-auto space-y-0.5 pr-1 scrollbar-thin">
-              {existingKeys.map((key) => renderKey(key, false))}
+              {olderKeys.map((key) => renderKey(key, false))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Newly Generated Key */}
-      {generatedKey && existingKeys.length > 0 && (
-        <div className="space-y-2">
-          {renderKey(
-            existingKeys.find((k) => k.apiKey === generatedKey)!,
-            true
           )}
         </div>
       )}
