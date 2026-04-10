@@ -60,6 +60,8 @@ export interface VerificationResult {
     steps?: VerificationStep[]
 }
 
+export type ProviderType = 'decentralized' | 'centralized'
+
 export interface AdditionalInfo {
     VerifierURL?: string
     TargetSeparated?: boolean
@@ -67,6 +69,7 @@ export interface AdditionalInfo {
     TargetTeeAddress?: string
     ImageName?: string
     ImageDigest?: string
+    ProviderType?: ProviderType
 }
 
 export interface AttestationReport {
@@ -163,6 +166,12 @@ export class Verifier extends ZGServingUserBrokerBase {
 
             const verifierURL = additionalInfo.VerifierURL
             const targetSeparated = additionalInfo.TargetSeparated === true
+            let providerType: ProviderType = additionalInfo.ProviderType || 'decentralized'
+            if (providerType !== 'decentralized' && providerType !== 'centralized') {
+                log('warning', `⚠️  Invalid ProviderType: ${providerType}, defaulting to 'decentralized'`)
+                providerType = 'decentralized'
+            }
+            const isCentralized = providerType === 'centralized'
             const teeVerifier = additionalInfo.TEEVerifier || 'dstack' // default to dstack
             const imageName = additionalInfo.ImageName
             const imageDigest = additionalInfo.ImageDigest
@@ -194,7 +203,10 @@ export class Verifier extends ZGServingUserBrokerBase {
             }
 
             // Component architecture information
-            if (targetSeparated) {
+            if (targetSeparated && isCentralized) {
+                log('info', '   Architecture: Centralized (Broker in TEE, LLM via centralized provider e.g. OpenAI/Anthropic)')
+                log('info', '   Required Reports: 1 (Broker only)')
+            } else if (targetSeparated) {
                 log('info', '   Architecture: Separated (Broker and LLM inference in different TEE nodes)')
                 log('info', '   Required Reports: 2 (Broker + LLM inference)')
             } else {
@@ -211,8 +223,18 @@ export class Verifier extends ZGServingUserBrokerBase {
             log('step', '📥 Step 3: Downloading attestation reports...')
             const reports: Record<string, AttestationReport> = {}
 
-            if (targetSeparated) {
-                // Get both broker and LLM reports
+            if (targetSeparated && isCentralized) {
+                // Centralized provider: only broker runs in TEE, LLM is a centralized service (e.g. OpenAI/Anthropic)
+                log('info', '   Downloading broker attestation report (centralized provider - no LLM TEE)...')
+                const brokerReport = await this.getQuote(providerAddress)
+                const brokerPath = `${outputDir}/broker_attestation_report.json`
+                await this.saveReportToFile(brokerReport.rawReport, brokerPath)
+                reports.broker = JSON.parse(
+                    brokerReport.rawReport
+                ) as AttestationReport
+                log('success', `   ✅ Broker report saved to: ${brokerPath}`)
+            } else if (targetSeparated) {
+                // Separated decentralized: both broker and LLM run in separate TEE nodes
                 log('info', '   Downloading broker attestation report...')
                 const brokerReport = await this.getQuote(providerAddress)
                 const brokerPath = `${outputDir}/broker_attestation_report.json`
@@ -461,7 +483,10 @@ export class Verifier extends ZGServingUserBrokerBase {
                 log('info', '   2. Verify the downloaded attestation report(s):')
 
                 // Show specific commands based on whether components are separated
-                if (targetSeparated) {
+                if (targetSeparated && isCentralized) {
+                    log('info', '      # Verify broker attestation report (centralized provider - broker TEE only)')
+                    log('info', `      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`)
+                } else if (targetSeparated) {
                     log('info', '      # Verify broker attestation report')
                     log('info', `      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`)
                     log('info', '')
