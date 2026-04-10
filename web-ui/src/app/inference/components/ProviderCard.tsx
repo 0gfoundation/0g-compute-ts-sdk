@@ -235,6 +235,13 @@ export function ProviderCard({
                             )}
                         </div>
 
+                        {/* Owner info */}
+                        {provider.ownedBy && (
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                                by {provider.ownedBy}
+                            </p>
+                        )}
+
                         {/* Pricing and address */}
                         <div className="flex items-center gap-2 flex-wrap mt-3">
                             {/* Pricing section - improved clarity */}

@@ -82,7 +82,7 @@ export function useProviderManagement(
         const fetchProviders = async () => {
             if (activeBroker) {
                 try {
-                    const services = await activeBroker.inference.listService()
+                    const services = await activeBroker.inference.listServiceWithDetail()
 
                     if (cancelled) return
 
