@@ -60,6 +60,8 @@ export interface VerificationResult {
     steps?: VerificationStep[]
 }
 
+export type ProviderType = 'decentralized' | 'centralized'
+
 export interface AdditionalInfo {
     VerifierURL?: string
     TargetSeparated?: boolean
@@ -67,7 +69,7 @@ export interface AdditionalInfo {
     TargetTeeAddress?: string
     ImageName?: string
     ImageDigest?: string
-    ProviderType?: string // 'decentralized' | 'centralized' - distinguishes separated TEE from centralized (e.g. OpenAI/Anthropic)
+    ProviderType?: ProviderType
 }
 
 export interface AttestationReport {
@@ -164,7 +166,11 @@ export class Verifier extends ZGServingUserBrokerBase {
 
             const verifierURL = additionalInfo.VerifierURL
             const targetSeparated = additionalInfo.TargetSeparated === true
-            const providerType = additionalInfo.ProviderType || 'decentralized' // default to decentralized for backward compatibility
+            let providerType: ProviderType = additionalInfo.ProviderType || 'decentralized'
+            if (providerType !== 'decentralized' && providerType !== 'centralized') {
+                log('warning', `⚠️  Invalid ProviderType: ${providerType}, defaulting to 'decentralized'`)
+                providerType = 'decentralized'
+            }
             const isCentralized = providerType === 'centralized'
             const teeVerifier = additionalInfo.TEEVerifier || 'dstack' // default to dstack
             const imageName = additionalInfo.ImageName

@@ -64,7 +64,12 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
 
             try {
                 const additionalInfo = JSON.parse(svc.additionalInfo)
-                const isCentralized = additionalInfo.ProviderType === 'centralized'
+                let providerType = additionalInfo.ProviderType || 'decentralized'
+                if (providerType !== 'decentralized' && providerType !== 'centralized') {
+                    logger.warn(`Invalid ProviderType: ${providerType}, defaulting to 'decentralized'`)
+                    providerType = 'decentralized'
+                }
+                const isCentralized = providerType === 'centralized'
 
                 if (
                     additionalInfo.TargetSeparated === true &&
