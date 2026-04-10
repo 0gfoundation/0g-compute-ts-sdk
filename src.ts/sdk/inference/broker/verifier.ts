@@ -483,7 +483,10 @@ export class Verifier extends ZGServingUserBrokerBase {
                 log('info', '   2. Verify the downloaded attestation report(s):')
 
                 // Show specific commands based on whether components are separated
-                if (targetSeparated) {
+                if (targetSeparated && isCentralized) {
+                    log('info', '      # Verify broker attestation report (centralized provider - broker TEE only)')
+                    log('info', `      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`)
+                } else if (targetSeparated) {
                     log('info', '      # Verify broker attestation report')
                     log('info', `      curl -s -d @${outputDir}/broker_attestation_report.json localhost:8080/verify`)
                     log('info', '')
