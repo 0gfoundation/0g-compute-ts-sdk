@@ -90,8 +90,8 @@ export function useServiceProviders(
         setError(null)
 
         try {
-            // Use the broker to get real service list
-            const services = await activeBroker.inference.listService()
+            // Use the broker to get real service list with detail (includes modelInfo.owned_by)
+            const services = await activeBroker.inference.listServiceWithDetail()
 
             // Transform services to Provider format
             const transformedProviders = transformBrokerServicesToProviders(services)

@@ -67,7 +67,7 @@ export function OptimizedInferencePage() {
             if (!activeBroker) throw new Error('Broker not available')
 
             try {
-                const services = await activeBroker.inference.listService()
+                const services = await activeBroker.inference.listServiceWithDetail()
                 return transformBrokerServicesToProviders(services)
             } catch {
                 return []
