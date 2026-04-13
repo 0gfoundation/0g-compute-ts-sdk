@@ -22,15 +22,26 @@ export class ResponseProcessor extends ZGServingUserBrokerBase {
         super(contract, ledger, metadata, cache)
     }
 
+    /**
+     * Process an inference response: calculate fee and optionally verify TEE signature.
+     *
+     * @param providerAddress - Provider's contract address
+     * @param chatID - Response ID for signature verification (optional)
+     * @param content - Usage data as JSON string (optional). For chatbot: {prompt_tokens, completion_tokens}
+     * @param model - Model name used for this request (optional). When provided and the provider
+     *   serves multiple models (centralized proxy), model-specific pricing is used instead of
+     *   the on-chain service price. If omitted, falls back to on-chain prices.
+     */
     async processResponse(
         providerAddress: string,
         chatID?: string,
-        content?: string // For chatbot/speech-to-text: usage JSON string with input_tokens/output_tokens; For text-to-image: empty/undefined
+        content?: string,
+        model?: string
     ): Promise<boolean | null> {
         try {
             const extractor = await this.getExtractor(providerAddress)
             if (content) {
-                const fee = await this.calculateFee(extractor, content)
+                const fee = await this.calculateFee(extractor, content, model)
                 logger.debug(`Calculated fee: ${fee.toString()}`)
                 await this.updateCachedFee(providerAddress, fee)
             }

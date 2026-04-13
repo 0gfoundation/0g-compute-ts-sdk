@@ -25,6 +25,9 @@ export const CACHE_KEY_PREFIXES = {
     // Cached fee
     CACHED_FEE: '_cachedFee',
 
+    // Model pricing cache (from provider's /v1/models endpoint)
+    MODEL_PRICING: 'modelPricing_',
+
     // Session token cache (for ephemeral tokens)
     SESSION_TOKEN: 'session_',
 } as const
@@ -57,6 +60,11 @@ export const CacheKeyHelpers = {
     // Metadata: signing key
     getSigningKeyKey(key: string): string {
         return `${key}${METADATA_KEY_SUFFIXES.SIGNING_KEY}`
+    },
+
+    // Model pricing key (for multi-model centralized providers)
+    getModelPricingKey(providerAddress: string): string {
+        return `${CACHE_KEY_PREFIXES.MODEL_PRICING}${providerAddress}`
     },
 
     // Dynamic content key (for inference server)

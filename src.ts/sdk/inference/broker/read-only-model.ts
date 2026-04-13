@@ -113,6 +113,8 @@ export interface ServiceWithDetail {
         lastCheck: string
     }
     modelInfo?: ProviderModelInfo
+    /** All models served by this provider (populated for multi-model centralized providers) */
+    allModels?: ProviderModelInfo[]
 }
 
 /**
@@ -127,14 +129,30 @@ export class ReadOnlyModelProcessor {
     }
 
     /**
-     * List services from the blockchain
+     * List services enriched with health metrics, model info, and multi-model pricing.
+     *
+     * This method combines on-chain service data with real-time status API data
+     * to provide complete service information including per-model pricing for
+     * multi-model centralized providers.
      *
      * @param offset - Pagination offset (default: 0)
      * @param limit - Pagination limit (default: 50)
      * @param includeUnacknowledged - Include unacknowledged services (default: false)
-     * @returns Array of service struct outputs
+     * @returns Array of ServiceWithDetail objects
      */
     async listService(
+        offset: number = 0,
+        limit: number = 50,
+        includeUnacknowledged: boolean = false
+    ): Promise<ServiceWithDetail[]> {
+        return this.listServiceWithDetail(offset, limit, includeUnacknowledged)
+    }
+
+    /**
+     * List raw services from the blockchain without enrichment.
+     * Used internally by listServiceWithDetail.
+     */
+    async listServiceRaw(
         offset: number = 0,
         limit: number = 50,
         includeUnacknowledged: boolean = false
@@ -178,8 +196,8 @@ export class ReadOnlyModelProcessor {
         includeUnacknowledged: boolean = false
     ): Promise<ServiceWithDetail[]> {
         try {
-            // Get services from blockchain
-            const services = await this.listService(
+            // Get raw services from blockchain
+            const services = await this.listServiceRaw(
                 offset,
                 limit,
                 includeUnacknowledged
@@ -238,6 +256,11 @@ export class ReadOnlyModelProcessor {
                     const modelInfo = providerModels.find(
                         (m) => m.id === service.model
                     )
+                    // For multi-model providers, include all models with pricing
+                    const allModels =
+                        providerModels.length > 1
+                            ? providerModels
+                            : undefined
                     return {
                         provider: service.provider,
                         serviceType: service.serviceType,
@@ -260,6 +283,7 @@ export class ReadOnlyModelProcessor {
                             }
                             : undefined,
                         modelInfo,
+                        allModels,
                     }
                 }
             )

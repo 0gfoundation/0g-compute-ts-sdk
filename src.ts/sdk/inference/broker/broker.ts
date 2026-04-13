@@ -454,6 +454,9 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
      * the completion ID. Example: `const chatID = response.headers.get('ZG-Res-Key') || completion.id`
      * @param {string} content - Usage data from the response. For chatbot/speech-to-text: JSON string with
      * token usage; For text-to-image: can be empty. This is used to calculate and cache estimated fees.
+     * @param {string} model - Optional. The model name used for this request (e.g., "qwen3-max").
+     * When provided and the provider serves multiple models (centralized proxy), model-specific pricing
+     * from the provider's /v1/models endpoint is used for more accurate fee estimation.
      *
      * @returns A boolean value. True indicates the returned content is valid, otherwise it is invalid.
      * null if no chatID provided (verification skipped).
@@ -463,13 +466,15 @@ export class InferenceBroker extends ReadOnlyInferenceBroker {
     public processResponse = async (
         providerAddress: string,
         chatID?: string,
-        content?: string
+        content?: string,
+        model?: string
     ): Promise<boolean | null> => {
         try {
             return await this.responseProcessor.processResponse(
                 providerAddress,
                 chatID,
-                content
+                content,
+                model
             )
         } catch (error) {
             throwFormattedError(error)

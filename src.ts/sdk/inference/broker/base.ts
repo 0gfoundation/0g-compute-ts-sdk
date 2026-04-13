@@ -670,14 +670,107 @@ export abstract class ZGServingUserBrokerBase {
         await this.cache.setItem(cacheKey, null, 1, CacheValueTypeEnum.Other)
     }
 
-    async calculateFee(extractor: Extractor, content: string): Promise<bigint> {
+    /**
+     * Calculate fee for a request. When a model name is provided and the provider
+     * has multi-model pricing (centralized proxy), uses model-specific prices.
+     * Otherwise falls back to the on-chain service prices.
+     */
+    async calculateFee(extractor: Extractor, content: string, model?: string): Promise<bigint> {
         const svc = await extractor.getSvcInfo()
         const outputCount = await extractor.getOutputCount(content)
         const inputCount = await extractor.getInputCount(content)
+
+        let inputPrice = svc.inputPrice
+        let outputPrice = svc.outputPrice
+
+        // Try to use model-specific pricing if model is provided
+        if (model) {
+            const modelPricing = await this.getModelPricing(svc.provider, model)
+            if (modelPricing) {
+                inputPrice = BigInt(modelPricing.prompt)
+                outputPrice = BigInt(modelPricing.completion)
+            }
+        }
+
         return (
-            BigInt(outputCount) * BigInt(svc.outputPrice) +
-            BigInt(inputCount) * BigInt(svc.inputPrice)
+            BigInt(outputCount) * BigInt(outputPrice) +
+            BigInt(inputCount) * BigInt(inputPrice)
         )
+    }
+
+    /**
+     * Fetch and cache model pricing from the provider's /v1/models endpoint.
+     * Returns a map of model ID to pricing, or null if not available.
+     */
+    private async fetchAndCacheModelPricingMap(
+        providerAddress: string
+    ): Promise<Map<string, { prompt: string; completion: string }> | null> {
+        try {
+            const svc = await this.getService(providerAddress)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 10000)
+            const response = await fetch(`${svc.url}/v1/models`, {
+                method: 'GET',
+                signal: controller.signal,
+            })
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+                return null
+            }
+
+            const data = await response.json()
+            const models = Array.isArray(data?.data) ? data.data : []
+
+            const pricingMap = new Map<string, { prompt: string; completion: string }>()
+            for (const m of models) {
+                if (m.id && m.pricing?.prompt && m.pricing?.completion) {
+                    pricingMap.set(m.id, {
+                        prompt: m.pricing.prompt,
+                        completion: m.pricing.completion,
+                    })
+                }
+            }
+
+            if (pricingMap.size > 0) {
+                const cacheKey = CacheKeyHelpers.getModelPricingKey(providerAddress)
+                await this.cache.setItem(
+                    cacheKey,
+                    Object.fromEntries(pricingMap),
+                    10 * 60 * 1000, // 10-minute TTL
+                    CacheValueTypeEnum.Other
+                )
+                return pricingMap
+            }
+            return null
+        } catch (error) {
+            logger.debug(`Failed to fetch model pricing: ${error}`)
+            return null
+        }
+    }
+
+    /**
+     * Get pricing for a specific model from cache, or fetch from provider.
+     * Returns null if model-specific pricing is not available.
+     */
+    private async getModelPricing(
+        providerAddress: string,
+        model: string
+    ): Promise<{ prompt: string; completion: string } | null> {
+        // Try cache first
+        const cacheKey = CacheKeyHelpers.getModelPricingKey(providerAddress)
+        const cached = await this.cache.getItem(cacheKey)
+        if (cached) {
+            const entry = (cached as Record<string, { prompt: string; completion: string }>)[model]
+            if (entry) return entry
+        }
+
+        // Fetch from provider
+        const pricingMap = await this.fetchAndCacheModelPricingMap(providerAddress)
+        if (pricingMap) {
+            return pricingMap.get(model) || null
+        }
+        return null
     }
 
     // Long TTL for fee caches — these track unsettled fees across the lifetime

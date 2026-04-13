@@ -83,22 +83,41 @@ export default function (program: Command) {
                             chalk.blue(service.provider),
                         ])
                         table.push(['Model', service.model || 'N/A'])
-                        table.push([
-                            'Input Price Per Token (0G)',
-                            service.inputPrice
-                                ? neuronToA0gi(
-                                      BigInt(service.inputPrice)
-                                  ).toFixed(18)
-                                : 'N/A',
-                        ])
-                        table.push([
-                            'Output Price Per Token (0G)',
-                            service.outputPrice
-                                ? neuronToA0gi(
-                                      BigInt(service.outputPrice)
-                                  ).toFixed(18)
-                                : 'N/A',
-                        ])
+                        if (service.allModels && service.allModels.length > 0) {
+                            table.push([
+                                chalk.yellow('Multi-Model Provider'),
+                                chalk.yellow(`${service.allModels.length} models available`),
+                            ])
+                            for (const m of service.allModels) {
+                                const inputP = m.pricing?.prompt
+                                    ? neuronToA0gi(BigInt(m.pricing.prompt)).toFixed(18)
+                                    : 'N/A'
+                                const outputP = m.pricing?.completion
+                                    ? neuronToA0gi(BigInt(m.pricing.completion)).toFixed(18)
+                                    : 'N/A'
+                                table.push([
+                                    `  ${m.id}`,
+                                    `In: ${inputP} / Out: ${outputP}`,
+                                ])
+                            }
+                        } else {
+                            table.push([
+                                'Input Price Per Token (0G)',
+                                service.inputPrice
+                                    ? neuronToA0gi(
+                                          BigInt(service.inputPrice)
+                                      ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                            table.push([
+                                'Output Price Per Token (0G)',
+                                service.outputPrice
+                                    ? neuronToA0gi(
+                                          BigInt(service.outputPrice)
+                                      ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                        }
                         table.push([
                             'Verifiability',
                             service.verifiability || 'N/A',

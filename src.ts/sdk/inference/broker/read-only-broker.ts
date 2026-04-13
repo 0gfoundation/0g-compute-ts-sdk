@@ -1,7 +1,6 @@
 import type { JsonRpcProvider } from 'ethers'
 import type { JsonRpcSigner, Wallet } from 'ethers'
 import { JsonRpcProvider as JsonRpcProviderClass } from 'ethers'
-import type { ServiceStructOutput } from '../contract'
 import { ReadOnlyInferenceServingContract } from '../contract'
 import { ReadOnlyModelProcessor } from './read-only-model'
 import type { ServiceWithDetail } from './read-only-model'
@@ -33,47 +32,42 @@ export class ReadOnlyInferenceBroker {
     }
 
     /**
-     * Retrieves a list of services from the contract.
+     * Retrieves a list of services enriched with health metrics, model info, and multi-model pricing.
      * This is a read-only operation that doesn't require authentication.
+     *
+     * Combines on-chain service data with real-time status API data to provide
+     * complete service information including per-model pricing for multi-model
+     * centralized providers, health metrics, and model metadata.
      *
      * @param {number} offset - The offset for pagination (default: 0).
      * @param {number} limit - The limit for pagination (default: 50).
      * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceStructOutput[]>} A promise that resolves to an array of ServiceStructOutput objects.
+     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects.
      * @throws An error if the service list cannot be retrieved.
+     *
+     * @example
+     * ```typescript
+     * const services = await broker.listService();
+     * services.forEach(service => {
+     *   console.log(`Provider: ${service.provider}, Model: ${service.model}`);
+     *   if (service.allModels) {
+     *     service.allModels.forEach(m => {
+     *       console.log(`  ${m.id}: input=${m.pricing?.prompt}, output=${m.pricing?.completion}`);
+     *     });
+     *   }
+     * });
+     * ```
      */
     public async listService(
         offset: number = 0,
         limit: number = 50,
         includeUnacknowledged: boolean = false
-    ): Promise<ServiceStructOutput[]> {
+    ): Promise<ServiceWithDetail[]> {
         return this.modelProcessor.listService(offset, limit, includeUnacknowledged)
     }
 
     /**
-     * Retrieves a list of services with detailed health metrics from the monitoring API.
-     * This is a read-only operation that doesn't require authentication.
-     *
-     * This method combines on-chain service data with real-time health metrics including
-     * uptime percentage and average response time (latency) for each service provider.
-     *
-     * @param {number} offset - The offset for pagination (default: 0).
-     * @param {number} limit - The limit for pagination (default: 50).
-     * @param {boolean} includeUnacknowledged - Whether to include providers whose TEE signer is not acknowledged (default: false).
-     * @returns {Promise<ServiceWithDetail[]>} A promise that resolves to an array of ServiceWithDetail objects containing both blockchain and health data.
-     * @throws An error if the service list cannot be retrieved.
-     *
-     * @example
-     * ```typescript
-     * const servicesWithHealth = await broker.listServiceWithDetail();
-     * servicesWithHealth.forEach(service => {
-     *   console.log(`Provider: ${service.provider}`);
-     *   if (service.healthMetrics) {
-     *     console.log(`  Uptime: ${service.healthMetrics.uptime}%`);
-     *     console.log(`  Latency: ${service.healthMetrics.avgResponseTime}ms`);
-     *   }
-     * });
-     * ```
+     * @deprecated Use listService() instead — it now includes all detail information.
      */
     public async listServiceWithDetail(
         offset: number = 0,

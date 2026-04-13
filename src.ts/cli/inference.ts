@@ -95,36 +95,57 @@ export default function inference(program: Command) {
                     ])
                     table.push(['Model', service.model || 'N/A'])
 
-                    // Only show input price for non text-to-image and non image-editing services
-                    if (
-                        service.serviceType !== 'text-to-image' &&
-                        service.serviceType !== 'image-editing'
-                    ) {
+                    // Multi-model provider: show per-model pricing
+                    if (service.allModels && service.allModels.length > 0) {
                         table.push([
-                            'Input Price Per Token (0G)',
-                            service.inputPrice
-                                ? neuronToA0gi(
-                                    BigInt(service.inputPrice)
-                                ).toFixed(18)
+                            chalk.yellow('Multi-Model Provider'),
+                            chalk.yellow(`${service.allModels.length} models available`),
+                        ])
+                        for (const m of service.allModels) {
+                            const inputP = m.pricing?.prompt
+                                ? neuronToA0gi(BigInt(m.pricing.prompt)).toFixed(18)
+                                : 'N/A'
+                            const outputP = m.pricing?.completion
+                                ? neuronToA0gi(BigInt(m.pricing.completion)).toFixed(18)
+                                : 'N/A'
+                            table.push([
+                                `  ${m.id}`,
+                                `In: ${inputP} / Out: ${outputP}`,
+                            ])
+                        }
+                    } else {
+                        // Single-model provider: show contract prices
+                        // Only show input price for non text-to-image and non image-editing services
+                        if (
+                            service.serviceType !== 'text-to-image' &&
+                            service.serviceType !== 'image-editing'
+                        ) {
+                            table.push([
+                                'Input Price Per Token (0G)',
+                                service.inputPrice
+                                    ? neuronToA0gi(
+                                        BigInt(service.inputPrice)
+                                    ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                        }
+
+                        // Change output price label for text-to-image and image-editing services
+                        const outputPriceLabel =
+                            service.serviceType === 'text-to-image' ||
+                                service.serviceType === 'image-editing'
+                                ? 'Price Per Image (OG)'
+                                : 'Output Price Per Token (0G)'
+
+                        table.push([
+                            outputPriceLabel,
+                            service.outputPrice
+                                ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
+                                    18
+                                )
                                 : 'N/A',
                         ])
                     }
-
-                    // Change output price label for text-to-image and image-editing services
-                    const outputPriceLabel =
-                        service.serviceType === 'text-to-image' ||
-                            service.serviceType === 'image-editing'
-                            ? 'Price Per Image (OG)'
-                            : 'Output Price Per Token (0G)'
-
-                    table.push([
-                        outputPriceLabel,
-                        service.outputPrice
-                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                18
-                            )
-                            : 'N/A',
-                    ])
                     table.push([
                         'Verifiability',
                         service.verifiability || 'N/A',
@@ -151,7 +172,7 @@ export default function inference(program: Command) {
                 colWidths: [50, 50],
             })
             await withROBroker(options, async (broker) => {
-                const services = await broker.inference.listServiceWithDetail(
+                const services = await broker.inference.listService(
                     0,
                     50,
                     options.includeInvalid
@@ -207,36 +228,57 @@ export default function inference(program: Command) {
                         ])
                     }
 
-                    // Only show input price for non text-to-image and non image-editing services
-                    if (
-                        service.serviceType !== 'text-to-image' &&
-                        service.serviceType !== 'image-editing'
-                    ) {
+                    // Multi-model provider: show per-model pricing
+                    if (service.allModels && service.allModels.length > 0) {
                         table.push([
-                            'Input Price Per Token (0G)',
-                            service.inputPrice
-                                ? neuronToA0gi(
-                                    BigInt(service.inputPrice)
-                                ).toFixed(18)
+                            chalk.yellow('Multi-Model Provider'),
+                            chalk.yellow(`${service.allModels.length} models available`),
+                        ])
+                        for (const m of service.allModels) {
+                            const inputP = m.pricing?.prompt
+                                ? neuronToA0gi(BigInt(m.pricing.prompt)).toFixed(18)
+                                : 'N/A'
+                            const outputP = m.pricing?.completion
+                                ? neuronToA0gi(BigInt(m.pricing.completion)).toFixed(18)
+                                : 'N/A'
+                            table.push([
+                                `  ${m.id}`,
+                                `In: ${inputP} / Out: ${outputP}`,
+                            ])
+                        }
+                    } else {
+                        // Single-model provider: show contract prices
+                        // Only show input price for non text-to-image and non image-editing services
+                        if (
+                            service.serviceType !== 'text-to-image' &&
+                            service.serviceType !== 'image-editing'
+                        ) {
+                            table.push([
+                                'Input Price Per Token (0G)',
+                                service.inputPrice
+                                    ? neuronToA0gi(
+                                        BigInt(service.inputPrice)
+                                    ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                        }
+
+                        // Change output price label for text-to-image and image-editing services
+                        const outputPriceLabel =
+                            service.serviceType === 'text-to-image' ||
+                                service.serviceType === 'image-editing'
+                                ? 'Price Per Image (OG)'
+                                : 'Output Price Per Token (0G)'
+
+                        table.push([
+                            outputPriceLabel,
+                            service.outputPrice
+                                ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
+                                    18
+                                )
                                 : 'N/A',
                         ])
                     }
-
-                    // Change output price label for text-to-image and image-editing services
-                    const outputPriceLabel =
-                        service.serviceType === 'text-to-image' ||
-                            service.serviceType === 'image-editing'
-                            ? 'Price Per Image (OG)'
-                            : 'Output Price Per Token (0G)'
-
-                    table.push([
-                        outputPriceLabel,
-                        service.outputPrice
-                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                18
-                            )
-                            : 'N/A',
-                    ])
                     table.push([
                         'Verifiability',
                         service.verifiability || 'N/A',
@@ -344,6 +386,17 @@ export default function inference(program: Command) {
                     'Error: At least one of --url, --model, --input-price, or --output-price must be provided'
                 )
                 process.exit(1)
+            }
+
+            // Warn if manually updating prices — multi-model providers auto-manage prices
+            if (options.inputPrice || options.outputPrice) {
+                console.log(
+                    chalk.yellow(
+                        '⚠️  Warning: If this provider uses multi-model pricing (modelPricing in config),\n' +
+                        '   on-chain prices are auto-set to max(model prices) on broker startup.\n' +
+                        '   Manual price updates will be overwritten on next broker restart.'
+                    )
+                )
             }
 
             withBroker(options, async (broker) => {
