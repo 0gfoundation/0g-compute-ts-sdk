@@ -1,8 +1,9 @@
 /**
  * Provider service transformation utilities
  */
-import type { Provider, ServiceType } from '../../../shared/types/broker';
+import type { Provider, ServiceType, TieredPricingInfo, CacheTokenBillingInfo } from '../../../shared/types/broker';
 import { neuronToA0gi } from '../../../shared/utils/currency';
+import { parseTieredPricing, parseCacheTokenBilling } from '@0glabs/0g-serving-broker';
 
 /**
  * Service object structure from broker
@@ -18,6 +19,8 @@ export interface BrokerServiceObject {
   outputPrice?: bigint | string | number;
   teeSignerAcknowledged?: boolean;
   serviceType?: ServiceType; // Added for UI conditional rendering
+  additionalInfo?: string;
+  tieredPricing?: TieredPricingInfo; // Pre-parsed from additionalInfo (ServiceWithDetail)
   modelInfo?: {
     owned_by?: string;
   };
@@ -40,6 +43,9 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
     outputPrice?: bigint;
     teeSignerAcknowledged?: boolean;
     serviceType?: ServiceType;
+    additionalInfo?: string;
+    tieredPricing?: TieredPricingInfo;
+    cacheTokenBilling?: CacheTokenBillingInfo;
     modelInfo?: {
       owned_by?: string;
     };
@@ -67,6 +73,18 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
     ? neuronToA0gi(serviceObj.outputPrice * priceMultiplier)
     : undefined;
 
+  // Parse tiered pricing: prefer pre-parsed (from ServiceWithDetail), fallback to additionalInfo via SDK
+  let tieredPricing: TieredPricingInfo | undefined = serviceObj.tieredPricing;
+  if (!tieredPricing && serviceObj.additionalInfo) {
+    tieredPricing = parseTieredPricing(serviceObj.additionalInfo);
+  }
+
+  // Parse cache token billing: prefer pre-parsed, fallback to additionalInfo via SDK
+  let cacheTokenBilling: CacheTokenBillingInfo | undefined = serviceObj.cacheTokenBilling;
+  if (!cacheTokenBilling && serviceObj.additionalInfo) {
+    cacheTokenBilling = parseCacheTokenBilling(serviceObj.additionalInfo);
+  }
+
   return {
     address: providerAddress,
     model: modelName,
@@ -80,6 +98,8 @@ export function transformBrokerServiceToProvider(service: unknown): Provider {
     teeSignerAcknowledged: serviceObj.teeSignerAcknowledged ?? false,
     serviceType: serviceObj.serviceType, // Pass through for UI conditional rendering
     ownedBy: serviceObj.modelInfo?.owned_by,
+    tieredPricing,
+    cacheTokenBilling,
   };
 }
 

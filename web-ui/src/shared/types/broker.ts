@@ -39,6 +39,20 @@ export interface ModelSummary {
   providers: Provider[];
 }
 
+export interface PricingTier {
+  maxInputTokens: number;
+  inputMultiplier: number;
+  outputMultiplier: number;
+}
+
+export interface TieredPricingInfo {
+  tiers: PricingTier[];
+}
+
+export interface CacheTokenBillingInfo {
+  divisor: number;
+}
+
 export interface Provider {
   address: string;
   model: string;
@@ -53,6 +67,8 @@ export interface Provider {
   teeSignerAcknowledged?: boolean;
   serviceType?: ServiceType;
   ownedBy?: string;
+  tieredPricing?: TieredPricingInfo;
+  cacheTokenBilling?: CacheTokenBillingInfo;
   // Health status from compute-status API
   healthStatus?: 'healthy' | 'warning' | 'critical' | 'unknown';
   uptime?: number; // percentage
