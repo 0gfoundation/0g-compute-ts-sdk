@@ -11,6 +11,59 @@ import axios from 'axios'
 import fs from 'fs'
 import { ethers } from 'ethers'
 import { formatError } from '../sdk/common/utils/error-handler'
+import { parseTieredPricing, parseCacheTokenBilling } from '../sdk/inference'
+import type { TieredPricingInfo, CacheTokenBillingInfo } from '../sdk/inference'
+
+/**
+ * Format a token count for display (e.g., 256000 -> "256k", 1000000 -> "1M")
+ */
+function formatTokenCount(tokens: number): string {
+    if (tokens >= 1000000) return `${tokens / 1000000}M`
+    if (tokens >= 1000) return `${tokens / 1000}k`
+    return `${tokens}`
+}
+
+/**
+ * Format a price value, trimming unnecessary trailing zeros while keeping
+ * enough precision to distinguish non-zero values.
+ */
+function formatPrice(neurons: bigint): string {
+    const s = neuronToA0gi(neurons).toFixed(18)
+    // Keep at least one trailing zero after decimal point for readability
+    return s.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '.0')
+}
+
+/**
+ * Push tiered pricing rows into a CLI table.
+ * Each tier is displayed as a single compact row with all prices.
+ */
+function pushTieredPricingRows(
+    table: Table.Table,
+    baseInputPrice: bigint,
+    baseOutputPrice: bigint,
+    tieredPricing: TieredPricingInfo,
+    cacheBilling?: CacheTokenBillingInfo
+) {
+    table.push([chalk.yellow('Tiered Pricing (0G/Token)'), chalk.yellow('Enabled')])
+    let prevLabel = '0'
+    for (const tier of tieredPricing.tiers) {
+        const rangeLabel = tier.maxInputTokens === 0
+            ? `>${prevLabel}`
+            : `${prevLabel}-${formatTokenCount(tier.maxInputTokens)}`
+        const effectiveInputPrice = baseInputPrice * BigInt(tier.inputMultiplier)
+        const inPrice = formatPrice(effectiveInputPrice)
+        const outPrice = formatPrice(baseOutputPrice * BigInt(tier.outputMultiplier))
+        let priceStr = `In: ${inPrice} / Out: ${outPrice}`
+        if (cacheBilling) {
+            const cachePrice = formatPrice(effectiveInputPrice / BigInt(cacheBilling.divisor))
+            priceStr += ` / Cache: ${cachePrice}`
+        }
+        table.push([`  Input ${rangeLabel} tokens`, priceStr])
+        if (tier.maxInputTokens !== 0) {
+            prevLabel = formatTokenCount(tier.maxInputTokens)
+        }
+    }
+}
 
 async function promptDurationSelection(): Promise<number> {
     console.log(chalk.blue('\n⏱️  API Key Duration Selection'))
@@ -80,7 +133,7 @@ export default function inference(program: Command) {
         )
         .action(async (options: any) => {
             const table = new Table({
-                colWidths: [50, 50],
+                colWidths: [40, 60],
             })
             await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listService(
@@ -95,36 +148,57 @@ export default function inference(program: Command) {
                     ])
                     table.push(['Model', service.model || 'N/A'])
 
-                    // Only show input price for non text-to-image and non image-editing services
-                    if (
-                        service.serviceType !== 'text-to-image' &&
-                        service.serviceType !== 'image-editing'
-                    ) {
-                        table.push([
-                            'Input Price Per Token (0G)',
-                            service.inputPrice
-                                ? neuronToA0gi(
-                                    BigInt(service.inputPrice)
-                                ).toFixed(18)
-                                : 'N/A',
-                        ])
-                    }
 
-                    // Change output price label for text-to-image and image-editing services
-                    const outputPriceLabel =
+                    // Check for tiered pricing and cache billing in additionalInfo
+                    const tiered = parseTieredPricing(service.additionalInfo)
+                    const cacheBilling = parseCacheTokenBilling(service.additionalInfo)
+                    const isImageService =
                         service.serviceType === 'text-to-image' ||
-                            service.serviceType === 'image-editing'
+                        service.serviceType === 'image-editing'
+
+                    if (tiered && !isImageService) {
+                        // Display tiered pricing with optional cache hit prices
+                        pushTieredPricingRows(
+                            table,
+                            BigInt(service.inputPrice),
+                            BigInt(service.outputPrice),
+                            tiered,
+                            cacheBilling
+                        )
+                    } else {
+                        // Original flat pricing display
+                        if (!isImageService) {
+                            table.push([
+                                'Input Price Per Token (0G)',
+                                service.inputPrice
+                                    ? neuronToA0gi(
+                                        BigInt(service.inputPrice)
+                                    ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                        }
+
+                        const outputPriceLabel = isImageService
                             ? 'Price Per Image (OG)'
                             : 'Output Price Per Token (0G)'
 
-                    table.push([
-                        outputPriceLabel,
-                        service.outputPrice
-                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                18
-                            )
-                            : 'N/A',
-                    ])
+                        table.push([
+                            outputPriceLabel,
+                            service.outputPrice
+                                ? neuronToA0gi(
+                                    BigInt(service.outputPrice)
+                                ).toFixed(18)
+                                : 'N/A',
+                        ])
+
+                        // Show cache hit price for flat pricing (non-image services)
+                        if (cacheBilling && !isImageService && service.inputPrice) {
+                            const cacheHitPrice = neuronToA0gi(
+                                BigInt(service.inputPrice) / BigInt(cacheBilling.divisor)
+                            ).toFixed(18)
+                            table.push(['Cache Hit Price Per Token (0G)', cacheHitPrice])
+                        }
+                    }
                     table.push([
                         'Verifiability',
                         service.verifiability || 'N/A',
@@ -148,7 +222,7 @@ export default function inference(program: Command) {
         )
         .action(async (options: any) => {
             const table = new Table({
-                colWidths: [50, 50],
+                colWidths: [40, 60],
             })
             await withROBroker(options, async (broker) => {
                 const services = await broker.inference.listServiceWithDetail(
@@ -207,36 +281,52 @@ export default function inference(program: Command) {
                         ])
                     }
 
-                    // Only show input price for non text-to-image and non image-editing services
-                    if (
-                        service.serviceType !== 'text-to-image' &&
-                        service.serviceType !== 'image-editing'
-                    ) {
-                        table.push([
-                            'Input Price Per Token (0G)',
-                            service.inputPrice
-                                ? neuronToA0gi(
-                                    BigInt(service.inputPrice)
-                                ).toFixed(18)
-                                : 'N/A',
-                        ])
-                    }
-
-                    // Change output price label for text-to-image and image-editing services
-                    const outputPriceLabel =
+                    // Pricing display
+                    const isImageService =
                         service.serviceType === 'text-to-image' ||
-                            service.serviceType === 'image-editing'
+                        service.serviceType === 'image-editing'
+
+                    if (service.tieredPricing && !isImageService) {
+                        pushTieredPricingRows(
+                            table,
+                            BigInt(service.inputPrice),
+                            BigInt(service.outputPrice),
+                            service.tieredPricing,
+                            service.cacheTokenBilling
+                        )
+                    } else {
+                        if (!isImageService) {
+                            table.push([
+                                'Input Price Per Token (0G)',
+                                service.inputPrice
+                                    ? neuronToA0gi(
+                                        BigInt(service.inputPrice)
+                                    ).toFixed(18)
+                                    : 'N/A',
+                            ])
+                        }
+
+                        const outputPriceLabel = isImageService
                             ? 'Price Per Image (OG)'
                             : 'Output Price Per Token (0G)'
 
-                    table.push([
-                        outputPriceLabel,
-                        service.outputPrice
-                            ? neuronToA0gi(BigInt(service.outputPrice)).toFixed(
-                                18
-                            )
-                            : 'N/A',
-                    ])
+                        table.push([
+                            outputPriceLabel,
+                            service.outputPrice
+                                ? neuronToA0gi(
+                                    BigInt(service.outputPrice)
+                                ).toFixed(18)
+                                : 'N/A',
+                        ])
+
+                        // Show cache hit price for flat pricing (non-image services)
+                        if (service.cacheTokenBilling && !isImageService && service.inputPrice) {
+                            const cacheHitPrice = neuronToA0gi(
+                                BigInt(service.inputPrice) / BigInt(service.cacheTokenBilling.divisor)
+                            ).toFixed(18)
+                            table.push(['Cache Hit Price Per Token (0G)', cacheHitPrice])
+                        }
+                    }
                     table.push([
                         'Verifiability',
                         service.verifiability || 'N/A',

@@ -46,6 +46,12 @@ interface ProviderCardProps {
     onSpeechToText?: (provider: Provider) => void
 }
 
+function formatTokens(count: number): string {
+    if (count >= 1000000) return `${count / 1000000}M`
+    if (count >= 1000) return `${count / 1000}k`
+    return `${count}`
+}
+
 export function ProviderCard({
     provider,
     isOfficial,
@@ -244,7 +250,7 @@ export function ProviderCard({
 
                         {/* Pricing and address */}
                         <div className="flex items-center gap-2 flex-wrap mt-3">
-                            {/* Pricing section - improved clarity */}
+                            {/* Pricing section */}
                             {(provider.inputPrice !== undefined ||
                                 provider.outputPrice !== undefined) && (
                                 <Tooltip>
@@ -260,6 +266,48 @@ export function ProviderCard({
                                                             4
                                                         )}{' '}
                                                         0G/image
+                                                    </span>
+                                                </div>
+                                            ) : provider.tieredPricing ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-muted-foreground">
+                                                        In:
+                                                    </span>
+                                                    <span className="font-semibold text-foreground">
+                                                        {provider.inputPrice?.toFixed(
+                                                            2
+                                                        )}
+                                                        ~
+                                                        {(
+                                                            (provider.inputPrice ?? 0) *
+                                                            Math.max(
+                                                                ...provider.tieredPricing.tiers.map(
+                                                                    (t) =>
+                                                                        t.inputMultiplier
+                                                                )
+                                                            )
+                                                        ).toFixed(2)}
+                                                    </span>
+                                                    <span className="text-muted-foreground">
+                                                        Out:
+                                                    </span>
+                                                    <span className="font-semibold text-foreground">
+                                                        {provider.outputPrice?.toFixed(
+                                                            2
+                                                        )}
+                                                        ~
+                                                        {(
+                                                            (provider.outputPrice ?? 0) *
+                                                            Math.max(
+                                                                ...provider.tieredPricing.tiers.map(
+                                                                    (t) =>
+                                                                        t.outputMultiplier
+                                                                )
+                                                            )
+                                                        ).toFixed(2)}
+                                                    </span>
+                                                    <span className="text-muted-foreground">
+                                                        0G/1M
                                                     </span>
                                                 </div>
                                             ) : (
@@ -310,6 +358,78 @@ export function ProviderCard({
                                                     )}{' '}
                                                     0G
                                                 </p>
+                                            ) : provider.tieredPricing ? (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-muted-foreground mb-1">
+                                                        Tiered pricing based on input length
+                                                    </p>
+                                                    {provider.tieredPricing.tiers.map(
+                                                        (tier, i) => {
+                                                            const prevMax =
+                                                                i > 0
+                                                                    ? provider.tieredPricing!
+                                                                          .tiers[
+                                                                          i - 1
+                                                                      ]
+                                                                          .maxInputTokens
+                                                                    : 0
+                                                            const label =
+                                                                tier.maxInputTokens ===
+                                                                0
+                                                                    ? `>${formatTokens(prevMax)}`
+                                                                    : prevMax ===
+                                                                        0
+                                                                      ? `<=${formatTokens(tier.maxInputTokens)}`
+                                                                      : `${formatTokens(prevMax)}-${formatTokens(tier.maxInputTokens)}`
+                                                            return (
+                                                                <div
+                                                                    key={i}
+                                                                    className="border-t border-border pt-1"
+                                                                >
+                                                                    <p className="font-medium text-xs">
+                                                                        {label}{' '}
+                                                                        tokens
+                                                                    </p>
+                                                                    <p>
+                                                                        Input:{' '}
+                                                                        {(
+                                                                            (provider.inputPrice ??
+                                                                                0) *
+                                                                            tier.inputMultiplier
+                                                                        ).toFixed(
+                                                                            4
+                                                                        )}{' '}
+                                                                        0G/1M
+                                                                    </p>
+                                                                    <p>
+                                                                        Output:{' '}
+                                                                        {(
+                                                                            (provider.outputPrice ??
+                                                                                0) *
+                                                                            tier.outputMultiplier
+                                                                        ).toFixed(
+                                                                            4
+                                                                        )}{' '}
+                                                                        0G/1M
+                                                                    </p>
+                                                                    {provider.cacheTokenBilling && (
+                                                                        <p>
+                                                                            Cache Hit:{' '}
+                                                                            {(
+                                                                                ((provider.inputPrice ?? 0) *
+                                                                                    tier.inputMultiplier) /
+                                                                                provider.cacheTokenBilling.divisor
+                                                                            ).toFixed(
+                                                                                4
+                                                                            )}{' '}
+                                                                            0G/1M
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        }
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <>
                                                     {provider.inputPrice !==
@@ -331,6 +451,18 @@ export function ProviderCard({
                                                             {provider.outputPrice.toFixed(
                                                                 4
                                                             )}{' '}
+                                                            0G per 1M tokens
+                                                        </p>
+                                                    )}
+                                                    {provider.cacheTokenBilling &&
+                                                        provider.inputPrice !==
+                                                            undefined && (
+                                                        <p>
+                                                            Cache Hit:{' '}
+                                                            {(
+                                                                provider.inputPrice /
+                                                                provider.cacheTokenBilling.divisor
+                                                            ).toFixed(4)}{' '}
                                                             0G per 1M tokens
                                                         </p>
                                                     )}

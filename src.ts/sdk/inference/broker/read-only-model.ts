@@ -82,6 +82,16 @@ export interface ProviderModelInfo {
         completion?: string
         /** Price per generated image (text-to-image services) */
         image?: string
+        /** Tiered pricing tiers based on input token count */
+        tiered_pricing?: Array<{
+            max_input_tokens: number
+            input_multiplier: number
+            output_multiplier: number
+        }>
+        /** Cache token billing configuration */
+        cache_token_billing?: {
+            divisor: number
+        }
     }
     /** ISO 8601 date string indicating when this model will no longer be served */
     expiration_date?: string
@@ -89,6 +99,131 @@ export interface ProviderModelInfo {
     tee_attested?: boolean
     tee_type?: string
     tee_verifier?: string
+}
+
+/**
+ * A single pricing tier for input-length-based tiered pricing.
+ * Tiers are ordered by maxInputTokens ascending.
+ * maxInputTokens: 0 means unlimited (the highest tier).
+ */
+export interface PricingTier {
+    maxInputTokens: number
+    inputMultiplier: number
+    outputMultiplier: number
+}
+
+/**
+ * Tiered pricing configuration parsed from service additionalInfo.
+ */
+export interface TieredPricingInfo {
+    tiers: PricingTier[]
+}
+
+/**
+ * Parse tiered pricing info from service additionalInfo JSON string.
+ * Returns undefined if not present or invalid.
+ */
+export function parseTieredPricing(
+    additionalInfo: string
+): TieredPricingInfo | undefined {
+    try {
+        const parsed = JSON.parse(additionalInfo)
+        if (
+            parsed?.tieredPricing?.tiers &&
+            Array.isArray(parsed.tieredPricing.tiers)
+        ) {
+            const tiers: PricingTier[] = parsed.tieredPricing.tiers
+                .filter(
+                    (t: any) =>
+                        typeof t.maxInputTokens === 'number' &&
+                        typeof t.inputMultiplier === 'number' &&
+                        typeof t.outputMultiplier === 'number'
+                )
+                .map((t: any) => ({
+                    maxInputTokens: t.maxInputTokens,
+                    inputMultiplier: t.inputMultiplier,
+                    outputMultiplier: t.outputMultiplier,
+                }))
+            if (tiers.length > 0) {
+                return { tiers }
+            }
+        }
+    } catch {
+        // additionalInfo is not valid JSON or doesn't contain tieredPricing
+    }
+    return undefined
+}
+
+/**
+ * Parse tiered pricing from ProviderModelInfo (returned by /v1/models endpoint).
+ * Returns undefined if not present.
+ */
+export function parseTieredPricingFromModelInfo(
+    modelInfo?: ProviderModelInfo
+): TieredPricingInfo | undefined {
+    const raw = modelInfo?.pricing?.tiered_pricing
+    if (!raw || !Array.isArray(raw) || raw.length === 0) {
+        return undefined
+    }
+    const tiers: PricingTier[] = raw
+        .filter(
+            (t) =>
+                typeof t.max_input_tokens === 'number' &&
+                typeof t.input_multiplier === 'number' &&
+                typeof t.output_multiplier === 'number'
+        )
+        .map((t) => ({
+            maxInputTokens: t.max_input_tokens,
+            inputMultiplier: t.input_multiplier,
+            outputMultiplier: t.output_multiplier,
+        }))
+    if (tiers.length > 0) {
+        return { tiers }
+    }
+    return undefined
+}
+
+/**
+ * Cache token billing configuration parsed from service additionalInfo or modelInfo.
+ */
+export interface CacheTokenBillingInfo {
+    divisor: number
+}
+
+/**
+ * Parse cache token billing info from service additionalInfo JSON string.
+ * Returns undefined if not present or invalid.
+ */
+export function parseCacheTokenBilling(
+    additionalInfo: string
+): CacheTokenBillingInfo | undefined {
+    try {
+        const parsed = JSON.parse(additionalInfo)
+        if (
+            parsed?.cacheTokenBilling &&
+            typeof parsed.cacheTokenBilling.divisor === 'number' &&
+            parsed.cacheTokenBilling.divisor > 0
+        ) {
+            return { divisor: parsed.cacheTokenBilling.divisor }
+        }
+    } catch {
+        // additionalInfo is not valid JSON or doesn't contain cacheTokenBilling
+    }
+    return undefined
+}
+
+/**
+ * Parse cache token billing from ProviderModelInfo (returned by /v1/models endpoint).
+ * Returns undefined if not present.
+ */
+export function parseCacheTokenBillingFromModelInfo(
+    modelInfo?: ProviderModelInfo
+): CacheTokenBillingInfo | undefined {
+    const raw = modelInfo?.pricing?.cache_token_billing
+    if (raw && typeof raw.divisor === 'number' && raw.divisor > 0) {
+        return { divisor: raw.divisor }
+    }
+    return undefined
 }
 
 /**
@@ -113,6 +248,8 @@ export interface ServiceWithDetail {
         lastCheck: string
     }
     modelInfo?: ProviderModelInfo
+    tieredPricing?: TieredPricingInfo
+    cacheTokenBilling?: CacheTokenBillingInfo
 }
 
 /**
@@ -260,6 +397,12 @@ export class ReadOnlyModelProcessor {
                             }
                             : undefined,
                         modelInfo,
+                        tieredPricing:
+                            parseTieredPricing(service.additionalInfo) ??
+                            parseTieredPricingFromModelInfo(modelInfo),
+                        cacheTokenBilling:
+                            parseCacheTokenBilling(service.additionalInfo) ??
+                            parseCacheTokenBillingFromModelInfo(modelInfo),
                     }
                 }
             )
