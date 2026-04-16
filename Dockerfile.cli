@@ -1,5 +1,4 @@
 FROM node:20-alpine
-RUN apk add --no-cache libc6-compat
 ARG VERSION=latest
-RUN npm install -g @0glabs/0g-serving-broker@${VERSION} ethers@6.13.1 crypto-js@4.2.0
+RUN npm install -g @0glabs/0g-serving-broker@${VERSION}
 ENTRYPOINT ["0g-compute-cli"]
