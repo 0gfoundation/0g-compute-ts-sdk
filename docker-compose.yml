@@ -12,6 +12,16 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
     restart: unless-stopped
 
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+    environment:
+      - ZG_PRIVATE_KEY=${ZG_PRIVATE_KEY:-}
+      - ZG_RPC_ENDPOINT=${ZG_RPC_ENDPOINT:-}
+    profiles:
+      - cli
+
   # Optional: Add a development mode service
   web-ui-dev:
     build:
