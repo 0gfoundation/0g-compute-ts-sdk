@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.cli
+      args:
+        VERSION: ${CLI_VERSION:-latest}
     environment:
       - ZG_PRIVATE_KEY=${ZG_PRIVATE_KEY:-}
       - ZG_RPC_ENDPOINT=${ZG_RPC_ENDPOINT:-}
