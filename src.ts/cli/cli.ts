@@ -8,6 +8,7 @@ import webUIEmbedded from './web-ui-embedded'
 import network from './network'
 import auth from './auth'
 import controller from './controller'
+import completion from './completion'
 import packageJson from '../../package.json'
 
 export const program = new Command()
@@ -51,6 +52,9 @@ network(program)
 
 // Register auth commands at the root level
 auth(program)
+
+// Register completion command at the root level
+completion(program)
 
 // Detect package manager
 function getPackageManager(): string {
