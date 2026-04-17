@@ -31,7 +31,7 @@ function visibleCommands(cmd: Command): Command[] {
     )
 }
 
-function functionName(parts: string[]): string {
+function fnName(parts: string[]): string {
     return '_' + parts.join('_').replace(/-/g, '_')
 }
 
@@ -42,13 +42,10 @@ function generateLeafFunction(
     if (options.length === 0) return []
 
     const lines: string[] = []
-    const fnName = functionName(nameParts)
-
-    lines.push(`${fnName}() {`)
+    lines.push(`${fnName(nameParts)}() {`)
     lines.push(`    _arguments -s \\`)
-    for (let i = 0; i < options.length; i++) {
-        const specs = formatOptionSpec(options[i])
-        for (const spec of specs) {
+    for (const opt of options) {
+        for (const spec of formatOptionSpec(opt)) {
             lines.push(`        ${spec} \\`)
         }
     }
@@ -58,41 +55,69 @@ function generateLeafFunction(
     return lines
 }
 
-function generateGroupFunction(
+function generateDispatcher(
     nameParts: string[],
-    subcommands: Command[]
+    cmd: Command
 ): string[] {
     const lines: string[] = []
-    const fnName = functionName(nameParts)
+    const subcommands = visibleCommands(cmd)
+    const name = fnName(nameParts)
 
-    lines.push(`${fnName}() {`)
-    lines.push(`    local -a subcmds`)
-    lines.push(`    subcmds=(`)
+    lines.push(`${name}() {`)
+    lines.push(`    local curcontext="$curcontext" state line`)
+    lines.push(`    typeset -A opt_args`)
+    lines.push(``)
+    lines.push(`    _arguments -C \\`)
+    lines.push(`        '(-h --help)'{-h,--help}'[display help]' \\`)
+    lines.push(`        '1:command:->cmds' \\`)
+    lines.push(`        '*::arg:->args'`)
+    lines.push(``)
+    lines.push(`    case "$state" in`)
+    lines.push(`    cmds)`)
+    lines.push(`        local -a commands`)
+    lines.push(`        commands=(`)
     for (const sub of subcommands) {
         const desc = escapeZsh(sub.description() || '')
-        lines.push(`        '${escapeZsh(sub.name())}:${desc}'`)
+        lines.push(`            '${escapeZsh(sub.name())}:${desc}'`)
         const alias = sub.alias()
         if (alias) {
-            lines.push(`        '${escapeZsh(alias)}:${desc}'`)
+            lines.push(`            '${escapeZsh(alias)}:${desc}'`)
         }
     }
-    lines.push(`    )`)
-    lines.push(`    _describe -t commands 'command' subcmds`)
+    lines.push(`        )`)
+    lines.push(`        _describe -t commands 'command' commands`)
+    lines.push(`        ;;`)
+    lines.push(`    args)`)
+    lines.push(`        case "$line[1]" in`)
+
+    for (const sub of subcommands) {
+        const nested = visibleCommands(sub)
+        const subOpts = (sub.options as Option[]) || []
+        const childParts = [...nameParts, sub.name()]
+
+        const patterns = [escapeZsh(sub.name())]
+        if (sub.alias()) patterns.push(escapeZsh(sub.alias()!))
+
+        if (nested.length > 0 || subOpts.length > 0) {
+            lines.push(`        ${patterns.join('|')})`)
+            lines.push(`            ${fnName(childParts)}`)
+            lines.push(`            ;;`)
+        }
+    }
+
+    lines.push(`        esac`)
+    lines.push(`        ;;`)
+    lines.push(`    esac`)
     lines.push(`}`)
     return lines
 }
 
-function generateAllFunctions(
+function generateAll(
     cmd: Command,
     nameParts: string[]
 ): string[] {
     const lines: string[] = []
     const subcommands = visibleCommands(cmd)
-
-    if (subcommands.length > 0) {
-        lines.push(...generateGroupFunction(nameParts, subcommands))
-        lines.push(``)
-    }
 
     for (const sub of subcommands) {
         const childParts = [...nameParts, sub.name()]
@@ -100,13 +125,12 @@ function generateAllFunctions(
         const options = (sub.options as Option[]) || []
 
         if (nested.length > 0) {
-            lines.push(...generateAllFunctions(sub, childParts))
-        } else {
-            const fn = generateLeafFunction(childParts, options)
-            if (fn.length > 0) {
-                lines.push(...fn)
-                lines.push(``)
-            }
+            lines.push(...generateAll(sub, childParts))
+            lines.push(...generateDispatcher(childParts, sub))
+            lines.push(``)
+        } else if (options.length > 0) {
+            lines.push(...generateLeafFunction(childParts, options))
+            lines.push(``)
         }
     }
 
@@ -123,72 +147,21 @@ export function generateZshCompletion(program: Command): string {
     lines.push(`# Generated automatically - do not edit by hand`)
     lines.push(``)
 
-    lines.push(...generateAllFunctions(program, [safeName]))
+    lines.push(...generateAll(program, [safeName]))
 
-    const topSubcommands = visibleCommands(program)
-
-    lines.push(`_${safeName}_main() {`)
-    lines.push(`    local curcontext="$curcontext" state line`)
-    lines.push(`    typeset -A opt_args`)
-    lines.push(``)
-    lines.push(`    _arguments -C \\`)
-    lines.push(`        '(-h --help)'{-h,--help}'[display help]' \\`)
-    lines.push(`        '(-V --version)'{-V,--version}'[output version]' \\`)
-    lines.push(`        '1:command:->cmds' \\`)
-    lines.push(`        '*::arg:->args'`)
-    lines.push(``)
-    lines.push(`    case "$state" in`)
-    lines.push(`    cmds)`)
-    lines.push(`        _${safeName}`)
-    lines.push(`        ;;`)
-    lines.push(`    args)`)
-    lines.push(`        local cmd="$line[1]"`)
-    lines.push(`        case "$cmd" in`)
-
-    for (const sub of topSubcommands) {
-        const nested = visibleCommands(sub)
-        const subOpts = (sub.options as Option[]) || []
-
-        const patterns = [escapeZsh(sub.name())]
-        if (sub.alias()) patterns.push(escapeZsh(sub.alias()!))
-        const pattern = patterns.join('|')
-
-        if (nested.length > 0) {
-            const groupFn = functionName([safeName, sub.name()])
-            lines.push(`        ${pattern})`)
-            lines.push(`            local subcmd="$line[2]"`)
-            lines.push(`            if (( CURRENT == 2 )); then`)
-            lines.push(`                ${groupFn}`)
-            lines.push(`            else`)
-            lines.push(`                case "$subcmd" in`)
-
-            for (const n of nested) {
-                const nFn = functionName([safeName, sub.name(), n.name()])
-                const nOpts = (n.options as Option[]) || []
-                const nPatterns = [escapeZsh(n.name())]
-                if (n.alias()) nPatterns.push(escapeZsh(n.alias()!))
-
-                if (nOpts.length > 0) {
-                    lines.push(`                ${nPatterns.join('|')})`)
-                    lines.push(`                    ${nFn}`)
-                    lines.push(`                    ;;`)
-                }
-            }
-            lines.push(`                esac`)
-            lines.push(`            fi`)
-            lines.push(`            ;;`)
-        } else if (subOpts.length > 0) {
-            const leafFn = functionName([safeName, sub.name()])
-            lines.push(`        ${pattern})`)
-            lines.push(`            ${leafFn}`)
-            lines.push(`            ;;`)
-        }
+    const mainLines = generateDispatcher([safeName, 'main'], program)
+    // Patch the main one to also include --version
+    const versionIdx = mainLines.findIndex((l) =>
+        l.includes("'(-h --help)'")
+    )
+    if (versionIdx >= 0) {
+        mainLines.splice(
+            versionIdx + 1,
+            0,
+            `        '(-V --version)'{-V,--version}'[output version]' \\`
+        )
     }
-
-    lines.push(`        esac`)
-    lines.push(`        ;;`)
-    lines.push(`    esac`)
-    lines.push(`}`)
+    lines.push(...mainLines)
     lines.push(``)
     lines.push(`compdef _${safeName}_main ${cliName}`)
     lines.push(``)
