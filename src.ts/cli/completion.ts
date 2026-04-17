@@ -149,8 +149,14 @@ export function generateZshCompletion(program: Command): string {
 
     lines.push(...generateAll(program, [safeName]))
 
-    const mainLines = generateDispatcher([safeName, 'main'], program)
-    // Patch the main one to also include --version
+    // Main dispatcher: named _X_main but children use [safeName] base
+    const mainLines = generateDispatcher([safeName], program)
+    // Rename the function from _X to _X_main
+    mainLines[0] = mainLines[0].replace(
+        `${fnName([safeName])}()`,
+        `${fnName([safeName, 'main'])}()`
+    )
+    // Add --version (only at the top level)
     const versionIdx = mainLines.findIndex((l) =>
         l.includes("'(-h --help)'")
     )
