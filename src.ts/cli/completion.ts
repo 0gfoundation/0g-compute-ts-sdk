@@ -2,7 +2,9 @@ import type { Command, Option } from 'commander'
 
 function escapeZsh(s: string): string {
     return s
+        .replace(/\\/g, '\\\\')
         .replace(/'/g, "'\\''")
+        .replace(/\$/g, '\\$')
         .replace(/:/g, '\\:')
         .replace(/\[/g, '\\[')
         .replace(/\]/g, '\\]')
@@ -12,22 +14,28 @@ function formatOptionSpec(opt: Option): string[] {
     const flags: string[] = []
     if (opt.short) flags.push(opt.short)
     if (opt.long) flags.push(opt.long)
+    if (flags.length === 0) return []
 
     const desc = escapeZsh(opt.description || '')
-    const takesArg = opt.required || opt.optional
+    const argSuffix = opt.required || opt.optional ? ':arg:' : ''
+    const escapedFlags = flags.map(escapeZsh)
 
-    return flags.map((flag) => {
-        const escapedFlag = escapeZsh(flag)
-        if (takesArg) {
-            return `'${escapedFlag}[${desc}]:arg:'`
-        }
-        return `'${escapedFlag}[${desc}]'`
-    })
+    if (flags.length > 1) {
+        const exclusion = `(${escapedFlags.join(' ')})`
+        const brace = `{${escapedFlags.join(',')}}`
+        return [`'${exclusion}'${brace}'[${desc}]${argSuffix}'`]
+    }
+    return [`'${escapedFlags[0]}[${desc}]${argSuffix}'`]
 }
 
 function visibleCommands(cmd: Command): Command[] {
+    // Commander stores hidden state as `_hidden` on Command (no public getter
+    // exists — only Option has a public `hidden` property). If Commander ever
+    // exposes a public getter, switch to that.
     return cmd.commands.filter(
-        (c: Command) => !(c as any)._hidden && c.name() !== 'completion'
+        (c: Command) =>
+            !(c as Command & { _hidden?: boolean })._hidden &&
+            c.name() !== 'completion'
     )
 }
 
@@ -57,11 +65,12 @@ function generateLeafFunction(
 
 function generateDispatcher(
     nameParts: string[],
-    cmd: Command
+    cmd: Command,
+    overrideName?: string
 ): string[] {
     const lines: string[] = []
     const subcommands = visibleCommands(cmd)
-    const name = fnName(nameParts)
+    const name = overrideName ?? fnName(nameParts)
 
     lines.push(`${name}() {`)
     lines.push(`    local curcontext="$curcontext" state line`)
@@ -150,11 +159,11 @@ export function generateZshCompletion(program: Command): string {
     lines.push(...generateAll(program, [safeName]))
 
     // Main dispatcher: named _X_main but children use [safeName] base
-    const mainLines = generateDispatcher([safeName], program)
-    // Rename the function from _X to _X_main
-    mainLines[0] = mainLines[0].replace(
-        `${fnName([safeName])}()`,
-        `${fnName([safeName, 'main'])}()`
+    // so nested dispatch references match generateAll's function names.
+    const mainLines = generateDispatcher(
+        [safeName],
+        program,
+        fnName([safeName, 'main'])
     )
     // Add --version (only at the top level)
     const versionIdx = mainLines.findIndex((l) =>
