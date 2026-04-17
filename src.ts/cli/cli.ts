@@ -80,10 +80,10 @@ function showUpdateNotification(updateInfo: {
     const line2 = `Run: ${installCmd}`
     const width = Math.max(line1.length, line2.length) + 4
 
-    console.log('\n' + '╭' + '─'.repeat(width) + '╮')
-    console.log('│ ' + line1.padEnd(width - 1) + '│')
-    console.log('│ ' + line2.padEnd(width - 1) + '│')
-    console.log('╰' + '─'.repeat(width) + '╯\n')
+    process.stderr.write('\n' + '╭' + '─'.repeat(width) + '╮\n')
+    process.stderr.write('│ ' + line1.padEnd(width - 1) + '│\n')
+    process.stderr.write('│ ' + line2.padEnd(width - 1) + '│\n')
+    process.stderr.write('╰' + '─'.repeat(width) + '╯\n\n')
 }
 
 // Check for updates (non-blocking on first run)
