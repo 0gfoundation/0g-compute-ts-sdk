@@ -170,10 +170,33 @@ export function generateZshCompletion(program: Command): string {
 }
 
 export default function completion(program: Command): void {
+    const cliName = program.name()
+
     program
         .command('completion')
         .description('Generate shell completion script')
         .argument('<shell>', 'Shell type (zsh)')
+        .addHelpText(
+            'after',
+            `
+Setup:
+
+  Option 1 - Add to .zshrc (simplest, slower shell startup):
+
+    echo 'eval "$(${cliName} completion zsh)"' >> ~/.zshrc
+
+  Option 2 - Cache to file (recommended, zero startup cost):
+
+    mkdir -p ~/.zsh/completions
+    ${cliName} completion zsh > ~/.zsh/completions/_${cliName}
+
+    # Add these lines to ~/.zshrc (once):
+    fpath=(~/.zsh/completions $fpath)
+    autoload -Uz compinit && compinit
+
+  After upgrading ${cliName}, re-run the command to update completions.
+`
+        )
         .action((shell: string) => {
             if (shell !== 'zsh') {
                 console.error(
