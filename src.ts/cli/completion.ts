@@ -190,7 +190,7 @@ export function generateZshCompletion(program: Command): string {
     lines.push(`    esac`)
     lines.push(`}`)
     lines.push(``)
-    lines.push(`_${safeName}_main "$@"`)
+    lines.push(`compdef _${safeName}_main ${cliName}`)
     lines.push(``)
 
     return lines.join('\n')
