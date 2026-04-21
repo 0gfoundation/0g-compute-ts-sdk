@@ -146,6 +146,109 @@ function generateAll(
     return lines
 }
 
+function escapeBashDq(s: string): string {
+    // Escape characters that are still special inside bash double quotes.
+    return s
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$')
+        .replace(/`/g, '\\`')
+}
+
+type BashEntry = {
+    path: string[]
+    words: string[]
+}
+
+function collectBashEntries(
+    cmd: Command,
+    currentPath: string[],
+    out: BashEntry[]
+): void {
+    const subs = visibleCommands(cmd)
+    const words: string[] = []
+    for (const s of subs) {
+        words.push(s.name())
+        const alias = s.alias()
+        if (alias) words.push(alias)
+    }
+    for (const o of (cmd.options as Option[]) || []) {
+        if (o.short) words.push(o.short)
+        if (o.long) words.push(o.long)
+    }
+    out.push({ path: currentPath, words })
+
+    for (const s of subs) {
+        collectBashEntries(s, [...currentPath, s.name()], out)
+        const alias = s.alias()
+        if (alias) {
+            collectBashEntries(s, [...currentPath, alias], out)
+        }
+    }
+}
+
+export function generateBashCompletion(program: Command): string {
+    const cliName = program.name()
+    const safeName = cliName.replace(/-/g, '_')
+    const funcName = `_${safeName}`
+
+    const entries: BashEntry[] = []
+    collectBashEntries(program, [], entries)
+
+    const lines: string[] = []
+    lines.push(`# ${cliName} v${program.version()} bash completion`)
+    lines.push(`# Generated automatically - do not edit by hand`)
+    lines.push(``)
+    lines.push(`${funcName}() {`)
+    lines.push(`    local cur path i word completions`)
+    lines.push(`    COMPREPLY=()`)
+    lines.push(`    cur="\${COMP_WORDS[COMP_CWORD]}"`)
+    lines.push(``)
+    lines.push(`    # Build the subcommand path by skipping flags. This is a`)
+    lines.push(`    # simplification: if a flag takes a value, the value word is`)
+    lines.push(`    # also skipped only when it starts with '-', so positional-looking`)
+    lines.push(`    # flag arguments may shift the path. Good enough for most cases.`)
+    lines.push(`    path=""`)
+    lines.push(`    i=1`)
+    lines.push(`    while [ $i -lt $COMP_CWORD ]; do`)
+    lines.push(`        word="\${COMP_WORDS[$i]}"`)
+    lines.push(`        if [[ "$word" == -* ]]; then`)
+    lines.push(`            i=$((i + 1))`)
+    lines.push(`            continue`)
+    lines.push(`        fi`)
+    lines.push(`        if [ -z "$path" ]; then`)
+    lines.push(`            path="$word"`)
+    lines.push(`        else`)
+    lines.push(`            path="$path $word"`)
+    lines.push(`        fi`)
+    lines.push(`        i=$((i + 1))`)
+    lines.push(`    done`)
+    lines.push(``)
+    lines.push(`    completions=""`)
+    lines.push(`    case "$path" in`)
+    for (const entry of entries) {
+        if (entry.words.length === 0) continue
+        const pathStr = escapeBashDq(entry.path.join(' '))
+        const wordsStr = escapeBashDq(entry.words.join(' '))
+        lines.push(`        "${pathStr}")`)
+        lines.push(`            completions="${wordsStr}"`)
+        lines.push(`            ;;`)
+    }
+    lines.push(`    esac`)
+    lines.push(``)
+    lines.push(`    if [ -n "$completions" ]; then`)
+    lines.push(`        # shellcheck disable=SC2207`)
+    lines.push(`        COMPREPLY=( $(compgen -W "$completions" -- "$cur") )`)
+    lines.push(`    fi`)
+    lines.push(`    return 0`)
+    lines.push(`}`)
+    lines.push(``)
+    lines.push(`complete -F ${funcName} ${cliName}`)
+    lines.push(``)
+
+    return lines.join('\n')
+}
+
 export function generateZshCompletion(program: Command): string {
     const cliName = program.name()
     const safeName = cliName.replace(/-/g, '_')
@@ -190,11 +293,11 @@ export default function completion(program: Command): void {
     program
         .command('completion')
         .description('Generate shell completion script')
-        .argument('<shell>', 'Shell type (zsh)')
+        .argument('<shell>', 'Shell type (zsh|bash)')
         .addHelpText(
             'after',
             `
-Setup:
+Setup (zsh):
 
   Option 1 - Add to .zshrc (simplest, slower shell startup):
 
@@ -209,18 +312,35 @@ Setup:
     fpath=(~/.zsh/completions $fpath)
     autoload -Uz compinit && compinit
 
+Setup (bash):
+
+  Option 1 - Add to .bashrc (simplest):
+
+    echo 'eval "$(${cliName} completion bash)"' >> ~/.bashrc
+
+  Option 2 - Source from a cached file:
+
+    mkdir -p ~/.bash_completion.d
+    ${cliName} completion bash > ~/.bash_completion.d/${cliName}
+
+    # Add this line to ~/.bashrc (once):
+    source ~/.bash_completion.d/${cliName}
+
   After upgrading ${cliName}, re-run the command to update completions.
 `
         )
         .action((shell: string) => {
-            if (shell !== 'zsh') {
-                console.error(
-                    `Unsupported shell: ${shell}. Currently only "zsh" is supported.`
-                )
-                process.exit(1)
+            if (shell === 'zsh') {
+                process.stdout.write(generateZshCompletion(program))
+                process.exit(0)
             }
-            const script = generateZshCompletion(program)
-            process.stdout.write(script)
-            process.exit(0)
+            if (shell === 'bash') {
+                process.stdout.write(generateBashCompletion(program))
+                process.exit(0)
+            }
+            console.error(
+                `Unsupported shell: ${shell}. Supported shells: zsh, bash.`
+            )
+            process.exit(1)
         })
 }
