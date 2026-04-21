@@ -3,7 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import chalk from 'chalk'
 
-const TIPS_DIR = path.join(os.homedir(), '.config', '0g-compute-cli')
+const TIPS_DIR = path.join(os.homedir(), '.0g-compute-cli')
 const TIPS_FILE = path.join(TIPS_DIR, 'tips-seen')
 
 function hasOptedOut(): boolean {
