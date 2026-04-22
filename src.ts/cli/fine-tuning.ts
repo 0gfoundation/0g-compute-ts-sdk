@@ -419,6 +419,10 @@ export default function fineTuning(program: Command) {
             'Base model name (required when using --deploy, e.g. Qwen2.5-0.5B-Instruct)'
         )
         .option(
+            '--inference-provider <address>',
+            'Inference provider address for --deploy (defaults to --provider if not specified)'
+        )
+        .option(
             '--deploy',
             'Also deploy the adapter to the inference GPU after acknowledging',
             false
@@ -450,12 +454,14 @@ export default function fineTuning(program: Command) {
                 console.log('Acknowledged model')
 
                 if (options.deploy) {
+                    const inferenceProvider =
+                        options.inferenceProvider || options.provider
                     console.log(
                         '\nWaiting for inference broker to download the adapter...'
                     )
                     await deployAdapterToBroker(
                         broker,
-                        options.provider,
+                        inferenceProvider,
                         options.model,
                         options.taskId,
                         true,
