@@ -155,14 +155,15 @@ function escapeBashDq(s: string): string {
         .replace(/`/g, '\\`')
 }
 
+type PathSeg = { name: string; alias?: string }
 type BashEntry = {
-    path: string[]
+    path: PathSeg[]
     words: string[]
 }
 
 function collectBashEntries(
     cmd: Command,
-    currentPath: string[],
+    currentPath: PathSeg[],
     out: BashEntry[]
 ): void {
     const subs = visibleCommands(cmd)
@@ -179,12 +180,29 @@ function collectBashEntries(
     out.push({ path: currentPath, words })
 
     for (const s of subs) {
-        collectBashEntries(s, [...currentPath, s.name()], out)
         const alias = s.alias()
-        if (alias) {
-            collectBashEntries(s, [...currentPath, alias], out)
-        }
+        const seg: PathSeg = alias
+            ? { name: s.name(), alias }
+            : { name: s.name() }
+        collectBashEntries(s, [...currentPath, seg], out)
     }
+}
+
+// Expand an entry's path into every alias combination.
+// e.g. path = [fine-tuning|ft, create-task] → ["fine-tuning create-task", "ft create-task"]
+function expandPathPatterns(path: PathSeg[]): string[] {
+    let patterns: string[] = ['']
+    for (const seg of path) {
+        const choices = seg.alias ? [seg.name, seg.alias] : [seg.name]
+        const next: string[] = []
+        for (const prefix of patterns) {
+            for (const c of choices) {
+                next.push(prefix === '' ? c : `${prefix} ${c}`)
+            }
+        }
+        patterns = next
+    }
+    return patterns
 }
 
 export function generateBashCompletion(program: Command): string {
@@ -228,9 +246,11 @@ export function generateBashCompletion(program: Command): string {
     lines.push(`    case "$path" in`)
     for (const entry of entries) {
         if (entry.words.length === 0) continue
-        const pathStr = escapeBashDq(entry.path.join(' '))
+        const patterns = expandPathPatterns(entry.path)
+            .map((p) => `"${escapeBashDq(p)}"`)
+            .join('|')
         const wordsStr = escapeBashDq(entry.words.join(' '))
-        lines.push(`        "${pathStr}")`)
+        lines.push(`        ${patterns})`)
         lines.push(`            completions="${wordsStr}"`)
         lines.push(`            ;;`)
     }

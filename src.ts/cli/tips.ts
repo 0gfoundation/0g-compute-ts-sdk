@@ -7,7 +7,11 @@ const TIPS_DIR = path.join(os.homedir(), '.0g-compute-cli')
 const TIPS_FILE = path.join(TIPS_DIR, 'tips-seen')
 
 function hasOptedOut(): boolean {
-    const optOut = process.env['0G_NO_TIPS'] ?? process.env.ZG_NO_TIPS
+    // ZG_NO_TIPS is the documented name (POSIX-compatible). 0G_NO_TIPS is kept
+    // as an undocumented fallback — shells reject identifiers starting with a
+    // digit in `VAR=value cmd` / `export VAR=...`, so it can only be set via
+    // tools like `env` and isn't something we want to point users at.
+    const optOut = process.env.ZG_NO_TIPS ?? process.env['0G_NO_TIPS']
     return optOut === '1' || optOut === 'true'
 }
 
@@ -66,7 +70,7 @@ export function showCompletionHintIfNeeded(cliName: string): void {
     process.stderr.write(
         `\n${chalk.cyan('Tip:')} Enable shell completion (zsh/bash) with ` +
             `\`${cliName} completion --help\`.\n` +
-            `     Set 0G_NO_TIPS=1 to silence future hints.\n\n`
+            `     Set ZG_NO_TIPS=1 to silence future hints.\n\n`
     )
 
     markTipSeen('completion', seen)
