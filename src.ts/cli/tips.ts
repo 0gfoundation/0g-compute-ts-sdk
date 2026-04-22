@@ -24,8 +24,10 @@ function isInteractive(): boolean {
 function isCompletionInvocation(argv: string[]): boolean {
     // Skip the tip when the user already knows about completion (or when the
     // invocation itself is generating a script that must keep stdout/stderr
-    // clean for `eval`).
-    return argv.slice(2).includes('completion')
+    // clean for `eval`). Match only the first positional arg so user-supplied
+    // values like `inference send --message "completion"` don't suppress it.
+    const firstPositional = argv.slice(2).find((a) => !a.startsWith('-'))
+    return firstPositional === 'completion'
 }
 
 function readSeenTips(): Set<string> {
@@ -56,7 +58,7 @@ function markTipSeen(tip: string, seen: Set<string>): void {
 /**
  * Emits a one-time hint about shell completion the first time the CLI is run
  * in an interactive terminal. Silently skipped in non-TTY / CI contexts, when
- * the user has opted out via 0G_NO_TIPS=1, or when the current invocation is
+ * the user has opted out via ZG_NO_TIPS=1, or when the current invocation is
  * itself the completion command.
  */
 export function showCompletionHintIfNeeded(cliName: string): void {

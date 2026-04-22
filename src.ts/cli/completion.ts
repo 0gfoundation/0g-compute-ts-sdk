@@ -177,6 +177,10 @@ function collectBashEntries(
         if (o.short) words.push(o.short)
         if (o.long) words.push(o.long)
     }
+    // Commander doesn't register -h/--help in Command#options — it lives on
+    // a private _helpOption — so the option loop above misses it. Match the
+    // zsh generator by appending it to every node unconditionally.
+    words.push('-h', '--help')
     out.push({ path: currentPath, words })
 
     for (const s of subs) {
