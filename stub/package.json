@@ -1,10 +1,13 @@
 {
     "name": "@0glabs/0g-serving-broker",
-    "version": "0.7.7",
+    "version": "0.7.8",
     "description": "DEPRECATED — renamed to @0gfoundation/0g-compute-ts-sdk. This package is a thin re-export shim for backward compatibility.",
     "main": "./index.js",
     "module": "./index.mjs",
     "types": "./index.d.ts",
+    "bin": {
+        "0g-compute-cli": "./cli.js"
+    },
     "exports": {
         "types": "./index.d.ts",
         "require": "./index.js",
@@ -14,6 +17,7 @@
         "index.js",
         "index.mjs",
         "index.d.ts",
+        "cli.js",
         "README.md"
     ],
     "engines": {
