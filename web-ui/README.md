@@ -16,7 +16,7 @@ A modern web interface for the 0G Compute Network - enabling decentralized AI se
 - **Styling:** TailwindCSS + shadcn/ui
 - **Wallet:** RainbowKit + wagmi
 - **State:** React Query + Dexie (IndexedDB)
-- **SDK:** @0glabs/0g-serving-broker
+- **SDK:** @0gfoundation/0g-compute-ts-sdk
 
 ## Getting Started
 

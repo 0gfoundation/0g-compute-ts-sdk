@@ -56,13 +56,13 @@ const nextConfig = {
 
         return config
     },
-    transpilePackages: ['@0glabs/0g-serving-broker'],
+    transpilePackages: ['@0gfoundation/0g-compute-ts-sdk'],
     output: 'export',
     trailingSlash: false, // Change to false for better SPA behavior
 
     // Optimize bundle splitting
     experimental: {
-        optimizePackageImports: ['dexie', '@0glabs/0g-serving-broker'],
+        optimizePackageImports: ['dexie', '@0gfoundation/0g-compute-ts-sdk'],
     },
 }
 

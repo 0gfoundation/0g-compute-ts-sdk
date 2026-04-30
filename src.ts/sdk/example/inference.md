@@ -5,7 +5,7 @@
     - Clone the repository:
 
         ```bash
-        git clone https://github.com/0glabs/0g-serving-broker.git
+        git clone https://github.com/0gfoundation/0g-serving-broker.git
         ```
 
     - Navigate to the directory and start the services using Docker Compose:
@@ -34,7 +34,7 @@
 
     ```typescript
     import { ethers } from 'ethers'
-    import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
+    import { createZGComputeNetworkBroker } from '@0gfoundation/0g-compute-ts-sdk'
     import OpenAI from 'openai'
 
     async function main() {
