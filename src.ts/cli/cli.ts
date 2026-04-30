@@ -16,7 +16,7 @@ export const program = new Command()
 program
     .name('0g-compute-cli')
     .description('CLI for interacting with ZG Compute Network')
-    .version('0.7.5')
+    .version('0.7.6')
 
 ledger(program)
 
@@ -115,6 +115,11 @@ function showUpdateNotification(updateInfo: {
     } catch {
         // Silently fail - don't block CLI usage (e.g., in Yarn PnP environments)
     }
+
+    process.stderr.write(
+        '\n⚠️  DEPRECATION NOTICE: "@0glabs/0g-serving-broker" will be renamed to "@0gfoundation/0g-compute-ts-sdk" in v0.8.0.\n' +
+            '   Please migrate your dependency. See https://github.com/0glabs/0g-serving-user-broker for details.\n\n'
+    )
 
     program.parse(process.argv)
 })()
