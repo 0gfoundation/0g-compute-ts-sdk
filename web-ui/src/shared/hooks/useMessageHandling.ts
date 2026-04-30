@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
+import type { ZGComputeNetworkBroker } from '@0gfoundation/0g-compute-ts-sdk';
 import type { Message } from '../types/broker';
 
 interface ServiceMetadata {

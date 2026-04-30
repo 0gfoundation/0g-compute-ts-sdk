@@ -2,8 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useWalletClient, useChainId, useSwitchChain } from 'wagmi'
-import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
-import { createZGComputeNetworkBroker, createZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0gfoundation/0g-compute-ts-sdk'
+import { createZGComputeNetworkBroker, createZGComputeNetworkReadOnlyBroker } from '@0gfoundation/0g-compute-ts-sdk'
 import type { JsonRpcSigner } from 'ethers'
 import { BrowserProvider } from 'ethers'
 import { APP_CONSTANTS } from '../constants/app'

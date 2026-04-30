@@ -448,9 +448,9 @@ export function BuildDrawer({ provider, isOpen, onClose }: BuildDrawerProps) {
                                 step={1}
                                 title="Install the 0G Compute CLI"
                                 packageManagerOptions={[
-                                    { key: 'npm', label: 'npm', command: 'npm install @0glabs/0g-serving-broker -g' },
-                                    { key: 'yarn', label: 'yarn', command: 'yarn global add @0glabs/0g-serving-broker' },
-                                    { key: 'pnpm', label: 'pnpm', command: 'pnpm install @0glabs/0g-serving-broker -g' }
+                                    { key: 'npm', label: 'npm', command: 'npm install @0gfoundation/0g-compute-ts-sdk -g' },
+                                    { key: 'yarn', label: 'yarn', command: 'yarn global add @0gfoundation/0g-compute-ts-sdk' },
+                                    { key: 'pnpm', label: 'pnpm', command: 'pnpm install @0gfoundation/0g-compute-ts-sdk -g' }
                                 ]}
                             />
 

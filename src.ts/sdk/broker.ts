@@ -29,16 +29,6 @@ export {
     getNetworkType,
 }
 
-let deprecationWarningShown = false
-function showDeprecationWarning(): void {
-    if (deprecationWarningShown) return
-    deprecationWarningShown = true
-    console.warn(
-        '\n⚠️  DEPRECATION NOTICE: The npm package "@0glabs/0g-serving-broker" will be renamed to "@0gfoundation/0g-compute-ts-sdk" starting from v0.8.0.\n' +
-            '   Please migrate by updating your dependency and imports. See https://github.com/0glabs/0g-serving-user-broker for details.\n'
-    )
-}
-
 export class ZGComputeNetworkBroker {
     public ledger!: LedgerBroker
     public inference!: InferenceBroker
@@ -82,7 +72,6 @@ export async function createZGComputeNetworkBroker(
     maxGasPrice?: number,
     step?: number
 ): Promise<ZGComputeNetworkBroker> {
-    showDeprecationWarning()
     try {
         // Auto-detect network from signer's provider
         let defaultAddresses: {
@@ -224,7 +213,6 @@ export async function createZGComputeNetworkReadOnlyBroker(
     rpcUrl: string,
     chainId?: number
 ): Promise<ZGComputeNetworkReadOnlyBroker> {
-    showDeprecationWarning()
     try {
         // Create provider to detect network if chainId not provided
         let detectedChainId = chainId

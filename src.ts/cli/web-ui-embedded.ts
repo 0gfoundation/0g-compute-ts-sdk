@@ -23,7 +23,7 @@ function getPackageRoot(): string {
                     'utf-8'
                 )
                 const packageJson = JSON.parse(packageJsonContent)
-                if (packageJson.name === '0g-serving-broker') {
+                if (packageJson.name === '@0gfoundation/0g-compute-ts-sdk') {
                     return currentDir
                 }
             } catch {

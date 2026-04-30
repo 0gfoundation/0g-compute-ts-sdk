@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useChainId } from 'wagmi'
-import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker'
+import type { ZGComputeNetworkBroker, ZGComputeNetworkReadOnlyBroker } from '@0gfoundation/0g-compute-ts-sdk'
 import { transformBrokerServicesToProviders } from '../utils/providerTransform'
 import { neuronToA0gi } from '../../../shared/utils/currency'
 import type { Provider } from '../../../shared/types/broker'

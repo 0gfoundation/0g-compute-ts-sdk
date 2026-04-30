@@ -4,7 +4,7 @@ This document defines code review standards for the 0G Compute Network SDK and C
 
 ## Project Overview
 
-**0G Compute Network SDK** (`@0glabs/0g-serving-broker`) is the client-side library and tooling for the 0G Compute Network. It enables developers to access decentralized AI inference and fine-tuning services through:
+**0G Compute Network SDK** (`@0gfoundation/0g-compute-ts-sdk`) is the client-side library and tooling for the 0G Compute Network. It enables developers to access decentralized AI inference and fine-tuning services through:
 
 - **TypeScript SDK**: Programmatic access to AI services
 - **CLI Tools**: Command-line interface for account management and service interaction

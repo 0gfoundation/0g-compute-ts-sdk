@@ -33,14 +33,14 @@ COPY --from=broker-builder /app/package.json ./package.json
 COPY --from=web-deps /app/web-ui/node_modules ./web-ui/node_modules
 COPY web-ui ./web-ui
 
-# Create proper package structure for 0g-serving-broker by copying all built files
-RUN mkdir -p ./web-ui/node_modules/0g-serving-broker
+# Create proper package structure for @0gfoundation/0g-compute-ts-sdk by copying all built files
+RUN mkdir -p ./web-ui/node_modules/@0gfoundation/0g-compute-ts-sdk
 # Copy the original package.json with all exports
-RUN cp ./package.json ./web-ui/node_modules/0g-serving-broker/package.json
+RUN cp ./package.json ./web-ui/node_modules/@0gfoundation/0g-compute-ts-sdk/package.json
 # Copy all built files to maintain file dependencies
-RUN cp -r ./lib.esm ./web-ui/node_modules/0g-serving-broker/lib.esm
-RUN cp -r ./lib.commonjs ./web-ui/node_modules/0g-serving-broker/lib.commonjs
-RUN cp -r ./types ./web-ui/node_modules/0g-serving-broker/types
+RUN cp -r ./lib.esm ./web-ui/node_modules/@0gfoundation/0g-compute-ts-sdk/lib.esm
+RUN cp -r ./lib.commonjs ./web-ui/node_modules/@0gfoundation/0g-compute-ts-sdk/lib.commonjs
+RUN cp -r ./types ./web-ui/node_modules/@0gfoundation/0g-compute-ts-sdk/types
 
 WORKDIR /app/web-ui
 ENV NEXT_TELEMETRY_DISABLED 1

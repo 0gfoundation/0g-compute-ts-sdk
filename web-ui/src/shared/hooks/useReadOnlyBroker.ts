@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker';
-import { createZGComputeNetworkReadOnlyBroker } from '@0glabs/0g-serving-broker';
+import type { ZGComputeNetworkReadOnlyBroker } from '@0gfoundation/0g-compute-ts-sdk';
+import { createZGComputeNetworkReadOnlyBroker } from '@0gfoundation/0g-compute-ts-sdk';
 import { zgMainnet, zgTestnet } from '../config/wagmi';
 
 function getRpcUrl(chainId: number): string {

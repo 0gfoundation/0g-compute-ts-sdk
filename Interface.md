@@ -115,8 +115,8 @@
 
 ### Provider interface
 
-1. Endpoint: https://github.com/0glabs/0g-serving-broker/blob/main/api/fine-tuning/internal/handler/handler.go#L23
-2. Task Model: https://github.com/0glabs/0g-serving-broker/blob/main/api/fine-tuning/schema/task.go#L12
+1. Endpoint: https://github.com/0gfoundation/0g-serving-broker/blob/main/api/fine-tuning/internal/handler/handler.go#L23
+2. Task Model: https://github.com/0gfoundation/0g-serving-broker/blob/main/api/fine-tuning/schema/task.go#L12
 3. Task creation example:
 
     ```bash

@@ -1,7 +1,6 @@
 # 0G Compute Network SDK
 
-> ⚠️ **DEPRECATION NOTICE**: This package will be renamed from `@0glabs/0g-serving-broker` to **`@0gfoundation/0g-compute-ts-sdk`** starting from **v0.8.0**.
-> Please migrate your `package.json` dependency and imports. The current `@0glabs/0g-serving-broker` package will continue to work as a thin re-export of the new package for one additional patch release, but will not receive further updates.
+> 📦 **Package renamed**: As of v0.8.0, this package is published as **`@0gfoundation/0g-compute-ts-sdk`**. The previous package name `@0glabs/0g-serving-broker` is now deprecated and re-exports this package; please update your dependency and imports.
 
 Access decentralized AI computing through the 0G Compute Network - a GPU marketplace that connects developers with affordable AI inference and fine-tuning services.
 
@@ -22,16 +21,16 @@ Access decentralized AI computing through the 0G Compute Network - a GPU marketp
 
 ```bash
 # Using pnpm (recommended)
-pnpm add @0glabs/0g-serving-broker
+pnpm add @0gfoundation/0g-compute-ts-sdk
 
 # Using npm
-npm install @0glabs/0g-serving-broker
+npm install @0gfoundation/0g-compute-ts-sdk
 
 # Using yarn
-yarn add @0glabs/0g-serving-broker
+yarn add @0gfoundation/0g-compute-ts-sdk
 
 # Install globally for CLI access
-pnpm add @0glabs/0g-serving-broker -g
+pnpm add @0gfoundation/0g-compute-ts-sdk -g
 ```
 
 ## Quick Start
@@ -84,7 +83,7 @@ Open `http://localhost:3090` in your browser to:
 
 ```typescript
 import { ethers } from 'ethers'
-import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
+import { createZGComputeNetworkBroker } from '@0gfoundation/0g-compute-ts-sdk'
 
 // Initialize
 const provider = new ethers.JsonRpcProvider('https://evmrpc-testnet.0g.ai')

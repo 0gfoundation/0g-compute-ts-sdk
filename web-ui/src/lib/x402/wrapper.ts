@@ -1,4 +1,4 @@
-import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker'
+import type { ZGComputeNetworkBroker } from '@0gfoundation/0g-compute-ts-sdk'
 import { keccak256, toUtf8Bytes, Contract, formatUnits, parseUnits } from 'ethers'
 
 const USDC_ABI = [

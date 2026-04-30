@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import type { ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
+import type { ZGComputeNetworkBroker } from '@0gfoundation/0g-compute-ts-sdk';
 import { a0giToNeuron } from "../../../../shared/utils/currency";
 import { formatNumber } from "../../../../shared/utils/formatNumber";
 import {

@@ -3,7 +3,7 @@
  */
 import type { Provider, ServiceType, TieredPricingInfo, CacheTokenBillingInfo } from '../../../shared/types/broker';
 import { neuronToA0gi } from '../../../shared/utils/currency';
-import { parseTieredPricing, parseCacheTokenBilling } from '@0glabs/0g-serving-broker';
+import { parseTieredPricing, parseCacheTokenBilling } from '@0gfoundation/0g-compute-ts-sdk';
 
 /**
  * Service object structure from broker
