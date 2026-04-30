@@ -1,5 +1,8 @@
 # 0G Compute Network SDK
 
+> ⚠️ **DEPRECATION NOTICE**: This package will be renamed from `@0glabs/0g-serving-broker` to **`@0gfoundation/0g-compute-ts-sdk`** starting from **v0.8.0**.
+> Please migrate your `package.json` dependency and imports. The current `@0glabs/0g-serving-broker` package will continue to work as a thin re-export of the new package for one additional patch release, but will not receive further updates.
+
 Access decentralized AI computing through the 0G Compute Network - a GPU marketplace that connects developers with affordable AI inference and fine-tuning services.
 
 ## Features
