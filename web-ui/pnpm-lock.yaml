@@ -16,7 +16,7 @@ importers:
 
   .:
     dependencies:
-      '@0glabs/0g-serving-broker':
+      '@0gfoundation/0g-compute-ts-sdk':
         specifier: file:..
         version: file:..(@types/circomlibjs@0.1.6)(@types/crypto-js@4.2.2)(circomlibjs@0.1.7(bufferutil@4.1.0)(utf-8-validate@5.0.10))(crypto-js@4.2.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
       '@radix-ui/react-alert-dialog':
@@ -191,7 +191,7 @@ importers:
 
 packages:
 
-  '@0glabs/0g-serving-broker@file:..':
+  '@0gfoundation/0g-compute-ts-sdk@file:..':
     resolution: {directory: .., type: directory}
     engines: {node: '>=20.0.0'}
     hasBin: true
@@ -5358,7 +5358,7 @@ packages:
 
 snapshots:
 
-  '@0glabs/0g-serving-broker@file:..(@types/circomlibjs@0.1.6)(@types/crypto-js@4.2.2)(circomlibjs@0.1.7(bufferutil@4.1.0)(utf-8-validate@5.0.10))(crypto-js@4.2.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))':
+  '@0gfoundation/0g-compute-ts-sdk@file:..(@types/circomlibjs@0.1.6)(@types/crypto-js@4.2.2)(circomlibjs@0.1.7(bufferutil@4.1.0)(utf-8-validate@5.0.10))(crypto-js@4.2.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))':
     dependencies:
       '@ethersproject/bytes': 5.8.0
       '@ethersproject/keccak256': 5.8.0
