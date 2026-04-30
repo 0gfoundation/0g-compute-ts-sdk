@@ -1,8 +1,8 @@
-# 0G Compute Network SDK
+# 0G Compute TS SDK
 
 > 📦 **Package renamed**: As of v0.8.0, this package is published as **`@0gfoundation/0g-compute-ts-sdk`**. The previous package name `@0glabs/0g-serving-broker` is now deprecated and re-exports this package; please update your dependency and imports.
 
-Access decentralized AI computing through the 0G Compute Network - a GPU marketplace that connects developers with affordable AI inference and fine-tuning services.
+Access compute resources from 0G Private Computer - a decentralized marketplace that connects developers with affordable, verifiable AI inference and fine-tuning services.
 
 ## Features
 
@@ -184,7 +184,7 @@ const completion = await client.chat.completions.create({
 
 ## Account Management
 
-The 0G Compute Network uses a two-tier account system:
+0G Private Computer uses a two-tier account system:
 
 - **Main Account**: Where you deposit funds from your wallet
 - **Sub-Accounts**: Provider-specific accounts for service payments
