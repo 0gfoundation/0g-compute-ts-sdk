@@ -7,7 +7,8 @@
  *
  * Why this exists:
  *
- * The legacy implementation hard-coded `path.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client')`,
+ * The legacy implementation hard-coded
+ * `path.join(__dirname, '..', '..', '..', '..', 'binary', '0g-storage-client')`,
  * which assumed a fixed depth of 4 between the runtime file and the package
  * root. That assumption was wrong by one level for the CommonJS build
  * (3 levels up from `lib.commonjs/fine-tuning/zg-storage/zg-storage.js`)
@@ -15,23 +16,48 @@
  * silently fell back to the slower TEE HTTP path or, worse, threw `ENOENT`
  * — see "0G-Compute-SDK Fine-tune Pipeline Bug Report" (May 2026, Bug #1).
  *
- * The fix walks up the directory tree from `__dirname` and stops at the
+ * The fix walks up the directory tree from a known anchor and stops at the
  * first ancestor that contains a `binary/` sub-directory. This works for
  * any reasonable bundle layout, is robust against future refactors, and
  * produces a clear actionable error if the binary is missing entirely
  * (Bug #2 — multi-arch support).
+ *
+ * Note on the dual ESM/CJS build:
+ *
+ *   - We use standard `import` statements for `fs`/`path` so tsc emits
+ *     CJS `require()` for `lib.commonjs/` and rollup keeps them as ES
+ *     imports for `lib.esm/`. We do NOT use top-level `require()`:
+ *     Node 22+ refuses to load any ESM file containing `require()` calls
+ *     mixed with top-level `await`, which would break SDK import for every
+ *     ESM consumer of the package.
+ *   - `__dirname` is read via `globalThis` so the static reference resolves
+ *     in both CJS (where Node injects `__dirname` per module) and ESM
+ *     (where `globalThis.__dirname` is `undefined` and we fall back).
  */
 
-import type * as fsTypes from 'fs'
-import type * as pathTypes from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 
-// We intentionally use require() instead of `import` here so this module
-// stays compatible with both ESM and CommonJS bundle outputs without
-// triggering rollup ESM/CJS interop quirks.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const fs = require('fs') as typeof fsTypes
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const path = require('path') as typeof pathTypes
+/**
+ * Best-effort directory anchor for the running module.
+ *
+ * - CommonJS: returns the per-module `__dirname` Node injects into each
+ *   module's lexical scope. Note that `__dirname` is **not** a global on
+ *   `globalThis` — it is supplied by Node's module wrapper. This is why
+ *   we read it lexically (the `typeof __dirname !== 'undefined'` check
+ *   is the standard JS idiom for reading a possibly-undeclared symbol
+ *   without raising `ReferenceError`).
+ * - ESM bundle: `__dirname` is undeclared, so we fall back to
+ *   `process.cwd()`. The downstream `findAncestorContaining` walk can
+ *   still recover the correct `binary/` directory when the consumer is
+ *   running from inside the installed package tree.
+ */
+function getAnchorDir(): string {
+    if (typeof __dirname !== 'undefined') {
+        return __dirname
+    }
+    return process.cwd()
+}
 
 /**
  * Find the first ancestor of `start` (inclusive) that contains a directory
@@ -40,7 +66,6 @@ const path = require('path') as typeof pathTypes
  */
 function findAncestorContaining(start: string, marker: string): string | null {
     let dir = start
-    // Cap the climb so a misconfigured build can never spin forever.
     for (let i = 0; i < 32; i++) {
         const candidate = path.join(dir, marker)
         try {
@@ -81,10 +106,9 @@ export function getPackageRoot(): string {
         }
         return cachedRoot
     }
-    const found = findAncestorContaining(__dirname, 'binary')
+    const found = findAncestorContaining(getAnchorDir(), 'binary')
     cachedRoot = found
     if (cachedRoot === null) {
-        // Reuse the same error path so the cached behaviour is consistent.
         return getPackageRoot()
     }
     return cachedRoot
@@ -100,7 +124,7 @@ export function getBinaryDir(): string {
 /**
  * Returns the absolute path of a specific binary inside `binary/`.
  *
- * Validates that the file exists and is executable. If not, raises an
+ * Validates that the file exists and is a regular file. If not, raises an
  * actionable error pointing the user at the multi-arch caveat: the SDK
  * currently ships a single Linux-x64 ELF binary; users on macOS arm64,
  * Linux arm64, or Windows must rebuild from source until per-platform
@@ -109,7 +133,7 @@ export function getBinaryDir(): string {
  */
 export function getBundledBinary(name: string): string {
     const candidate = path.join(getBinaryDir(), name)
-    let stats: fsTypes.Stats
+    let stats: fs.Stats
     try {
         stats = fs.statSync(candidate)
     } catch (err) {
