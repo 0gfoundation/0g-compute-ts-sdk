@@ -55,7 +55,8 @@ export async function calculateTokenSizeViaExe(
     await initNodeModules()
     const { download } = await safeDynamicImport()
 
-    const executorDir = path.join(__dirname, '..', '..', '..', '..', 'binary')
+    const binaryPathModule = await import('../zg-storage/binary-path')
+    const executorDir = binaryPathModule.getBinaryDir()
     const binaryFile = path.join(executorDir, 'token_counter')
 
     let needDownload = false
@@ -120,7 +121,8 @@ export async function calculateTokenSizeViaPython(
             }
         }
     }
-    const projectRoot = path.resolve(__dirname, '../../../../')
+    const binaryPathModule = await import('../zg-storage/binary-path')
+    const projectRoot = binaryPathModule.getPackageRoot()
     return await calculateTokenSize(
         tokenizerRootHash,
         datasetPath,

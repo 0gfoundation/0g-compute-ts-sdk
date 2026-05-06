@@ -1,11 +1,8 @@
-import {
-    INDEXER_URL_TESTNET_TURBO,
-    ZG_RPC_ENDPOINT_TESTNET,
-} from '../const'
+import { INDEXER_URL_TESTNET_TURBO, ZG_RPC_ENDPOINT_TESTNET } from '../const'
 import { spawn } from 'child_process'
-import path from 'path'
 import * as fs from 'fs/promises'
 import { logger } from '../../common/logger'
+import { getBundledBinary } from './binary-path'
 
 export interface StorageConfig {
     rpcUrl?: string
@@ -27,15 +24,7 @@ export async function upload(
         const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
         return new Promise((resolve, reject) => {
-            const command = path.join(
-                __dirname,
-                '..',
-                '..',
-                '..',
-                '..',
-                'binary',
-                '0g-storage-client'
-            )
+            const command = getBundledBinary('0g-storage-client')
             const args = [
                 'upload',
                 '--url',
@@ -65,9 +54,7 @@ export async function upload(
                 const output = data.toString()
                 logger.debug(output)
                 // Capture root hash from output: "file uploaded, root = 0x..."
-                const match = output.match(
-                    /root\s*=\s*(0x[0-9a-fA-F]+)/
-                )
+                const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/)
                 if (match) {
                     rootHash = match[1]
                 }
@@ -77,9 +64,7 @@ export async function upload(
                 const output = data.toString()
                 logger.warn(output)
                 // Also check stderr since some log output goes to stderr
-                const match = output.match(
-                    /root\s*=\s*(0x[0-9a-fA-F]+)/
-                )
+                const match = output.match(/root\s*=\s*(0x[0-9a-fA-F]+)/)
                 if (match) {
                     rootHash = match[1]
                 }
@@ -119,15 +104,7 @@ export async function download(
     const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
     return new Promise((resolve, reject) => {
-        const command = path.join(
-            __dirname,
-            '..',
-            '..',
-            '..',
-            '..',
-            'binary',
-            '0g-storage-client'
-        )
+        const command = getBundledBinary('0g-storage-client')
 
         const args = [
             'download',

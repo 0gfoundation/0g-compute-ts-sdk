@@ -1,7 +1,13 @@
 #!/usr/bin/env ts-node
 
 import type { Command } from 'commander'
-import { withFineTuningBroker, withBroker, withROBroker, neuronToA0gi, splitIntoChunks } from './util'
+import {
+    withFineTuningBroker,
+    withBroker,
+    withROBroker,
+    neuronToA0gi,
+    splitIntoChunks,
+} from './util'
 import Table from 'cli-table3'
 import chalk from 'chalk'
 import { ZG_RPC_ENDPOINT_TESTNET } from './const'
@@ -171,7 +177,9 @@ export default function fineTuning(program: Command) {
 
     program
         .command('calculate-token')
-        .description('Calculate token count (optional - for cost estimation only, no longer required for task creation)')
+        .description(
+            'Calculate token count (optional - for cost estimation only, no longer required for task creation)'
+        )
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .requiredOption(
             '--dataset-path <path>',
@@ -191,7 +199,9 @@ export default function fineTuning(program: Command) {
 
     program
         .command('create-task')
-        .description('Create a fine-tuning task (fee calculated automatically by broker)')
+        .description(
+            'Create a fine-tuning task (fee calculated automatically by broker)'
+        )
         .requiredOption('--provider <address>', 'Provider address for the task')
         .requiredOption('--model <name>', 'Pre-trained model name to use')
         .option('--dataset <hash>', 'Hash of the dataset (from 0G Storage)')
@@ -242,19 +252,32 @@ export default function fineTuning(program: Command) {
                         )
                         if (rootHash) {
                             datasetHash = rootHash
-                            console.log('Dataset uploaded to 0G Storage, root hash:', datasetHash)
+                            console.log(
+                                'Dataset uploaded to 0G Storage, root hash:',
+                                datasetHash
+                            )
                         } else {
-                            throw new Error('Upload succeeded but no root hash returned')
+                            throw new Error(
+                                'Upload succeeded but no root hash returned'
+                            )
                         }
                     } catch (storageErr) {
-                        console.warn(chalk.yellow(`\n⚠️  0G Storage upload failed: ${storageErr}`))
-                        console.log('Falling back to direct TEE upload...')
-                        const result = await broker.fineTuning!.uploadDatasetToTEE(
-                            options.provider,
-                            options.datasetPath
+                        console.warn(
+                            chalk.yellow(
+                                `\n⚠️  0G Storage upload failed: ${storageErr}`
+                            )
                         )
+                        console.log('Falling back to direct TEE upload...')
+                        const result =
+                            await broker.fineTuning!.uploadDatasetToTEE(
+                                options.provider,
+                                options.datasetPath
+                            )
                         datasetHash = result.datasetHash
-                        console.log('Dataset uploaded to TEE (fallback), hash:', datasetHash)
+                        console.log(
+                            'Dataset uploaded to TEE (fallback), hash:',
+                            datasetHash
+                        )
                     }
                 }
 
@@ -267,21 +290,38 @@ export default function fineTuning(program: Command) {
 
                 // Check account balance and warn if insufficient
                 try {
-                    const accountDetail = await broker.fineTuning!.getAccountWithDetail(
-                        options.provider
-                    )
-                    const availableBalance = accountDetail.account.balance - accountDetail.account.pendingRefund
+                    const accountDetail =
+                        await broker.fineTuning!.getAccountWithDetail(
+                            options.provider
+                        )
+                    const availableBalance =
+                        accountDetail.account.balance -
+                        accountDetail.account.pendingRefund
 
                     if (availableBalance <= BigInt(0)) {
-                        console.warn(chalk.yellow('\n⚠️  Warning: Your fine-tuning account balance is 0 or negative'))
-                        console.warn(chalk.yellow('   Please deposit funds before creating a task:'))
-                        console.warn(chalk.cyan(`   0g-compute-cli transfer-fund --provider ${options.provider} --service fine-tuning --amount <amount>\n`))
+                        console.warn(
+                            chalk.yellow(
+                                '\n⚠️  Warning: Your fine-tuning account balance is 0 or negative'
+                            )
+                        )
+                        console.warn(
+                            chalk.yellow(
+                                '   Please deposit funds before creating a task:'
+                            )
+                        )
+                        console.warn(
+                            chalk.cyan(
+                                `   0g-compute-cli transfer-fund --provider ${options.provider} --service fine-tuning --amount <amount>\n`
+                            )
+                        )
                     }
                 } catch (err) {
                     // Ignore balance check errors, proceed with task creation
                 }
 
-                console.log('Creating task (fee will be calculated automatically)...')
+                console.log(
+                    'Creating task (fee will be calculated automatically)...'
+                )
                 const taskId = await broker.fineTuning!.createTask(
                     options.provider,
                     options.model,
@@ -419,6 +459,10 @@ export default function fineTuning(program: Command) {
             'Base model name (required when using --deploy, e.g. Qwen2.5-0.5B-Instruct)'
         )
         .option(
+            '--inference-provider <address>',
+            'Inference provider address for --deploy (defaults to --provider if not specified)'
+        )
+        .option(
             '--deploy',
             'Also deploy the adapter to the inference GPU after acknowledging',
             false
@@ -426,9 +470,7 @@ export default function fineTuning(program: Command) {
         .action((options) => {
             if (options.deploy && !options.model) {
                 console.error(
-                    chalk.red(
-                        'Error: --model is required when using --deploy'
-                    )
+                    chalk.red('Error: --model is required when using --deploy')
                 )
                 process.exit(1)
             }
@@ -440,28 +482,62 @@ export default function fineTuning(program: Command) {
                     options.dataPath,
                     {
                         gasPrice: options.gasPrice,
-                        downloadMethod: (options.downloadMethod as
-                            | 'tee'
-                            | '0g-storage'
-                            | 'auto'
-                            | undefined) ?? 'auto',
+                        downloadMethod:
+                            (options.downloadMethod as
+                                | 'tee'
+                                | '0g-storage'
+                                | 'auto'
+                                | undefined) ?? 'auto',
                     }
                 )
                 console.log('Acknowledged model')
 
                 if (options.deploy) {
+                    const inferenceProvider =
+                        options.inferenceProvider || options.provider
                     console.log(
                         '\nWaiting for inference broker to download the adapter...'
                     )
                     await deployAdapterToBroker(
                         broker,
-                        options.provider,
+                        inferenceProvider,
                         options.model,
                         options.taskId,
                         true,
                         180
                     )
                 }
+            })
+        })
+
+    program
+        .command('acknowledge-deliverable')
+        .description(
+            'Acknowledge a delivered task on-chain WITHOUT downloading the model. ' +
+                'Escape hatch for unblocking a locked deliverable queue (see Bug #4 ' +
+                'in the May 2026 hackathon report). Prefer `acknowledge-model` for ' +
+                'the normal happy path.'
+        )
+        .requiredOption('--provider <address>', 'Provider address')
+        .requiredOption('--task-id <id>', 'Task ID to acknowledge')
+        .option('--rpc <url>', '0G Chain RPC endpoint')
+        .option('--ledger-ca <address>', 'Account (ledger) contract address')
+        .option('--inference-ca <address>', 'Inference contract address')
+        .option('--fine-tuning-ca <address>', 'Fine Tuning contract address')
+        .option('--gas-price <price>', 'Gas price for transactions')
+        .option('--max-gas-price <price>', 'Max gas price for transactions')
+        .option('--step <step>', 'Step for gas price adjustment')
+        .action((options) => {
+            withFineTuningBroker(options, async (broker) => {
+                await broker.fineTuning!.acknowledgeDeliverable(
+                    options.provider,
+                    options.taskId,
+                    options.gasPrice
+                )
+                console.log(
+                    `Acknowledged deliverable for task ${options.taskId}. ` +
+                        'Note: no model hash was verified by this call.'
+                )
             })
         })
 
@@ -623,10 +699,7 @@ export default function fineTuning(program: Command) {
         .description(
             'Deploy a downloaded LoRA adapter to the inference GPU (triggers vLLM loading)'
         )
-        .requiredOption(
-            '--provider <address>',
-            'Inference provider address'
-        )
+        .requiredOption('--provider <address>', 'Inference provider address')
         .option(
             '--adapter-name <name>',
             'LoRA adapter name (overrides --model + --task-id)'
@@ -714,10 +787,7 @@ export default function fineTuning(program: Command) {
             if (options.adapterName) {
                 adapterName = options.adapterName
             } else if (options.model && options.taskId) {
-                adapterName = makeAdapterName(
-                    options.model,
-                    options.taskId
-                )
+                adapterName = makeAdapterName(options.model, options.taskId)
             } else {
                 console.error(
                     chalk.red(
@@ -736,9 +806,7 @@ export default function fineTuning(program: Command) {
                     )
                 }
 
-                console.log(
-                    chalk.gray(`Adapter model name: ${adapterName}`)
-                )
+                console.log(chalk.gray(`Adapter model name: ${adapterName}`))
 
                 const resp = await broker.inference.chatWithFineTunedModel(
                     options.provider,
@@ -773,7 +841,11 @@ async function deployAdapterToBroker(
                 providerAddress: string,
                 baseModel: string,
                 taskId: string,
-                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+                options?: {
+                    wait?: boolean
+                    timeoutSeconds?: number
+                    onProgress?: (state: string) => void
+                }
             ) => Promise<{ message: string; adapterName?: string }>
             resolveAdapterName: (
                 providerAddress: string,
@@ -817,7 +889,11 @@ async function deployAdapterByName(
             deployAdapterByName: (
                 providerAddress: string,
                 adapterName: string,
-                options?: { wait?: boolean; timeoutSeconds?: number; onProgress?: (state: string) => void }
+                options?: {
+                    wait?: boolean
+                    timeoutSeconds?: number
+                    onProgress?: (state: string) => void
+                }
             ) => Promise<{ message: string; adapterName?: string }>
         }
     },
