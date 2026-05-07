@@ -48,7 +48,9 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
      */
     protected async getStorageConfig(): Promise<StorageConfig> {
         try {
-            const chainId = await this.contract.signer.provider?.getNetwork().then(n => n.chainId)
+            const chainId = await this.contract.signer.provider
+                ?.getNetwork()
+                .then((n) => n.chainId)
             const networkType = chainId ? getNetworkType(chainId) : 'unknown'
 
             if (networkType === 'mainnet') {
@@ -97,9 +99,7 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
                 taskId
             )
 
-            logger.debug(
-                `deliverable: ${deliverable.modelRootHash}`
-            )
+            logger.debug(`deliverable: ${deliverable.modelRootHash}`)
 
             if (!deliverable) {
                 throw new Error('No deliverable found')
@@ -137,16 +137,18 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
             } else if (downloadMethod === '0g-storage') {
                 // Download from 0G Storage with built-in hash verification
                 const storageConfig = await this.getStorageConfig()
-                await download(storageDownloadPath, deliverable.modelRootHash, storageConfig)
+                await download(
+                    storageDownloadPath,
+                    deliverable.modelRootHash,
+                    storageConfig
+                )
                 logger.info(
                     `Successfully downloaded model from 0G Storage to ${storageDownloadPath}`
                 )
             } else {
                 // Auto mode: try 0G Storage first, fallback to TEE
                 try {
-                    logger.info(
-                        'Downloading model from 0G Storage...'
-                    )
+                    logger.info('Downloading model from 0G Storage...')
                     const storageConfig = await this.getStorageConfig()
                     await download(
                         storageDownloadPath,
@@ -189,7 +191,85 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
     }
 
     /**
-     * Download model from 0G Storage (original method, for encrypted full model)
+     * Acknowledge a delivered task on-chain *without* downloading or
+     * verifying the model artifact.
+     *
+     * This is the escape hatch for the failure mode reported in the May
+     * 2026 hackathon bug report (Bug #4): a user retrieved a model via
+     * the legacy two-step `downloadModelFrom0GStorage` + `decryptModel`
+     * flow and forgot to call `acknowledgeModel`. Days later the artifact
+     * was garbage-collected from both 0G Storage and the TEE buffer, at
+     * which point `acknowledgeModel` could no longer succeed (it requires
+     * a successful download), and the user's deliverable queue was
+     * permanently locked — every subsequent `addDeliverable` reverted with
+     * "previous deliverable not acknowledged".
+     *
+     * Calling this method directly with the stuck task id releases the
+     * queue without requiring any artifact retrieval.
+     *
+     * Prefer `acknowledgeModel(...)` for the normal happy path; that
+     * function downloads, verifies the artifact hash, and then acks. Use
+     * `acknowledgeDeliverable` only when:
+     *   - the artifact is gone or you have already retrieved it offline, AND
+     *   - you accept that no on-chain hash verification is performed.
+     *
+     * @param providerAddress - Address of the provider who delivered the task
+     * @param taskId - The task id whose deliverable is to be acknowledged
+     * @param gasPrice - Optional gas price override for the on-chain transaction
+     */
+    async acknowledgeDeliverable(
+        providerAddress: string,
+        taskId: string,
+        gasPrice?: number
+    ): Promise<void> {
+        try {
+            const deliverable = await this.contract.getDeliverable(
+                providerAddress,
+                taskId
+            )
+            if (!deliverable) {
+                throw new Error(`No deliverable found for task ${taskId}`)
+            }
+            if (deliverable.acknowledged) {
+                logger.info(
+                    `Deliverable for task ${taskId} is already acknowledged on-chain — nothing to do.`
+                )
+                return
+            }
+
+            await this.contract.acknowledgeDeliverable(
+                providerAddress,
+                taskId,
+                gasPrice
+            )
+            logger.info(
+                `Acknowledged deliverable for task ${taskId} (provider ${providerAddress}). ` +
+                    'Note: no model hash was verified by this call. ' +
+                    'If you have not yet retrieved the artifact, call acknowledgeModel(...) instead.'
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
+     * Download the encrypted model file from 0G Storage.
+     *
+     * @deprecated For the normal retrieval flow prefer
+     * {@link ModelProcessor.acknowledgeModel} which downloads, verifies the
+     * on-chain model hash, and acknowledges the deliverable in one call.
+     *
+     * Calling this method on its own (without a subsequent
+     * {@link ModelProcessor.acknowledgeDeliverable} or
+     * {@link ModelProcessor.acknowledgeModel}) leaves the deliverable in an
+     * "unacknowledged" state on-chain. The provider contract then rejects
+     * any future `addDeliverable` for the same `(user, provider)` pair
+     * with "previous deliverable not acknowledged", permanently locking
+     * the user's queue. This is the May 2026 bug report's Bug #4 trigger.
+     *
+     * Use this method only as part of an advanced retrieval pipeline where
+     * you control acknowledgement separately, and remember to call
+     * `acknowledgeDeliverable(provider, taskId)` afterwards.
      */
     async downloadModelFrom0GStorage(
         providerAddress: string,
@@ -211,17 +291,18 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
             try {
                 const stats = await fs.stat(dataPath)
                 if (stats.isDirectory()) {
-                    downloadPath = path.join(
-                        dataPath,
-                        `model_${taskId}.bin`
-                    )
+                    downloadPath = path.join(dataPath, `model_${taskId}.bin`)
                 }
             } catch {
                 // Path doesn't exist yet, use as-is
             }
 
             const storageConfig = await this.getStorageConfig()
-            await download(downloadPath, deliverable.modelRootHash, storageConfig)
+            await download(
+                downloadPath,
+                deliverable.modelRootHash,
+                storageConfig
+            )
             logger.info(
                 `Successfully downloaded model from 0G Storage to ${downloadPath}`
             )
@@ -301,9 +382,7 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
                         `Hash mismatch for task ${taskId}: expected ${expectedHash}, got ${computedHash}`
                     )
                 } else {
-                    logger.info(
-                        `Hash verification passed for task ${taskId}`
-                    )
+                    logger.info(`Hash verification passed for task ${taskId}`)
                 }
             } else {
                 logger.info(
@@ -315,7 +394,7 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         }
     }
 
-        /**
+    /**
      * Decrypt a fine-tuned model after acknowledgement.
      * Uses the user's private key to decrypt the model encryption key,
      * then decrypts the model file.
@@ -336,10 +415,19 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
      * );
      * ```
      *
+     * @deprecated For the normal retrieval flow prefer
+     * {@link ModelProcessor.acknowledgeModel} which downloads, verifies, and
+     * acknowledges in one call. `decryptModel` is the second half of the
+     * legacy two-step pattern (`downloadModelFrom0GStorage` + `decryptModel`)
+     * — neither half acknowledges the deliverable on-chain. Forgetting the
+     * acknowledgement is what triggered Bug #4 in the May 2026 hackathon
+     * bug report, where a user's task queue became permanently locked.
+     *
      * @remarks
      * The model can only be decrypted after:
      * 1. The provider has delivered the encrypted model
-     * 2. The user has acknowledged the model (called acknowledgeModel)
+     * 2. The user has acknowledged the model (called acknowledgeModel
+     *    OR acknowledgeDeliverable)
      * 3. The provider has shared the encrypted decryption key
      */
     async decryptModel(
@@ -361,7 +449,15 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
             }
 
             if (!deliverable.acknowledged) {
-                throw new Error('Deliverable not acknowledged yet')
+                throw new Error(
+                    `Deliverable for task ${taskId} is not acknowledged yet. ` +
+                        'Call broker.fineTuning.acknowledgeModel(provider, taskId, dataPath) ' +
+                        '(preferred — downloads, verifies, and acks) ' +
+                        'or broker.fineTuning.acknowledgeDeliverable(provider, taskId) ' +
+                        '(if the artifact is no longer retrievable). ' +
+                        'Without acknowledgement the user queue stays locked and any future ' +
+                        'fine-tune task will fail with "previous deliverable not acknowledged".'
+                )
             }
 
             if (!deliverable.encryptedSecret) {

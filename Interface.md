@@ -39,6 +39,17 @@
     2. decrypt the encryptedSecret
     3. decrypt model with secret [TODO: Discuss LiuYuan]
 
+> **Note:** `acknowledgeModel` (step 10) is the only correct retrieval entry
+> point for the normal happy path — it downloads, verifies, and acknowledges
+> in one call. The lower-level `downloadModelFrom0GStorage` and `decryptModel`
+> helpers are kept for advanced flows but **do not** acknowledge the
+> deliverable on-chain. Forgetting the acknowledgement permanently locks
+> the user's task queue ("previous deliverable not acknowledged" revert on
+> the next `addDeliverable`). If the artifact is no longer retrievable, use
+> the escape hatch `acknowledgeDeliverable(provider, taskId)` (or the CLI
+> command `0g-compute-cli fine-tuning acknowledge-deliverable`) to release
+> the queue without artifact download.
+
 ### Code Structure
 
 #### util

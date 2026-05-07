@@ -312,6 +312,54 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
     }
 
     /**
+     * Acknowledge a delivered task on-chain *without* downloading the model.
+     *
+     * Escape hatch for the May 2026 hackathon bug report's Bug #4. If a
+     * user retrieved the artifact through some out-of-band path (e.g. the
+     * legacy `downloadModelFrom0GStorage` + `decryptModel` two-step) and
+     * then never called `acknowledgeModel`, every subsequent
+     * `addDeliverable` for the same `(user, provider)` pair will revert
+     * on-chain with "previous deliverable not acknowledged". After the
+     * artifact is garbage-collected from both 0G Storage and TEE buffers,
+     * `acknowledgeModel` itself can no longer succeed. Calling
+     * `acknowledgeDeliverable(provider, taskId)` directly releases the
+     * queue without requiring artifact retrieval.
+     *
+     * For the normal happy path always prefer {@link FineTuningBroker.acknowledgeModel}
+     * — it downloads, verifies the model hash, and acks in one step.
+     *
+     * @param providerAddress - The on-chain address of the provider that
+     *   served the task. Must be the same provider passed to
+     *   {@link FineTuningBroker.createTask} for `taskId`.
+     * @param taskId - The task identifier returned by
+     *   {@link FineTuningBroker.createTask}, in 0x-prefixed hex form.
+     * @param gasPrice - Optional gas price (wei) for the
+     *   `acknowledgeDeliverable` transaction. When omitted the broker uses
+     *   the network-suggested gas price.
+     * @returns A promise that resolves once the on-chain transaction has
+     *   been mined and the deliverable is acknowledged.
+     * @throws An `Error` formatted by `throwFormattedError` if the on-chain
+     *   call reverts (e.g. the deliverable is already acknowledged, the
+     *   task does not belong to the caller, or the provider has no pending
+     *   deliverable for the user).
+     */
+    public acknowledgeDeliverable = async (
+        providerAddress: string,
+        taskId: string,
+        gasPrice?: number
+    ): Promise<void> => {
+        try {
+            return await this.modelProcessor.acknowledgeDeliverable(
+                providerAddress,
+                taskId,
+                gasPrice
+            )
+        } catch (error) {
+            throwFormattedError(error)
+        }
+    }
+
+    /**
      * Download LoRA model directly from TEE
      */
     public downloadLoRAFromTEE = async (
@@ -350,7 +398,19 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
     }
 
     /**
-     * Download encrypted model from 0G Storage (for advanced use cases)
+     * Download encrypted model from 0G Storage (for advanced use cases).
+     *
+     * @deprecated Prefer {@link FineTuningBroker.acknowledgeModel}, which
+     * downloads, verifies the on-chain model hash, and acknowledges the
+     * deliverable in a single call. Calling this method on its own leaves
+     * the deliverable in an unacknowledged state on-chain — every
+     * subsequent `addDeliverable` for the same `(user, provider)` pair will
+     * then revert with "previous deliverable not acknowledged",
+     * permanently locking the user's task queue. This is the trigger for
+     * Bug #4 in the May 2026 hackathon report. If you must use this
+     * advanced path, ensure you call
+     * {@link FineTuningBroker.acknowledgeDeliverable} (or
+     * {@link FineTuningBroker.acknowledgeModel}) afterwards.
      */
     public downloadModelFrom0GStorage = async (
         providerAddress: string,
@@ -368,6 +428,18 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
         }
     }
 
+    /**
+     * Decrypt an already-downloaded encrypted model artifact.
+     *
+     * @deprecated Prefer {@link FineTuningBroker.acknowledgeModel}; that
+     * call downloads, verifies, and acks in one go and never leaves the
+     * deliverable in an unacknowledged state. Using `decryptModel` as the
+     * second half of the legacy two-step pattern (after
+     * `downloadModelFrom0GStorage`) does **not** acknowledge the
+     * deliverable on-chain — see {@link FineTuningBroker.downloadModelFrom0GStorage}
+     * for the queue-locking failure mode this caused in the May 2026 bug
+     * report (Bug #4).
+     */
     public decryptModel = async (
         providerAddress: string,
         taskId: string,
@@ -430,7 +502,11 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
         onLog?: (step: VerificationStep) => void
     ): Promise<VerificationResult> => {
         try {
-            return await this.verifier.verifyService(providerAddress, outputDir, onLog)
+            return await this.verifier.verifyService(
+                providerAddress,
+                outputDir,
+                onLog
+            )
         } catch (error) {
             throwFormattedError(error)
         }
