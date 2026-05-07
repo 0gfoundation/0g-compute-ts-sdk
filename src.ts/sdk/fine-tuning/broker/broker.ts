@@ -327,6 +327,21 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
      *
      * For the normal happy path always prefer {@link FineTuningBroker.acknowledgeModel}
      * — it downloads, verifies the model hash, and acks in one step.
+     *
+     * @param providerAddress - The on-chain address of the provider that
+     *   served the task. Must be the same provider passed to
+     *   {@link FineTuningBroker.createTask} for `taskId`.
+     * @param taskId - The task identifier returned by
+     *   {@link FineTuningBroker.createTask}, in 0x-prefixed hex form.
+     * @param gasPrice - Optional gas price (wei) for the
+     *   `acknowledgeDeliverable` transaction. When omitted the broker uses
+     *   the network-suggested gas price.
+     * @returns A promise that resolves once the on-chain transaction has
+     *   been mined and the deliverable is acknowledged.
+     * @throws An `Error` formatted by `throwFormattedError` if the on-chain
+     *   call reverts (e.g. the deliverable is already acknowledged, the
+     *   task does not belong to the caller, or the provider has no pending
+     *   deliverable for the user).
      */
     public acknowledgeDeliverable = async (
         providerAddress: string,

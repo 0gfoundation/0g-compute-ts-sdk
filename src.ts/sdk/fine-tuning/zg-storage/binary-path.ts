@@ -30,9 +30,22 @@
  *     Node 22+ refuses to load any ESM file containing `require()` calls
  *     mixed with top-level `await`, which would break SDK import for every
  *     ESM consumer of the package.
- *   - `__dirname` is read via `globalThis` so the static reference resolves
- *     in both CJS (where Node injects `__dirname` per module) and ESM
- *     (where `globalThis.__dirname` is `undefined` and we fall back).
+ *   - `__dirname` is module-scoped in CJS (Node injects it into each
+ *     module wrapper) and is provided in the ESM bundle via a banner
+ *     shim defined in `rollup.config.mjs` that derives it from
+ *     `import.meta.url` once at the top of `lib.esm/index.mjs`. This
+ *     guarantees the anchor lives inside the installed package
+ *     (`<pkg>/lib.esm/` for ESM, `<pkg>/lib.commonjs/.../zg-storage/`
+ *     for CJS) so the upward `findAncestorContaining` walk locates
+ *     `<pkg>/binary/` reliably regardless of the consumer's `cwd`.
+ *
+ *     The earlier `process.cwd()` fallback was incorrect for the ESM
+ *     case: from a downstream ESM consumer, `cwd` is the consumer's
+ *     project root and the SDK's `binary/` directory lives **below**
+ *     it inside `node_modules/`, so an upward walk would never find it.
+ *     The fallback is retained only as a defensive guard for unusual
+ *     bundlers that might strip the banner; in the standard rollup
+ *     output `__dirname` is always defined and the fallback is unused.
  */
 
 import * as fs from 'fs'
