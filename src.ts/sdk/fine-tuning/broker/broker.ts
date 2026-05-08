@@ -297,6 +297,18 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
         options?: {
             gasPrice?: number
             downloadMethod?: 'tee' | '0g-storage' | 'auto'
+            /**
+             * For the TEE download path: abort if no bytes are received for
+             * this many ms (default 60 000). This is an *idle* timeout, not
+             * a total-request timeout — large encrypted models legitimately
+             * stream for well over 5 minutes.
+             */
+            teeIdleTimeoutMs?: number
+            /**
+             * For the TEE download path: retry attempts on transient stream
+             * / 5xx errors (default 2 → 3 attempts total).
+             */
+            teeMaxRetries?: number
         }
     ): Promise<void> => {
         try {
@@ -360,18 +372,31 @@ export class FineTuningBroker extends ReadOnlyFineTuningBroker {
     }
 
     /**
-     * Download LoRA model directly from TEE
+     * Download LoRA model directly from TEE.
+     *
+     * @param options.idleTimeoutMs - Abort the download if no bytes are
+     *   received for this many ms (default 60 000). This is an idle
+     *   timeout — slow but live downloads are not killed. Tune up for
+     *   networks with long stalls; the broker has no total-request cap
+     *   on this path.
+     * @param options.maxRetries - Retry attempts on transient stream /
+     *   5xx errors (default 2 → 3 attempts total).
      */
     public downloadLoRAFromTEE = async (
         providerAddress: string,
         taskId: string,
-        outputPath: string
+        outputPath: string,
+        options?: {
+            idleTimeoutMs?: number
+            maxRetries?: number
+        }
     ): Promise<void> => {
         try {
             return await this.modelProcessor.downloadLoRAFromTEE(
                 providerAddress,
                 taskId,
-                outputPath
+                outputPath,
+                options
             )
         } catch (error) {
             throwFormattedError(error)
