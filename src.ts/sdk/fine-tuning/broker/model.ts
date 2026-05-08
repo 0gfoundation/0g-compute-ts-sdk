@@ -80,6 +80,13 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
      * @param options - Optional configuration
      * @param options.gasPrice - Gas price for the transaction
      * @param options.downloadMethod - Download method: 'auto' (default, try 0G Storage first then TEE fallback), 'tee', or '0g-storage'
+     * @param options.teeIdleTimeoutMs - For the TEE path: abort if no bytes
+     *   are received for this many ms (default 60 000). This is an *idle*
+     *   timeout, not a total-request timeout — large models stream fine even
+     *   when they take well over 5 minutes.
+     * @param options.teeMaxRetries - For the TEE path: number of retry
+     *   attempts on transient stream / 5xx errors (default 2 → 3 attempts
+     *   total).
      */
     async acknowledgeModel(
         providerAddress: string,
@@ -88,11 +95,17 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         options?: {
             gasPrice?: number
             downloadMethod?: 'tee' | '0g-storage' | 'auto'
+            teeIdleTimeoutMs?: number
+            teeMaxRetries?: number
         }
     ): Promise<void> {
         try {
             const gasPrice = options?.gasPrice
             const downloadMethod = options?.downloadMethod ?? 'auto'
+            const teeDownloadOptions = {
+                idleTimeoutMs: options?.teeIdleTimeoutMs,
+                maxRetries: options?.teeMaxRetries,
+            }
 
             const deliverable = await this.contract.getDeliverable(
                 providerAddress,
@@ -124,7 +137,8 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
                 await this.servingProvider.downloadLoRAFromTEE(
                     providerAddress,
                     taskId,
-                    dataPath
+                    dataPath,
+                    teeDownloadOptions
                 )
                 logger.info('Successfully downloaded LoRA model from TEE')
 
@@ -165,7 +179,8 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
                     await this.servingProvider.downloadLoRAFromTEE(
                         providerAddress,
                         taskId,
-                        dataPath
+                        dataPath,
+                        teeDownloadOptions
                     )
                     logger.info(
                         'Successfully downloaded LoRA model from TEE (fallback)'
@@ -312,19 +327,30 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
     }
 
     /**
-     * Download LoRA model directly from TEE (without acknowledge)
-     * Use this when you only want to download the trained LoRA adapter
+     * Download LoRA model directly from TEE (without acknowledge).
+     * Use this when you only want to download the trained LoRA adapter.
+     *
+     * @param options.idleTimeoutMs - Abort the download if no bytes are
+     *   received for this many ms (default 60 000). This is an idle
+     *   timeout — slow but live downloads are not killed.
+     * @param options.maxRetries - Retry attempts on transient stream /
+     *   5xx errors (default 2 → 3 attempts total).
      */
     async downloadLoRAFromTEE(
         providerAddress: string,
         taskId: string,
-        outputPath: string
+        outputPath: string,
+        options?: {
+            idleTimeoutMs?: number
+            maxRetries?: number
+        }
     ): Promise<void> {
         try {
             await this.servingProvider.downloadLoRAFromTEE(
                 providerAddress,
                 taskId,
-                outputPath
+                outputPath,
+                options
             )
         } catch (error) {
             throwFormattedError(error)

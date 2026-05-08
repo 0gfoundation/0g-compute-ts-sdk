@@ -60,6 +60,7 @@ export default [
             'os',
             'crypto',
             'readline',
+            'stream/promises',
         ],
     },
     {

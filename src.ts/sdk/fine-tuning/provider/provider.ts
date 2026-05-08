@@ -1,8 +1,11 @@
 import type { FineTuningServingContract } from '../contract'
 import axios from 'axios'
 import { ethers } from 'ethers'
+import { createWriteStream } from 'fs'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import type { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 import { throwFormattedError, signDatasetUpload } from '../../common/utils'
 
 export interface Task {
@@ -279,33 +282,67 @@ export class Provider {
     }
 
     /**
-     * Download LoRA model directly from TEE
-     * This is a fallback when 0G Storage download fails
-     * Requires authentication via signature with timestamp to prevent replay attacks
+     * Download LoRA model directly from TEE.
+     *
+     * This is a fallback when 0G Storage download fails. Requires
+     * authentication via signature with timestamp to prevent replay
+     * attacks.
+     *
+     * Implementation notes (May 2026 hackathon report Bug #7):
+     *
+     * - Streams the response straight to disk via `pipeline()` rather than
+     *   buffering the whole encrypted artifact in memory. Large fine-tuned
+     *   bases (e.g. Qwen3-32B → ~1.1 GB encrypted) used to OOM the host
+     *   before they hit any timeout.
+     *
+     * - Has **no total-request timeout**. The previous `timeout: 300000`
+     *   axios setting was a request-wall-clock cap, not an idleness cap, so
+     *   any model that legitimately took longer than 5 minutes to stream
+     *   would die with `stream has been aborted` regardless of whether
+     *   bytes were still flowing. Instead this method enforces an *idle*
+     *   timeout (`options.idleTimeoutMs`, default 60 s) that resets on
+     *   every data chunk: a stalled connection is still aborted, but a
+     *   slow-but-live one is not.
+     *
+     * - Retries on transient stream / 5xx failures up to
+     *   `options.maxRetries` (default 2 → 3 attempts total) with
+     *   exponential backoff. Each attempt re-signs because the broker only
+     *   accepts signatures whose timestamp is within 5 minutes; a long
+     *   first attempt could otherwise push the retry past validity.
+     *   4xx responses (auth, not-found, etc.) are not retried.
+     *
+     * - Currently re-fetches from byte 0 on each retry. Range-resume is a
+     *   straightforward follow-up but requires server-side validation of
+     *   `Range` against `POST /lora` (the broker's `ctx.File` already
+     *   supports it via `http.ServeFile`); deferred to keep this fix
+     *   focused.
      */
     async downloadLoRAFromTEE(
         providerAddress: string,
         taskId: string,
-        outputPath: string
+        outputPath: string,
+        options?: {
+            /**
+             * Abort the download if no bytes are received for this many
+             * milliseconds. Defaults to 60 000 (60 s). This is an *idle*
+             * timeout — a slow but live download is not killed.
+             */
+            idleTimeoutMs?: number
+            /**
+             * Number of retry attempts on transient stream / 5xx errors.
+             * Defaults to 2 (so up to 3 attempts). 4xx responses are not
+             * retried.
+             */
+            maxRetries?: number
+        }
     ): Promise<void> {
+        const idleTimeoutMs = options?.idleTimeoutMs ?? 60_000
+        const maxRetries = options?.maxRetries ?? 2
+
         try {
             const url = await this.getProviderUrl(providerAddress)
             const userAddress = this.contract.getUserAddress()
-
-            // Generate timestamp and signature for authentication
-            // Prevents replay attacks by binding signature to current time
-            const timestamp = Math.floor(Date.now() / 1000)
-
-            // Get binary representation of taskID
             const taskIdBytes = '0x' + taskId.replace(/-/g, '')
-
-            // Create message: keccak256(taskIDHex + timestamp)
-            const message = `${taskIdBytes.slice(2)}${timestamp}`
-            const hash = ethers.keccak256(ethers.toUtf8Bytes(message))
-            const signature = await this.contract.signer.signMessage(
-                ethers.toBeArray(hash)
-            )
-
             const endpoint = `${url}/v1/user/${userAddress}/task/${taskId}/lora`
 
             let destFile = outputPath
@@ -315,41 +352,112 @@ export class Provider {
                     destFile = path.join(outputPath, `lora_model_${taskId}.zip`)
                 }
             } catch (err) {
-                // outputPath doesn't exist or is not accessible, use it as the file path
+                // outputPath doesn't exist yet, use it as the file path
             }
 
-            // Remove existing file if exists
-            try {
-                await fs.access(destFile)
-                await fs.unlink(destFile)
-            } catch (err: any) {
-                // File doesn't exist (ENOENT) is fine, other errors should be noted
-                if (err.code && err.code !== 'ENOENT') {
-                    console.warn(
-                        `Warning: Could not remove existing file: ${err.message}`
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                // Re-sign on every attempt: the broker only accepts
+                // signatures whose timestamp is within 5 minutes, and a
+                // slow first attempt may push us past that on retry.
+                const timestamp = Math.floor(Date.now() / 1000)
+                const message = `${taskIdBytes.slice(2)}${timestamp}`
+                const hash = ethers.keccak256(ethers.toUtf8Bytes(message))
+                const signature = await this.contract.signer.signMessage(
+                    ethers.toBeArray(hash)
+                )
+
+                // Truncate any partial output from a previous attempt so
+                // we don't end up with a concatenated half-file.
+                try {
+                    await fs.unlink(destFile)
+                } catch (err: any) {
+                    if (err.code && err.code !== 'ENOENT') {
+                        console.warn(
+                            `Warning: could not remove existing file: ${err.message}`
+                        )
+                    }
+                }
+
+                const attemptLabel =
+                    maxRetries > 0
+                        ? ` (attempt ${attempt + 1}/${maxRetries + 1})`
+                        : ''
+                console.log(
+                    `Downloading LoRA model from TEE: ${endpoint}${attemptLabel}`
+                )
+
+                // Idle-timeout watchdog: AbortController is reset on every
+                // chunk. Portable across Node http/https and any axios
+                // adapter (no socket poking).
+                const controller = new AbortController()
+                let lastChunkAt = Date.now()
+                let bytesReceived = 0
+                const watchdog = setInterval(
+                    () => {
+                        if (Date.now() - lastChunkAt > idleTimeoutMs) {
+                            controller.abort()
+                        }
+                    },
+                    Math.min(Math.max(idleTimeoutMs / 4, 1_000), 5_000)
+                )
+
+                try {
+                    const response = await axios({
+                        method: 'post',
+                        url: endpoint,
+                        data: { signature, timestamp },
+                        responseType: 'stream',
+                        // No request-wall-clock timeout — see the doc
+                        // comment above. The interval above enforces idle.
+                        timeout: 0,
+                        maxContentLength: Infinity,
+                        maxBodyLength: Infinity,
+                        signal: controller.signal,
+                    })
+
+                    const stream: Readable = response.data
+                    stream.on('data', (chunk: Buffer) => {
+                        bytesReceived += chunk.length
+                        lastChunkAt = Date.now()
+                    })
+
+                    const writer = createWriteStream(destFile)
+                    await pipeline(stream, writer)
+
+                    console.log(
+                        `LoRA model downloaded from TEE and saved to ${destFile} ` +
+                            `(${bytesReceived} bytes)`
                     )
+                    return
+                } catch (err: any) {
+                    const status = err?.response?.status
+                    // Permanent client errors should not be retried.
+                    if (
+                        status &&
+                        status >= 400 &&
+                        status < 500 &&
+                        status !== 408
+                    ) {
+                        throw err
+                    }
+                    if (attempt >= maxRetries) {
+                        throw new Error(
+                            `TEE download failed after ${maxRetries + 1} attempt(s) ` +
+                                `(${bytesReceived} bytes received before failure): ` +
+                                `${err?.message ?? err}`
+                        )
+                    }
+                    const backoffMs = Math.min(2_000 * 2 ** attempt, 30_000)
+                    console.warn(
+                        `TEE download attempt ${attempt + 1} failed at ` +
+                            `${bytesReceived} bytes (${err?.message ?? err}). ` +
+                            `Retrying in ${backoffMs}ms...`
+                    )
+                    await new Promise((r) => setTimeout(r, backoffMs))
+                } finally {
+                    clearInterval(watchdog)
                 }
             }
-
-            console.log(
-                `Downloading LoRA model from TEE: ${url}/v1/user/${userAddress}/task/${taskId}/lora`
-            )
-
-            const response = await axios({
-                method: 'post',
-                url: endpoint,
-                data: {
-                    signature,
-                    timestamp, // Include timestamp to prevent replay attacks
-                },
-                responseType: 'arraybuffer',
-                timeout: 300000, // 5 minutes timeout for large files
-            })
-
-            await fs.writeFile(destFile, response.data)
-            console.log(
-                `LoRA model downloaded from TEE and saved to ${destFile}`
-            )
         } catch (error: any) {
             if (error.response) {
                 throw new Error(
