@@ -104,6 +104,16 @@ export interface ProviderModelInfo {
         completion?: string
         /** USD price per generated image (image services) */
         image?: string
+        /** Tiered pricing tiers based on input token count */
+        tiered_pricing?: Array<{
+            max_input_tokens: number
+            input_multiplier: number
+            output_multiplier: number
+        }>
+        /** Cache token billing configuration */
+        cache_token_billing?: {
+            divisor: number
+        }
     }
     /** ISO 8601 date string indicating when this model will no longer be served */
     expiration_date?: string
