@@ -249,21 +249,6 @@ export function parseCacheTokenBillingFromModelInfo(
 }
 
 /**
- * Price feed state returned by the status API at /models.
- * Reports the conversion rate from native token to USD plus freshness metadata.
- */
-export interface PriceFeedState {
-    /** Conversion rate: USD per 1 OG (decimal string) */
-    rate_usd_per_og?: string
-    /** ISO 8601 timestamp of the last successful update */
-    updated_at?: string
-    /** ISO 8601 timestamp of the next scheduled update */
-    next_update_time?: string
-    /** Whether the rate is considered stale (e.g. update failed or expired) */
-    is_stale?: boolean
-}
-
-/**
  * Service information with optional health metrics and provider model info
  */
 export interface ServiceWithDetail {
@@ -447,27 +432,6 @@ export class ReadOnlyModelProcessor {
             return servicesWithDetail
         } catch (error) {
             throwFormattedError(error)
-        }
-    }
-
-    /**
-     * Fetch the OG/USD price feed state from the status API's /models endpoint.
-     * Returns undefined if the endpoint is unreachable or doesn't include price_feed.
-     */
-    async getPriceFeed(): Promise<PriceFeedState | undefined> {
-        try {
-            const chainId = await this.contract.getChainId()
-            const statusApiEndpoint = this.getStatusApiEndpoint(chainId)
-            const r = await axios.get(`${statusApiEndpoint}/models`, {
-                timeout: 10000,
-            })
-            const feed = r.data?.price_feed
-            if (feed && typeof feed === 'object') {
-                return feed as PriceFeedState
-            }
-            return undefined
-        } catch {
-            return undefined
         }
     }
 
