@@ -22,6 +22,7 @@ const nextConfig = {
                 tls: false,
                 child_process: false,
                 'fs/promises': false,
+                'stream/promises': false,
                 readline: false,
                 crypto: require.resolve('crypto-browserify'),
                 stream: require.resolve('stream-browserify'),

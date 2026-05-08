@@ -17,12 +17,27 @@ import nodePolyfills from 'rollup-plugin-polyfill-node'
 // installed package (`<pkg>/lib.esm/`) and `findAncestorContaining`
 // correctly resolves `<pkg>/binary/` one level up.
 //
-// See PR #208 review feedback (Bug Report — May 2026, Bug #1).
+// Banner runs at module init in every consumer environment, including
+// browser bundlers. Importing from `url`/`path` here is a trap: browser
+// polyfills like `url@0.11.x` don't expose `fileURLToPath`, so any call
+// crashes on load. Worse, webpack/terser statically infer the `url`
+// module shape and fold away both `typeof` guards and `try/catch` blocks
+// around the call, so defensive wrappers don't survive minification.
+//
+// We avoid the imports entirely and derive `__filename`/`__dirname` from
+// `import.meta.url` with pure string ops:
+//   - In Node ESM (`file:///abs/path/to/lib.esm/index.mjs`) the strip /
+//     drive-letter regex matches what `fileURLToPath` produces.
+//   - In browser bundles, `binary-path.ts` is never invoked, so the
+//     baked-in build-machine path is harmless.
+//
+// See PR #208 review feedback (Bug Report — May 2026, Bug #1) and the
+// follow-up browser-compat issue surfaced by the v0.8.2 web-ui build.
 const esmDirnameShim = [
-    "import { fileURLToPath as __zg_fileURLToPath } from 'url'",
-    "import { dirname as __zg_dirname } from 'path'",
-    'const __filename = __zg_fileURLToPath(import.meta.url)',
-    'const __dirname = __zg_dirname(__filename)',
+    "const __filename = (typeof import.meta !== 'undefined' && typeof import.meta.url === 'string')",
+    "    ? decodeURI(import.meta.url.replace(/^file:\\/\\//, '').replace(/^\\/([A-Za-z]:)/, '$1'))",
+    "    : ''",
+    "const __dirname = __filename ? __filename.replace(/[\\/\\\\][^\\/\\\\]*$/, '') : ''",
 ].join('\n')
 
 export default [
