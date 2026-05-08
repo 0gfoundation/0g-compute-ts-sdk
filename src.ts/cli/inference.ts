@@ -328,7 +328,7 @@ export default function inference(program: Command) {
                         }
                     }
 
-                    const pricingUSD = modelInfo?.pricingUSD
+                    const pricingUSD = modelInfo?.pricing_usd
                     if (pricingUSD) {
                         if (!isImageService && pricingUSD.prompt) {
                             table.push(['Input Price Per Token (USD)', pricingUSD.prompt])
