@@ -93,6 +93,28 @@ export interface ProviderModelInfo {
             divisor: number
         }
     }
+    /**
+     * Pricing expressed in USD. Values are decimal strings (e.g. "0.000000175").
+     * Returned by the status API alongside `pricing` (which is in native token units).
+     */
+    pricing_usd?: {
+        /** USD price per prompt token */
+        prompt?: string
+        /** USD price per completion token */
+        completion?: string
+        /** USD price per generated image (image services) */
+        image?: string
+        /** Tiered pricing tiers based on input token count */
+        tiered_pricing?: Array<{
+            max_input_tokens: number
+            input_multiplier: number
+            output_multiplier: number
+        }>
+        /** Cache token billing configuration */
+        cache_token_billing?: {
+            divisor: number
+        }
+    }
     /** ISO 8601 date string indicating when this model will no longer be served */
     expiration_date?: string
     verifiability?: string

@@ -327,6 +327,22 @@ export default function inference(program: Command) {
                             table.push(['Cache Hit Price Per Token (0G)', cacheHitPrice])
                         }
                     }
+
+                    const pricingUSD = modelInfo?.pricing_usd
+                    if (pricingUSD) {
+                        if (!isImageService && pricingUSD.prompt) {
+                            table.push(['Input Price Per Token (USD)', pricingUSD.prompt])
+                        }
+                        if (pricingUSD.image) {
+                            table.push(['Price Per Image (USD)', pricingUSD.image])
+                        } else if (pricingUSD.completion) {
+                            const usdLabel = isImageService
+                                ? 'Price Per Image (USD)'
+                                : 'Output Price Per Token (USD)'
+                            table.push([usdLabel, pricingUSD.completion])
+                        }
+                    }
+
                     table.push([
                         'Verifiability',
                         service.verifiability || 'N/A',
