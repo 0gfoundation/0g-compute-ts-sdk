@@ -4,7 +4,6 @@ import type { Extractor } from '../extractor'
 import type { ServiceStructOutput } from '../contract'
 import type { ServingRequestHeaders } from './request'
 import { throwFormattedError } from '../../common/utils'
-import * as fs from 'fs/promises'
 import type { Cache, Metadata } from '../../common/storage'
 import {
     CacheValueTypeEnum,
@@ -199,6 +198,9 @@ export abstract class ZGServingUserBrokerBase {
                 method: 'GET',
             })
 
+            // Lazy-load `fs/promises` so browser bundlers don't statically
+            // validate it against the package.json `"browser"` empty stub.
+            const fs = await import('fs/promises')
             await fs.writeFile(outputPath, quoteString)
         } catch (error) {
             throwFormattedError(error)
