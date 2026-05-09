@@ -1,6 +1,6 @@
 {
     "name": "@0gfoundation/0g-compute-ts-sdk",
-    "version": "0.8.3",
+    "version": "0.8.3-beta.0",
     "description": "TS SDK for 0G Compute Network",
     "main": "./lib.commonjs/index.js",
     "bin": {
@@ -29,6 +29,12 @@
         "crypto": "crypto-browserify",
         "stream": "stream-browserify",
         "fs": false,
+        "fs/promises": false,
+        "stream/promises": false,
+        "child_process": false,
+        "net": false,
+        "tls": false,
+        "readline": false,
         "path": false,
         "os": false
     },

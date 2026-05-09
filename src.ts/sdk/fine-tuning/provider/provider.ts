@@ -1,11 +1,21 @@
 import type { FineTuningServingContract } from '../contract'
 import axios from 'axios'
 import { ethers } from 'ethers'
-import * as fs from 'fs/promises'
-import * as path from 'path'
 import type { Readable } from 'stream'
-import { pipeline } from 'stream/promises'
 import { throwFormattedError, signDatasetUpload } from '../../common/utils'
+
+// Node-only built-ins (`fs/promises`, `path`, `stream/promises`) are loaded
+// lazily inside the methods that need them. Browser bundlers (Webpack 5,
+// Turbopack, Vite) statically validate the named-export shape of any
+// top-level `import { ... } from '<builtin>'` against the browser stub
+// produced by the package.json `"browser"` map, and raise build errors
+// such as "Export pipeline doesn't exist in target module" even when the
+// code path never runs in a browser. Hiding these imports behind
+// `await import(...)` defers resolution to runtime; on Node the behaviour
+// is identical, while in the browser the empty-stub namespace is silently
+// returned and never accessed (every caller below sits in a fine-tuning
+// path that only executes on Node). Mirrors the approach taken in PR #216
+// for `fs` and binary-path.ts.
 
 export interface Task {
     readonly id?: string
@@ -254,6 +264,9 @@ export class Provider {
         outputPath: string
     ): Promise<void> {
         try {
+            const fs = await import('fs/promises')
+            const path = await import('path')
+
             const url = await this.getProviderUrl(providerAddress)
             const endpoint = `${url}/v1/model/desc/${moduleName}`
 
@@ -339,6 +352,10 @@ export class Provider {
         const maxRetries = options?.maxRetries ?? 2
 
         try {
+            const fs = await import('fs/promises')
+            const path = await import('path')
+            const { pipeline } = await import('stream/promises')
+
             const url = await this.getProviderUrl(providerAddress)
             const userAddress = this.contract.getUserAddress()
             const taskIdBytes = '0x' + taskId.replace(/-/g, '')
@@ -499,6 +516,9 @@ export class Provider {
         }
     ): Promise<{ datasetHash: string; message: string }> {
         try {
+            const fs = await import('fs/promises')
+            const path = await import('path')
+
             const maxFileSizeMB = options?.maxFileSizeMB ?? 100
             const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024
 

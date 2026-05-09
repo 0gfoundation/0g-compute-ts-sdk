@@ -70,34 +70,46 @@ jobs:
             - name: Build SDK
               run: pnpm build
 
-            - name: Static regression assertion (no top-level named/namespace `'fs'` imports)
+            - name: Static regression assertion (no top-level Node-only named/namespace imports)
               # Catches the same class of bug as the Turbopack build below
               # but runs in milliseconds and is robust against future
-              # Turbopack behaviour changes. The pattern blocks:
-              #   - `import { … } from 'fs'`        (named imports)
-              #   - `import * as x from 'fs'`        (namespace imports)
-              # These are the import shapes that fail strict ESM named-
-              # export validation when `'fs'` is stubbed to an empty module.
-              # Default imports (`import x from 'fs'`) are NOT blocked: they
-              # bind to the stub's `default` export and survive bundling
-              # (this is what the bundled `adm-zip` dep relies on).
-              # `'fs/promises'`, `'node:fs'`, and other Node specifiers are
-              # also NOT blocked — they are tolerated by the fixture's
-              # permissive CJS stubs and out of scope for this regression.
-              # If you want to add a new top-level named or namespace import
-              # of `'fs'` to the SDK, defer it to runtime via
-              # `await import('fs')` inside an async function instead.
+              # Turbopack behaviour changes.
+              #
+              # Blocks any top-level **named** or **namespace** import of a
+              # Node-only built-in in the SDK ESM bundle:
+              #
+              #   - `import { foo } from 'fs/promises'`   (named)
+              #   - `import * as x from 'fs/promises'`    (namespace)
+              #
+              # These are the shapes that fail strict ESM named-export
+              # validation (Turbopack/Vite/strict Webpack) when the
+              # specifier is stubbed to an empty module via the
+              # package.json `"browser"` map.
+              #
+              # **Default** imports (`import x from 'fs/promises'`) are NOT
+              # blocked: they bind to the stub's `default` export and
+              # survive bundling. This is the shape that bundled
+              # third-party deps like `adm-zip` rely on (it does
+              # `import path from 'path'`), and at runtime browser code
+              # never reaches the call sites.
+              #
+              # Specifiers covered: `fs`, `fs/promises`, `stream/promises`,
+              # `child_process`, `path`, `os`, `net`, `tls`, `readline`.
+              # `crypto` and `stream` are intentionally NOT covered — the
+              # SDK maps them to real browser polyfills (crypto-browserify
+              # / stream-browserify), so top-level imports there are fine.
               run: |
                   set -eu
-                  echo "Scanning lib.esm/ for forbidden top-level 'fs' imports..."
-                  if grep -nE "^import (\{[^}]*\}|\* as [a-zA-Z_\$][a-zA-Z0-9_\$]*) from 'fs';" lib.esm/*.js; then
+                  FORBIDDEN_RE="^import (\{[^}]*\}|\* as [a-zA-Z_\$][a-zA-Z0-9_\$]*) from '(fs(/promises)?|stream/promises|child_process|path|os|net|tls|readline)';"
+                  echo "Scanning lib.esm/ for forbidden top-level Node-only named/namespace imports..."
+                  if grep -nEH "$FORBIDDEN_RE" lib.esm/*.js; then
                       echo ""
-                      echo "::error::Found top-level named/namespace import from 'fs' in the SDK ESM bundle."
-                      echo "::error::These break browser bundlers (Turbopack/Vite/strict Webpack) that stub 'fs' to an empty module."
-                      echo "::error::Defer the import to runtime: \`const { foo } = await import('fs')\` inside an async function."
+                      echo "::error::Found top-level named or namespace import of a Node-only built-in in the SDK ESM bundle."
+                      echo "::error::These break browser bundlers (Turbopack/Vite/strict Webpack) that stub the specifier to an empty module."
+                      echo "::error::Defer to runtime: \`const x = await import('<specifier>')\` inside an async function."
                       exit 1
                   fi
-                  echo "OK — no forbidden top-level 'fs' imports found."
+                  echo "OK — no forbidden top-level Node-only named/namespace imports found."
 
             - name: Install fixture dependencies
               working-directory: tests/web-bundler-app

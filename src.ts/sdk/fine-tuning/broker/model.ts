@@ -17,9 +17,12 @@ import type { LedgerBroker } from '../../ledger'
 import type { Provider } from '../provider/provider'
 import { logger } from '../../common/logger'
 import { ethers } from 'ethers'
-import fs from 'fs/promises'
-import path from 'path'
 import { getNetworkType } from '../../constants'
+
+// `fs/promises` and `path` are loaded lazily inside the async helpers below;
+// see the comment in src.ts/sdk/fine-tuning/provider/provider.ts for the
+// rationale (browser bundlers statically validate top-level Node-builtin
+// imports against the package.json `"browser"` empty stub).
 
 /**
  * ModelProcessor handles model-related operations including listing available models,
@@ -100,6 +103,9 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         }
     ): Promise<void> {
         try {
+            const fs = await import('fs/promises')
+            const path = await import('path')
+
             const gasPrice = options?.gasPrice
             const downloadMethod = options?.downloadMethod ?? 'auto'
             const teeDownloadOptions = {
@@ -292,6 +298,9 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         dataPath: string
     ): Promise<void> {
         try {
+            const fs = await import('fs/promises')
+            const path = await import('path')
+
             const deliverable = await this.contract.getDeliverable(
                 providerAddress,
                 taskId
@@ -366,6 +375,8 @@ export class ModelProcessor extends ReadOnlyModelProcessor {
         expectedHash: string
     ): Promise<void> {
         try {
+            const fs = await import('fs/promises')
+
             let actualFile = filePath
             try {
                 const stats = await fs.stat(filePath)

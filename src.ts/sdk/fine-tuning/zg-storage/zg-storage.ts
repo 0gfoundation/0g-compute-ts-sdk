@@ -1,8 +1,9 @@
 import { INDEXER_URL_TESTNET_TURBO, ZG_RPC_ENDPOINT_TESTNET } from '../const'
-import { spawn } from 'child_process'
-import * as fs from 'fs/promises'
 import { logger } from '../../common/logger'
 import { getBundledBinary } from './binary-path'
+
+// `child_process` and `fs/promises` are loaded lazily inside the helpers
+// below; see src.ts/sdk/fine-tuning/provider/provider.ts for the rationale.
 
 export interface StorageConfig {
     rpcUrl?: string
@@ -17,6 +18,8 @@ export async function upload(
     config?: StorageConfig
 ): Promise<string> {
     try {
+        const { spawn } = await import('child_process')
+
         const fileSize = await getFileContentSize(dataPath)
 
         // Use provided config or default to testnet
@@ -100,6 +103,8 @@ export async function download(
     dataRoot: string,
     config?: StorageConfig
 ): Promise<void> {
+    const { spawn } = await import('child_process')
+
     // Use provided config or default to testnet
     const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
@@ -155,6 +160,7 @@ export async function download(
 
 async function getFileContentSize(filePath: string): Promise<number> {
     try {
+        const fs = await import('fs/promises')
         const fileHandle = await fs.open(filePath, 'r')
         try {
             const stats = await fileHandle.stat()
