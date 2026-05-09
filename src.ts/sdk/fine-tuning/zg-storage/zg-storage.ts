@@ -23,8 +23,8 @@ export async function upload(
         const rpcUrl = config?.rpcUrl || ZG_RPC_ENDPOINT_TESTNET
         const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
+        const command = await getBundledBinary('0g-storage-client')
         return new Promise((resolve, reject) => {
-            const command = getBundledBinary('0g-storage-client')
             const args = [
                 'upload',
                 '--url',
@@ -103,9 +103,8 @@ export async function download(
     // Use provided config or default to testnet
     const indexerUrl = config?.indexerUrl || INDEXER_URL_TESTNET_TURBO
 
+    const command = await getBundledBinary('0g-storage-client')
     return new Promise((resolve, reject) => {
-        const command = getBundledBinary('0g-storage-client')
-
         const args = [
             'download',
             '--file',
