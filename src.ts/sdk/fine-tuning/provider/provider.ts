@@ -1,7 +1,6 @@
 import type { FineTuningServingContract } from '../contract'
 import axios from 'axios'
 import { ethers } from 'ethers'
-import { createWriteStream } from 'fs'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import type { Readable } from 'stream'
@@ -421,6 +420,7 @@ export class Provider {
                         lastChunkAt = Date.now()
                     })
 
+                    const { createWriteStream } = await import('fs')
                     const writer = createWriteStream(destFile)
                     await pipeline(stream, writer)
 

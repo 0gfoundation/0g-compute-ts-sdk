@@ -48,8 +48,17 @@
  *     output `__dirname` is always defined and the fallback is unused.
  */
 
-import * as fs from 'fs'
-import * as path from 'path'
+// `fs` and `path` are loaded lazily inside the async helpers below rather
+// than via top-level static imports. Browser bundlers (Webpack, Turbopack,
+// Vite) statically analyse the top-level `import`s of any module reachable
+// from the SDK entry; with the SDK's `package.json` `"browser": { "fs": false,
+// "path": false }` mapping they stub the modules to empty objects and then
+// raise "Export statSync doesn't exist in target module" on the static
+// `fs.statSync(...)` access. Dynamic `await import('fs')` inside a function
+// that only ever runs on Node (this whole module is gated behind the
+// fine-tuning binary-execution paths) sidesteps that analysis while keeping
+// the actual Node behaviour identical.
+import type { Stats } from 'fs'
 
 /**
  * Best-effort directory anchor for the running module.
@@ -77,7 +86,12 @@ function getAnchorDir(): string {
  * named `marker`. Returns the absolute path of the ancestor, or `null` if
  * no such ancestor exists before reaching the filesystem root.
  */
-function findAncestorContaining(start: string, marker: string): string | null {
+async function findAncestorContaining(
+    start: string,
+    marker: string
+): Promise<string | null> {
+    const fs = await import('fs')
+    const path = await import('path')
     let dir = start
     for (let i = 0; i < 32; i++) {
         const candidate = path.join(dir, marker)
@@ -107,7 +121,7 @@ let cachedRoot: string | null | undefined
  * installed without the binary, e.g. someone copied only `lib.commonjs/`
  * out of `node_modules`).
  */
-export function getPackageRoot(): string {
+export async function getPackageRoot(): Promise<string> {
     if (cachedRoot !== undefined) {
         if (cachedRoot === null) {
             throw new Error(
@@ -119,7 +133,7 @@ export function getPackageRoot(): string {
         }
         return cachedRoot
     }
-    const found = findAncestorContaining(getAnchorDir(), 'binary')
+    const found = await findAncestorContaining(getAnchorDir(), 'binary')
     cachedRoot = found
     if (cachedRoot === null) {
         return getPackageRoot()
@@ -130,8 +144,9 @@ export function getPackageRoot(): string {
 /**
  * Returns the absolute path of the bundled `binary/` directory.
  */
-export function getBinaryDir(): string {
-    return path.join(getPackageRoot(), 'binary')
+export async function getBinaryDir(): Promise<string> {
+    const path = await import('path')
+    return path.join(await getPackageRoot(), 'binary')
 }
 
 /**
@@ -144,9 +159,11 @@ export function getBinaryDir(): string {
  * binaries are added (Bug #2). The error spells out the workaround so a
  * developer is not left staring at a generic `ENOENT` or `ENOEXEC`.
  */
-export function getBundledBinary(name: string): string {
-    const candidate = path.join(getBinaryDir(), name)
-    let stats: fs.Stats
+export async function getBundledBinary(name: string): Promise<string> {
+    const fs = await import('fs')
+    const path = await import('path')
+    const candidate = path.join(await getBinaryDir(), name)
+    let stats: Stats
     try {
         stats = fs.statSync(candidate)
     } catch (err) {
