@@ -18,8 +18,6 @@ import fs from 'fs'
 import { ethers } from 'ethers'
 import { formatError } from '../sdk/common/utils/error-handler'
 import {
-    parseTieredPricing,
-    parseCacheTokenBilling,
     parseMultiModelInfo,
     effectiveMultiplier,
 } from '../sdk/inference'
@@ -319,7 +317,11 @@ export default function inference(program: Command) {
                 wordWrap: true,
             })
             await withROBroker(options, async (broker) => {
-                const services = await broker.inference.listService(
+                // WithDetail: brokers publish tiered and cache-token pricing on
+                // /v1/models rather than on-chain (a change to on-chain
+                // additionalInfo resets the TEE acknowledgement), and this
+                // falls back to it when additionalInfo has neither.
+                const services = await broker.inference.listServiceWithDetail(
                     0,
                     50,
                     options.includeInvalid
@@ -349,11 +351,8 @@ export default function inference(program: Command) {
                         table.push(['Model', service.model || 'N/A'])
                     }
 
-                    // Check for tiered pricing and cache billing in additionalInfo
-                    const tiered = parseTieredPricing(service.additionalInfo)
-                    const cacheBilling = parseCacheTokenBilling(
-                        service.additionalInfo
-                    )
+                    const tiered = service.tieredPricing
+                    const cacheBilling = service.cacheTokenBilling
                     const isImageService =
                         service.serviceType === 'text-to-image' ||
                         service.serviceType === 'image-editing'
