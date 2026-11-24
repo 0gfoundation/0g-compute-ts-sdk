@@ -18,16 +18,19 @@ import fs from 'fs'
 import { ethers } from 'ethers'
 import { formatError } from '../sdk/common/utils/error-handler'
 import {
-    parseTieredPricing,
-    parseCacheTokenBilling,
     parseMultiModelInfo,
     effectiveMultiplier,
+    parseTieredPricing,
+    parseTieredPricingFromModelInfo,
+    parseCacheTokenBilling,
+    parseCacheTokenBillingFromModelInfo,
 } from '../sdk/inference'
 import type {
     TieredPricingInfo,
     CacheTokenBillingInfo,
     ProviderModelInfo,
     ServiceHealthMetric,
+    ServiceWithDetail,
 } from '../sdk/inference'
 
 /**
@@ -319,10 +322,72 @@ export default function inference(program: Command) {
                 wordWrap: true,
             })
             await withROBroker(options, async (broker) => {
-                const services = await broker.inference.listService(
-                    0,
-                    50,
-                    options.includeInvalid
+                // WithDetail: brokers publish tiered and cache-token pricing on
+                // /v1/models rather than on-chain (a change to on-chain
+                // additionalInfo resets the TEE acknowledgement), and this
+                // falls back to it when additionalInfo has neither.
+                let services: ServiceWithDetail[]
+                try {
+                    services = await broker.inference.listServiceWithDetail(
+                        0,
+                        50,
+                        options.includeInvalid
+                    )
+                } catch {
+                    // The status API answered something malformed: list from
+                    // the chain alone, as this command did before it used it.
+                    services = (
+                        await broker.inference.listService(
+                            0,
+                            50,
+                            options.includeInvalid
+                        )
+                    ).map((s) => ({
+                        provider: s.provider,
+                        serviceType: s.serviceType,
+                        url: s.url,
+                        inputPrice: s.inputPrice,
+                        outputPrice: s.outputPrice,
+                        updatedAt: s.updatedAt,
+                        model: s.model,
+                        verifiability: s.verifiability,
+                        additionalInfo: s.additionalInfo,
+                        teeSignerAddress: s.teeSignerAddress,
+                        teeSignerAcknowledged: s.teeSignerAcknowledged,
+                        tieredPricing: parseTieredPricing(s.additionalInfo),
+                        cacheTokenBilling: parseCacheTokenBilling(
+                            s.additionalInfo
+                        ),
+                    }))
+                }
+                // The status API only knows the providers in its own config (on
+                // testnet most are missing), so ask a provider it has no model
+                // info for directly.
+                await Promise.all(
+                    services.map(async (service) => {
+                        if (
+                            service.modelInfo ||
+                            service.tieredPricing ||
+                            service.cacheTokenBilling
+                        ) {
+                            return
+                        }
+                        try {
+                            const { models } =
+                                await broker.inference.getProviderModels(
+                                    service.provider
+                                )
+                            const info = models.find(
+                                (m) => m.id === service.model
+                            )
+                            service.tieredPricing =
+                                parseTieredPricingFromModelInfo(info)
+                            service.cacheTokenBilling =
+                                parseCacheTokenBillingFromModelInfo(info)
+                        } catch {
+                            // Unreachable provider: its flat prices still show.
+                        }
+                    })
                 )
                 services.forEach((service, index) => {
                     table.push([
@@ -349,11 +414,8 @@ export default function inference(program: Command) {
                         table.push(['Model', service.model || 'N/A'])
                     }
 
-                    // Check for tiered pricing and cache billing in additionalInfo
-                    const tiered = parseTieredPricing(service.additionalInfo)
-                    const cacheBilling = parseCacheTokenBilling(
-                        service.additionalInfo
-                    )
+                    const tiered = service.tieredPricing
+                    const cacheBilling = service.cacheTokenBilling
                     const isImageService =
                         service.serviceType === 'text-to-image' ||
                         service.serviceType === 'image-editing'
