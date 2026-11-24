@@ -5,8 +5,8 @@ import {
     parseCacheTokenBillingFromModelInfo,
     parseTieredPricing,
     parseTieredPricingFromModelInfo,
-    ProviderModelInfo,
 } from '../read-only-model'
+import type { ProviderModelInfo } from '../read-only-model'
 
 describe('tiered pricing multiplier fold', () => {
     it('folds num/den into an effective decimal (HTTP /v1/models)', () => {
@@ -104,6 +104,35 @@ describe('malformed provider pricing is dropped', () => {
                 info({ cache_token_billing: { divisor: 6 } })
             )
         ).to.deep.equal({ divisor: 6 })
+    })
+
+    it('skips null and non-object entries instead of throwing', () => {
+        const parsed = parseTieredPricingFromModelInfo(
+            info({
+                tiered_pricing: [
+                    null,
+                    7,
+                    'x',
+                    {
+                        max_input_tokens: 0,
+                        input_multiplier: 2,
+                        output_multiplier: 2,
+                    },
+                ],
+                cache_token_billing: 4,
+            })
+        )
+        expect(parsed?.tiers).to.deep.equal([
+            { maxInputTokens: 0, inputMultiplier: 2, outputMultiplier: 2 },
+        ])
+        expect(
+            parseTieredPricingFromModelInfo(info({ tiered_pricing: [null] }))
+        ).to.equal(undefined)
+        expect(
+            parseCacheTokenBillingFromModelInfo(
+                info({ cache_token_billing: 4 })
+            )
+        ).to.equal(undefined)
     })
 
     it('drops tiers with a non-finite or non-positive multiplier or a fractional bound', () => {

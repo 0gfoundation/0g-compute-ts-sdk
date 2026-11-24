@@ -327,6 +327,8 @@ export function parseTieredPricingFromModelInfo(
     const tiers: PricingTier[] = raw
         .filter(
             (t) =>
+                t !== null &&
+                typeof t === 'object' &&
                 typeof t.max_input_tokens === 'number' &&
                 typeof t.input_multiplier === 'number' &&
                 typeof t.output_multiplier === 'number'
@@ -385,7 +387,7 @@ export function parseCacheTokenBillingFromModelInfo(
     modelInfo?: ProviderModelInfo
 ): CacheTokenBillingInfo | undefined {
     const raw = modelInfo?.pricing?.cache_token_billing
-    if (raw && validDivisor(raw.divisor)) {
+    if (raw && typeof raw === 'object' && validDivisor(raw.divisor)) {
         return { divisor: raw.divisor }
     }
     return undefined
