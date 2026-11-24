@@ -28,7 +28,9 @@ export type {
 } from './broker'
 export {
     parseTieredPricing,
+    parseTieredPricingFromModelInfo,
     parseCacheTokenBilling,
+    parseCacheTokenBillingFromModelInfo,
     parseMultiModelInfo,
     effectiveMultiplier,
 } from './broker'

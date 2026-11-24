@@ -20,6 +20,8 @@ import { formatError } from '../sdk/common/utils/error-handler'
 import {
     parseMultiModelInfo,
     effectiveMultiplier,
+    parseTieredPricingFromModelInfo,
+    parseCacheTokenBillingFromModelInfo,
 } from '../sdk/inference'
 import type {
     TieredPricingInfo,
@@ -325,6 +327,35 @@ export default function inference(program: Command) {
                     0,
                     50,
                     options.includeInvalid
+                )
+                // The status API only knows the providers in its own config (on
+                // testnet most are missing), so ask a provider it has no model
+                // info for directly.
+                await Promise.all(
+                    services.map(async (service) => {
+                        if (
+                            service.modelInfo ||
+                            service.tieredPricing ||
+                            service.cacheTokenBilling
+                        ) {
+                            return
+                        }
+                        try {
+                            const { models } =
+                                await broker.inference.getProviderModels(
+                                    service.provider
+                                )
+                            const info = models.find(
+                                (m) => m.id === service.model
+                            )
+                            service.tieredPricing =
+                                parseTieredPricingFromModelInfo(info)
+                            service.cacheTokenBilling =
+                                parseCacheTokenBillingFromModelInfo(info)
+                        } catch {
+                            // Unreachable provider: its flat prices still show.
+                        }
+                    })
                 )
                 services.forEach((service, index) => {
                     table.push([
