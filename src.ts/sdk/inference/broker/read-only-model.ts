@@ -16,6 +16,20 @@ export type Verifiability =
 
 export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'unknown'
 
+// The status API's /health services and /models data, keeping only entries
+// that are objects with a string provider: one malformed entry would otherwise
+// throw on provider.toLowerCase() and take every provider's details with it.
+function byProvider<T extends { provider?: string }>(list: unknown): T[] {
+    return Array.isArray(list)
+        ? (list.filter(
+              (e) =>
+                  e !== null &&
+                  typeof e === 'object' &&
+                  typeof (e as { provider?: unknown }).provider === 'string'
+          ) as T[])
+        : []
+}
+
 /**
  * Attach per-model health (from the status API `/health`) onto each served
  * model, in place. The status API reports health per (provider, model), so this
@@ -605,9 +619,7 @@ export class ReadOnlyModelProcessor {
                         signal: deadline(10000),
                     })
                     .then((r) => {
-                        healthMetrics = Array.isArray(r.data?.services)
-                            ? r.data.services
-                            : []
+                        healthMetrics = byProvider(r.data?.services)
                     })
                     .catch(() => {}),
                 axios
@@ -616,9 +628,7 @@ export class ReadOnlyModelProcessor {
                         signal: deadline(10000),
                     })
                     .then((r) => {
-                        allModels = Array.isArray(r.data?.data)
-                            ? r.data.data
-                            : []
+                        allModels = byProvider(r.data?.data)
                     })
                     .catch(() => {}),
             ])
@@ -674,9 +684,9 @@ export class ReadOnlyModelProcessor {
                         healthMetrics: health
                             ? {
                                   status: health.status,
-                                  uptime: health.checks.uptime,
+                                  uptime: health.checks?.uptime ?? 0,
                                   avgResponseTime:
-                                      health.performance.response_time?.avg ??
+                                      health.performance?.response_time?.avg ??
                                       0,
                                   lastCheck: health.lastCheck,
                               }
@@ -752,9 +762,7 @@ export class ReadOnlyModelProcessor {
                         signal: deadline(10000),
                     })
                     .then((r) => {
-                        healthMetrics = Array.isArray(r.data?.services)
-                            ? r.data.services
-                            : []
+                        healthMetrics = byProvider(r.data?.services)
                     })
                     .catch(() => {}),
             ])
