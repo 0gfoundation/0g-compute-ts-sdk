@@ -106,6 +106,37 @@ describe('malformed provider pricing is dropped', () => {
         ).to.deep.equal({ divisor: 6 })
     })
 
+    it('drops a multiplier above the broker maximum (1000x)', () => {
+        const parsed = parseTieredPricingFromModelInfo(
+            info({
+                tiered_pricing: [
+                    {
+                        max_input_tokens: 1000,
+                        input_multiplier: 1000,
+                        output_multiplier: 1,
+                    },
+                    {
+                        max_input_tokens: 2000,
+                        input_multiplier: 1e303,
+                        output_multiplier: 1,
+                    },
+                    {
+                        max_input_tokens: 0,
+                        input_multiplier: 1001,
+                        output_multiplier: 1,
+                    },
+                ],
+            })
+        )
+        expect(parsed?.tiers).to.deep.equal([
+            {
+                maxInputTokens: 1000,
+                inputMultiplier: 1000,
+                outputMultiplier: 1,
+            },
+        ])
+    })
+
     it('skips null and non-object entries instead of throwing', () => {
         const parsed = parseTieredPricingFromModelInfo(
             info({

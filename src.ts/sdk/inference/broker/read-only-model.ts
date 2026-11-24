@@ -247,16 +247,23 @@ export function effectiveMultiplier(
 }
 
 // A tier or divisor a provider publishes is rendered with BigInt, which throws on
-// a fraction, NaN or Infinity; a provider's own /v1/models can serve anything, so
-// a malformed value is dropped here rather than breaking a whole listing.
+// a fraction, NaN or Infinity (also once a huge multiplier is scaled); a
+// provider's own /v1/models can serve anything, so a value the broker would not
+// accept is dropped here rather than breaking a whole listing.
+
+// The broker refuses a tier multiplier above this (config.maxTierMultiplier).
+const MAX_TIER_MULTIPLIER = 1000
+
+function validMultiplier(m: number): boolean {
+    return Number.isFinite(m) && m > 0 && m <= MAX_TIER_MULTIPLIER
+}
+
 function validTier(t: PricingTier): boolean {
     return (
         Number.isSafeInteger(t.maxInputTokens) &&
         t.maxInputTokens >= 0 &&
-        Number.isFinite(t.inputMultiplier) &&
-        t.inputMultiplier > 0 &&
-        Number.isFinite(t.outputMultiplier) &&
-        t.outputMultiplier > 0
+        validMultiplier(t.inputMultiplier) &&
+        validMultiplier(t.outputMultiplier)
     )
 }
 
@@ -569,7 +576,10 @@ export class ReadOnlyModelProcessor {
             let allModels: ProviderModelInfo[] = []
             await Promise.all([
                 axios
-                    .get(`${statusApiEndpoint}/health`, { timeout: 10000 })
+                    .get(`${statusApiEndpoint}/health`, {
+                        timeout: 10000,
+                        signal: AbortSignal.timeout(10000),
+                    })
                     .then((r) => {
                         healthMetrics = Array.isArray(r.data?.services)
                             ? r.data.services
@@ -577,7 +587,10 @@ export class ReadOnlyModelProcessor {
                     })
                     .catch(() => {}),
                 axios
-                    .get(`${statusApiEndpoint}/models`, { timeout: 10000 })
+                    .get(`${statusApiEndpoint}/models`, {
+                        timeout: 10000,
+                        signal: AbortSignal.timeout(10000),
+                    })
                     .then((r) => {
                         allModels = Array.isArray(r.data?.data)
                             ? r.data.data
@@ -703,13 +716,19 @@ export class ReadOnlyModelProcessor {
             const [resp] = await Promise.all([
                 axios.get(`${base}/v1/models`, {
                     timeout: 10000,
+                    // timeout is an idle timeout in Node: a provider dripping a
+                    // byte a second never trips it. The signal is a deadline.
+                    signal: AbortSignal.timeout(10000),
                     // Bound the response so a hostile/broken provider can't OOM
                     // the client by streaming a huge body within the timeout.
                     maxContentLength: 5_000_000,
                     maxBodyLength: 5_000_000,
                 }),
                 axios
-                    .get(`${statusApiEndpoint}/health`, { timeout: 10000 })
+                    .get(`${statusApiEndpoint}/health`, {
+                        timeout: 10000,
+                        signal: AbortSignal.timeout(10000),
+                    })
                     .then((r) => {
                         healthMetrics = Array.isArray(r.data?.services)
                             ? r.data.services
