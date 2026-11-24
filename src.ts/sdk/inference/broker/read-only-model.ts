@@ -246,6 +246,24 @@ export function effectiveMultiplier(
     return denominator && denominator > 0 ? numerator / denominator : numerator
 }
 
+// A tier or divisor a provider publishes is rendered with BigInt, which throws on
+// a fraction, NaN or Infinity; a provider's own /v1/models can serve anything, so
+// a malformed value is dropped here rather than breaking a whole listing.
+function validTier(t: PricingTier): boolean {
+    return (
+        Number.isSafeInteger(t.maxInputTokens) &&
+        t.maxInputTokens >= 0 &&
+        Number.isFinite(t.inputMultiplier) &&
+        t.inputMultiplier > 0 &&
+        Number.isFinite(t.outputMultiplier) &&
+        t.outputMultiplier > 0
+    )
+}
+
+function validDivisor(divisor: unknown): divisor is number {
+    return Number.isSafeInteger(divisor) && (divisor as number) > 0
+}
+
 /**
  * Tiered pricing configuration parsed from service additionalInfo.
  */
@@ -284,6 +302,7 @@ export function parseTieredPricing(
                         t.outputMultiplierDenominator
                     ),
                 }))
+                .filter(validTier)
             if (tiers.length > 0) {
                 return { tiers }
             }
@@ -323,6 +342,7 @@ export function parseTieredPricingFromModelInfo(
                 t.output_multiplier_denominator
             ),
         }))
+        .filter(validTier)
     if (tiers.length > 0) {
         return { tiers }
     }
@@ -347,8 +367,7 @@ export function parseCacheTokenBilling(
         const parsed = JSON.parse(additionalInfo)
         if (
             parsed?.cacheTokenBilling &&
-            typeof parsed.cacheTokenBilling.divisor === 'number' &&
-            parsed.cacheTokenBilling.divisor > 0
+            validDivisor(parsed.cacheTokenBilling.divisor)
         ) {
             return { divisor: parsed.cacheTokenBilling.divisor }
         }
@@ -366,7 +385,7 @@ export function parseCacheTokenBillingFromModelInfo(
     modelInfo?: ProviderModelInfo
 ): CacheTokenBillingInfo | undefined {
     const raw = modelInfo?.pricing?.cache_token_billing
-    if (raw && typeof raw.divisor === 'number' && raw.divisor > 0) {
+    if (raw && validDivisor(raw.divisor)) {
         return { divisor: raw.divisor }
     }
     return undefined
