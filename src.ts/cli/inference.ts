@@ -20,7 +20,9 @@ import { formatError } from '../sdk/common/utils/error-handler'
 import {
     parseMultiModelInfo,
     effectiveMultiplier,
+    parseTieredPricing,
     parseTieredPricingFromModelInfo,
+    parseCacheTokenBilling,
     parseCacheTokenBillingFromModelInfo,
 } from '../sdk/inference'
 import type {
@@ -28,6 +30,7 @@ import type {
     CacheTokenBillingInfo,
     ProviderModelInfo,
     ServiceHealthMetric,
+    ServiceWithDetail,
 } from '../sdk/inference'
 
 /**
@@ -323,11 +326,40 @@ export default function inference(program: Command) {
                 // /v1/models rather than on-chain (a change to on-chain
                 // additionalInfo resets the TEE acknowledgement), and this
                 // falls back to it when additionalInfo has neither.
-                const services = await broker.inference.listServiceWithDetail(
-                    0,
-                    50,
-                    options.includeInvalid
-                )
+                let services: ServiceWithDetail[]
+                try {
+                    services = await broker.inference.listServiceWithDetail(
+                        0,
+                        50,
+                        options.includeInvalid
+                    )
+                } catch {
+                    // The status API answered something malformed: list from
+                    // the chain alone, as this command did before it used it.
+                    services = (
+                        await broker.inference.listService(
+                            0,
+                            50,
+                            options.includeInvalid
+                        )
+                    ).map((s) => ({
+                        provider: s.provider,
+                        serviceType: s.serviceType,
+                        url: s.url,
+                        inputPrice: s.inputPrice,
+                        outputPrice: s.outputPrice,
+                        updatedAt: s.updatedAt,
+                        model: s.model,
+                        verifiability: s.verifiability,
+                        additionalInfo: s.additionalInfo,
+                        teeSignerAddress: s.teeSignerAddress,
+                        teeSignerAcknowledged: s.teeSignerAcknowledged,
+                        tieredPricing: parseTieredPricing(s.additionalInfo),
+                        cacheTokenBilling: parseCacheTokenBilling(
+                            s.additionalInfo
+                        ),
+                    }))
+                }
                 // The status API only knows the providers in its own config (on
                 // testnet most are missing), so ask a provider it has no model
                 // info for directly.

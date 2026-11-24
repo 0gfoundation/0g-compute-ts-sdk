@@ -106,100 +106,101 @@ describe('malformed provider pricing is dropped', () => {
         ).to.deep.equal({ divisor: 6 })
     })
 
-    it('drops a multiplier above the broker maximum (1000x)', () => {
+    it('keeps a schedule within the broker limits (1x..1000x, last bound 0)', () => {
         const parsed = parseTieredPricingFromModelInfo(
             info({
                 tiered_pricing: [
                     {
                         max_input_tokens: 1000,
-                        input_multiplier: 1000,
-                        output_multiplier: 1,
-                    },
-                    {
-                        max_input_tokens: 2000,
-                        input_multiplier: 1e303,
+                        input_multiplier: 1,
                         output_multiplier: 1,
                     },
                     {
                         max_input_tokens: 0,
-                        input_multiplier: 1001,
-                        output_multiplier: 1,
+                        input_multiplier: 1000,
+                        output_multiplier: 3,
+                        output_multiplier_denominator: 2,
                     },
                 ],
             })
         )
         expect(parsed?.tiers).to.deep.equal([
-            {
-                maxInputTokens: 1000,
-                inputMultiplier: 1000,
-                outputMultiplier: 1,
-            },
+            { maxInputTokens: 1000, inputMultiplier: 1, outputMultiplier: 1 },
+            { maxInputTokens: 0, inputMultiplier: 1000, outputMultiplier: 1.5 },
         ])
     })
 
-    it('skips null and non-object entries instead of throwing', () => {
-        const parsed = parseTieredPricingFromModelInfo(
-            info({
-                tiered_pricing: [
-                    null,
-                    7,
-                    'x',
-                    {
-                        max_input_tokens: 0,
-                        input_multiplier: 2,
-                        output_multiplier: 2,
-                    },
-                ],
-                cache_token_billing: 4,
-            })
-        )
-        expect(parsed?.tiers).to.deep.equal([
-            { maxInputTokens: 0, inputMultiplier: 2, outputMultiplier: 2 },
-        ])
+    // The broker accepts or refuses a schedule as a whole: one bad tier drops
+    // the schedule rather than stretching a neighbour over its range.
+    it('drops the whole schedule when any tier is invalid', () => {
+        const valid = {
+            max_input_tokens: 1000,
+            input_multiplier: 1,
+            output_multiplier: 1,
+        }
+        const bad: unknown[] = [
+            null,
+            7,
+            'x',
+            {
+                max_input_tokens: 2000,
+                input_multiplier: 1001,
+                output_multiplier: 1,
+            },
+            {
+                max_input_tokens: 2000,
+                input_multiplier: 0.5,
+                output_multiplier: 1,
+            },
+            {
+                max_input_tokens: 2000.5,
+                input_multiplier: 2,
+                output_multiplier: 2,
+            },
+            { max_input_tokens: -1, input_multiplier: 2, output_multiplier: 2 },
+            {
+                max_input_tokens: 0,
+                input_multiplier: 1e200,
+                input_multiplier_denominator: 1e-103,
+                output_multiplier: 1,
+            },
+        ]
+        for (const b of bad) {
+            expect(
+                parseTieredPricingFromModelInfo(
+                    info({ tiered_pricing: [valid, b] })
+                ),
+                JSON.stringify(b)
+            ).to.equal(undefined)
+        }
+        // JSON 1e400 parses to Infinity
         expect(
-            parseTieredPricingFromModelInfo(info({ tiered_pricing: [null] }))
-        ).to.equal(undefined)
-        expect(
-            parseCacheTokenBillingFromModelInfo(
-                info({ cache_token_billing: 4 })
+            parseTieredPricingFromModelInfo(
+                JSON.parse(
+                    '{"pricing":{"tiered_pricing":[{"max_input_tokens":0,"input_multiplier":1e400,"output_multiplier":1}]}}'
+                ) as ProviderModelInfo
             )
         ).to.equal(undefined)
-    })
-
-    it('drops tiers with a non-finite or non-positive multiplier or a fractional bound', () => {
-        const parsed = parseTieredPricingFromModelInfo(
-            JSON.parse(`{"pricing":{"tiered_pricing":[
-                {"max_input_tokens":32000,"input_multiplier":1,"output_multiplier":1},
-                {"max_input_tokens":64000,"input_multiplier":1e400,"output_multiplier":1},
-                {"max_input_tokens":128000.5,"input_multiplier":2,"output_multiplier":2},
-                {"max_input_tokens":0,"input_multiplier":3,"output_multiplier":-1}
-            ]}}`) as ProviderModelInfo
-        )
-        expect(parsed?.tiers).to.deep.equal([
-            { maxInputTokens: 32000, inputMultiplier: 1, outputMultiplier: 1 },
-        ])
         expect(
             parseTieredPricing(
                 JSON.stringify({
                     tieredPricing: {
                         tiers: [
                             {
-                                maxInputTokens: 0,
+                                maxInputTokens: 10,
                                 inputMultiplier: 1,
                                 outputMultiplier: 1,
-                                outputMultiplierDenominator: 0.0,
                             },
-                            {
-                                maxInputTokens: 10,
-                                inputMultiplier: -2,
-                                outputMultiplier: 1,
-                            },
+                            null,
                         ],
                     },
                 })
-            )?.tiers
-        ).to.deep.equal([
-            { maxInputTokens: 0, inputMultiplier: 1, outputMultiplier: 1 },
-        ])
+            )
+        ).to.equal(undefined)
+        expect(
+            parseCacheTokenBillingFromModelInfo(
+                info({ cache_token_billing: 4 })
+            )
+        ).to.equal(undefined)
     })
 })

@@ -251,11 +251,12 @@ export function effectiveMultiplier(
 // provider's own /v1/models can serve anything, so a value the broker would not
 // accept is dropped here rather than breaking a whole listing.
 
-// The broker refuses a tier multiplier above this (config.maxTierMultiplier).
 const MAX_TIER_MULTIPLIER = 1000
 
+// The broker accepts a tier multiplier from 1x (a tier is a surcharge) to
+// config.maxTierMultiplier.
 function validMultiplier(m: number): boolean {
-    return Number.isFinite(m) && m > 0 && m <= MAX_TIER_MULTIPLIER
+    return Number.isFinite(m) && m >= 1 && m <= MAX_TIER_MULTIPLIER
 }
 
 function validTier(t: PricingTier): boolean {
@@ -265,6 +266,57 @@ function validTier(t: PricingTier): boolean {
         validMultiplier(t.inputMultiplier) &&
         validMultiplier(t.outputMultiplier)
     )
+}
+
+function tierOf(
+    maxInputTokens: unknown,
+    inputMultiplier: unknown,
+    inputDenominator: unknown,
+    outputMultiplier: unknown,
+    outputDenominator: unknown
+): PricingTier | null {
+    if (
+        typeof maxInputTokens !== 'number' ||
+        typeof inputMultiplier !== 'number' ||
+        typeof outputMultiplier !== 'number'
+    ) {
+        return null
+    }
+    return {
+        maxInputTokens,
+        inputMultiplier: effectiveMultiplier(
+            inputMultiplier,
+            typeof inputDenominator === 'number' ? inputDenominator : undefined
+        ),
+        outputMultiplier: effectiveMultiplier(
+            outputMultiplier,
+            typeof outputDenominator === 'number'
+                ? outputDenominator
+                : undefined
+        ),
+    }
+}
+
+// The broker accepts or refuses a tier schedule as a whole. Showing only the
+// tiers that parse would stretch a later tier over the dropped one's range, so
+// one bad tier drops the schedule and the flat prices show instead.
+function wholeSchedule(
+    tiers: (PricingTier | null)[]
+): TieredPricingInfo | undefined {
+    if (tiers.length === 0 || !tiers.every((t) => t !== null && validTier(t))) {
+        return undefined
+    }
+    return { tiers: tiers as PricingTier[] }
+}
+
+// axios' timeout is an idle timeout in Node: a server sending a byte a second
+// never trips it. A signal is a deadline. React Native (Hermes) has no
+// AbortSignal.timeout, so there the idle timeout is all there is.
+function deadline(ms: number): AbortSignal | undefined {
+    return typeof AbortSignal !== 'undefined' &&
+        typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(ms)
+        : undefined
 }
 
 function validDivisor(divisor: unknown): divisor is number {
@@ -286,33 +338,19 @@ export function parseTieredPricing(
     additionalInfo: string
 ): TieredPricingInfo | undefined {
     try {
-        const parsed = JSON.parse(additionalInfo)
-        if (
-            parsed?.tieredPricing?.tiers &&
-            Array.isArray(parsed.tieredPricing.tiers)
-        ) {
-            const tiers: PricingTier[] = parsed.tieredPricing.tiers
-                .filter(
-                    (t: any) =>
-                        typeof t.maxInputTokens === 'number' &&
-                        typeof t.inputMultiplier === 'number' &&
-                        typeof t.outputMultiplier === 'number'
+        const tiers = JSON.parse(additionalInfo)?.tieredPricing?.tiers
+        if (Array.isArray(tiers)) {
+            return wholeSchedule(
+                tiers.map((t: any) =>
+                    tierOf(
+                        t?.maxInputTokens,
+                        t?.inputMultiplier,
+                        t?.inputMultiplierDenominator,
+                        t?.outputMultiplier,
+                        t?.outputMultiplierDenominator
+                    )
                 )
-                .map((t: any) => ({
-                    maxInputTokens: t.maxInputTokens,
-                    inputMultiplier: effectiveMultiplier(
-                        t.inputMultiplier,
-                        t.inputMultiplierDenominator
-                    ),
-                    outputMultiplier: effectiveMultiplier(
-                        t.outputMultiplier,
-                        t.outputMultiplierDenominator
-                    ),
-                }))
-                .filter(validTier)
-            if (tiers.length > 0) {
-                return { tiers }
-            }
+            )
         }
     } catch {
         // additionalInfo is not valid JSON or doesn't contain tieredPricing
@@ -327,35 +365,21 @@ export function parseTieredPricing(
 export function parseTieredPricingFromModelInfo(
     modelInfo?: ProviderModelInfo
 ): TieredPricingInfo | undefined {
-    const raw = modelInfo?.pricing?.tiered_pricing
-    if (!raw || !Array.isArray(raw) || raw.length === 0) {
+    const raw: unknown = modelInfo?.pricing?.tiered_pricing
+    if (!Array.isArray(raw)) {
         return undefined
     }
-    const tiers: PricingTier[] = raw
-        .filter(
-            (t) =>
-                t !== null &&
-                typeof t === 'object' &&
-                typeof t.max_input_tokens === 'number' &&
-                typeof t.input_multiplier === 'number' &&
-                typeof t.output_multiplier === 'number'
+    return wholeSchedule(
+        raw.map((t: any) =>
+            tierOf(
+                t?.max_input_tokens,
+                t?.input_multiplier,
+                t?.input_multiplier_denominator,
+                t?.output_multiplier,
+                t?.output_multiplier_denominator
+            )
         )
-        .map((t) => ({
-            maxInputTokens: t.max_input_tokens,
-            inputMultiplier: effectiveMultiplier(
-                t.input_multiplier,
-                t.input_multiplier_denominator
-            ),
-            outputMultiplier: effectiveMultiplier(
-                t.output_multiplier,
-                t.output_multiplier_denominator
-            ),
-        }))
-        .filter(validTier)
-    if (tiers.length > 0) {
-        return { tiers }
-    }
-    return undefined
+    )
 }
 
 /**
@@ -578,7 +602,7 @@ export class ReadOnlyModelProcessor {
                 axios
                     .get(`${statusApiEndpoint}/health`, {
                         timeout: 10000,
-                        signal: AbortSignal.timeout(10000),
+                        signal: deadline(10000),
                     })
                     .then((r) => {
                         healthMetrics = Array.isArray(r.data?.services)
@@ -589,7 +613,7 @@ export class ReadOnlyModelProcessor {
                 axios
                     .get(`${statusApiEndpoint}/models`, {
                         timeout: 10000,
-                        signal: AbortSignal.timeout(10000),
+                        signal: deadline(10000),
                     })
                     .then((r) => {
                         allModels = Array.isArray(r.data?.data)
@@ -716,9 +740,7 @@ export class ReadOnlyModelProcessor {
             const [resp] = await Promise.all([
                 axios.get(`${base}/v1/models`, {
                     timeout: 10000,
-                    // timeout is an idle timeout in Node: a provider dripping a
-                    // byte a second never trips it. The signal is a deadline.
-                    signal: AbortSignal.timeout(10000),
+                    signal: deadline(10000),
                     // Bound the response so a hostile/broken provider can't OOM
                     // the client by streaming a huge body within the timeout.
                     maxContentLength: 5_000_000,
@@ -727,7 +749,7 @@ export class ReadOnlyModelProcessor {
                 axios
                     .get(`${statusApiEndpoint}/health`, {
                         timeout: 10000,
-                        signal: AbortSignal.timeout(10000),
+                        signal: deadline(10000),
                     })
                     .then((r) => {
                         healthMetrics = Array.isArray(r.data?.services)
